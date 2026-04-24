@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zaān Operations Centre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:        #0a1628;
+  --navy-2:      #0e1f38;
+  --navy-3:      #162944;
+  --navy-border: rgba(255,255,255,.07);
+  --navy-text:   #5a7fa8;
+  --navy-text-2: #8aabcf;
+
+  --bg:          #f5f7fb;
+  --surface:     #ffffff;
+  --border:      #e3e8f2;
+  --border-2:    #d0d8ea;
+
+  --ink:         #0b1829;
+  --ink-2:       #3a4f68;
+  --ink-3:       #7a92ab;
+
+  --blue:        #2563eb;
+  --blue-dim:    rgba(37,99,235,.1);
+  --blue-glow:   rgba(37,99,235,.18);
+
+  --red:         #dc2626;
+  --red-dim:     rgba(220,38,38,.09);
+  --amber:       #d97706;
+  --amber-dim:   rgba(217,119,6,.09);
+  --green:       #16a34a;
+  --green-dim:   rgba(22,163,74,.09);
+
+  --sidebar-w:   224px;
+  --topbar-h:    52px;
+
+  --sans: 'Instrument Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+
+  --r:    8px;
+  --r-lg: 12px;
+  --sh:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(0,0,0,.08);
+  --sh-lg:0 12px 40px rgba(0,0,0,.14);
+}
+
+html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+/* ── LAYOUT ── */
+.shell   { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: var(--sidebar-w); background: var(--navy); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+.main    { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.topbar  { height: var(--topbar-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; flex-shrink: 0; }
+.body    { flex: 1; overflow-y: auto; padding: 24px 28px 48px; }
+
+/* ── SIDEBAR ── */
+.sb-brand {
+  padding: 20px 18px 18px;
+  border-bottom: 1px solid var(--navy-border);
+}
+.sb-logo { display: flex; align-items: center; gap: 10px; }
+.sb-logo-mark {
+  width: 30px; height: 30px; border-radius: 7px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; font-family: var(--mono);
+  flex-shrink: 0;
+}
+.sb-brand-name { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+.sb-brand-sub  { font-size: 9px; color: var(--navy-text); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; margin-top: 1px; }
+
+.sb-section { padding: 18px 10px 4px; }
+.sb-section-label {
+  font-size: 9px; font-weight: 700; color: #1e3a5a;
+  text-transform: uppercase; letter-spacing: .14em;
+  padding: 0 8px; margin-bottom: 3px;
+}
+
+.sb-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 7px; cursor: pointer;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  color: var(--navy-text); background: transparent;
+  border: 0; width: 100%; text-align: left;
+  transition: background .14s, color .14s; position: relative;
+}
+.sb-item:hover { background: rgba(255,255,255,.05); color: var(--navy-text-2); }
+.sb-item.active {
+  background: rgba(37,99,235,.14);
+  color: #93c5fd; font-weight: 600;
+}
+.sb-item.active::before {
+  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 2px; border-radius: 0 2px 2px 0; background: var(--blue);
+}
+.sb-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
+.sb-badge {
+  margin-left: auto; background: var(--red); color: #fff;
+  font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 9px;
+  font-family: var(--mono); animation: pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+  0%,100% { opacity: 1; } 50% { opacity: .6; }
+}
+.sb-footer {
+  margin-top: auto; padding: 14px 18px;
+  border-top: 1px solid var(--navy-border);
+  font-size: 10px; color: #1e3a5a; letter-spacing: .04em;
+  font-family: var(--mono);
+}
+
+/* ── TOPBAR ── */
+.page-title { font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.as-of-label { font-size: 10px; color: var(--ink-3); font-family: var(--mono); }
+.btn-refresh {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 13px; border-radius: var(--r);
+  background: var(--blue); color: #fff;
+  font-family: var(--sans); font-size: 11px; font-weight: 600;
+  border: 0; cursor: pointer; transition: opacity .2s;
+}
+.btn-refresh:hover { opacity: .88; }
+.btn-refresh:disabled { opacity: .45; cursor: default; }
+.spin { display: inline-block; animation: spin .65s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── STAT CARDS ── */
+.stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--surface); border-radius: var(--r-lg);
+  padding: 16px 18px; border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-label { font-size: 9px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .1em; }
+.stat-value { font-size: 26px; font-weight: 700; line-height: 1; font-family: var(--mono); letter-spacing: -.02em; }
+.stat-value.ok   { color: var(--green); }
+.stat-value.warn { color: var(--red); }
+.stat-value.amb  { color: var(--amber); }
+.stat-value.neu  { color: var(--blue); }
+.stat-sub { font-size: 10px; color: var(--ink-3); }
+
+/* ── PANEL TABS ── */
+.panel-tabs {
+  display: flex; gap: 1px; margin-bottom: 16px;
+  background: var(--border); border-radius: var(--r);
+  padding: 3px; width: fit-content;
+}
+.ptab {
+  padding: 6px 16px; border-radius: 6px; border: 0;
+  font-family: var(--sans); font-size: 11px; font-weight: 600;
+  color: var(--ink-3); background: transparent;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.ptab.active { background: var(--surface); color: var(--ink); box-shadow: var(--sh); }
+.ptab:not(.active):hover { color: var(--ink-2); }
+
+/* ── SECTION WRAPPER ── */
+.section-card {
+  background: var(--surface); border-radius: var(--r-lg);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+}
+.section-head-left { display: flex; align-items: center; gap: 10px; }
+.section-icon {
+  width: 30px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+}
+.section-icon.blue  { background: var(--blue-dim); }
+.section-icon.red   { background: var(--red-dim); }
+.section-icon.green { background: var(--green-dim); }
+.section-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.section-sub   { font-size: 10px; color: var(--ink-3); margin-top: 1px; }
+.section-meta  { font-size: 10px; color: var(--ink-3); font-family: var(--mono); }
+
+/* ── TABLE ── */
+table { width: 100%; border-collapse: collapse; }
+thead tr { border-bottom: 1px solid var(--border); }
+th {
+  padding: 9px 18px; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
+  text-align: left; background: #f8fafd; white-space: nowrap;
+}
+th.c { text-align: center; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f5f8ff; }
+td { padding: 12px 18px; font-size: 12px; vertical-align: middle; }
+td.c { text-align: center; }
+.outlet-cell { font-weight: 700; font-size: 13px; }
+.ts-cell { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+
+/* ── STATUS PILLS ── */
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; white-space: nowrap;
+  font-family: var(--mono); cursor: default; position: relative;
+}
+.pill-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.pill.green { background: var(--green-dim); color: var(--green); }
+.pill.red   { background: var(--red-dim);   color: var(--red); }
+.pill.amber { background: var(--amber-dim); color: var(--amber); }
+.pill.gray  { background: #f1f5f9; color: var(--ink-3); }
+.pill[data-tip] { cursor: help; }
+.pill[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fff; font-family: var(--sans);
+  font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none;
+  white-space: nowrap; padding: 5px 10px; border-radius: 6px;
+  z-index: 200; box-shadow: var(--sh-lg); pointer-events: none;
+}
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  display: none; align-items: center; gap: 10px;
+  background: var(--red-dim); border: 1px solid rgba(220,38,38,.2);
+  border-radius: var(--r); padding: 10px 16px; margin-bottom: 16px;
+  font-size: 12px; font-weight: 600; color: var(--red);
+  animation: fadeUp .3s ease;
+}
+.alert-banner.show { display: flex; }
+.alert-pulse {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0;
+  animation: pulse-red 1.4s ease-in-out infinite;
+}
+@keyframes pulse-red {
+  0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,.4); }
+  50%      { box-shadow: 0 0 0 5px rgba(220,38,38,0); }
+}
+
+/* ── POWER CUT LOG CARDS ── */
+.outlet-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+  gap: 10px; padding: 16px;
+}
+.outlet-card {
+  border: 1px solid var(--border); border-radius: var(--r);
+  overflow: hidden; cursor: pointer; transition: all .16s;
+  background: var(--surface);
+}
+.outlet-card:hover { border-color: #93c5fd; box-shadow: 0 4px 16px rgba(37,99,235,.08); transform: translateY(-1px); }
+.outlet-card.expanded { border-color: var(--blue); box-shadow: 0 4px 20px rgba(37,99,235,.12); }
+.oc-head { padding: 12px 14px 8px; display: flex; align-items: center; justify-content: space-between; }
+.oc-name { font-size: 13px; font-weight: 700; }
+.oc-chev { font-size: 10px; color: var(--ink-3); transition: transform .2s; }
+.outlet-card.expanded .oc-chev { transform: rotate(180deg); color: var(--blue); }
+.oc-stats { display: flex; flex-direction: column; gap: 6px; padding: 0 12px 12px; }
+.oc-stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.oc-source-label {
+  font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--ink-3); margin-top: 4px;
+}
+.oc-divider { border: 0; border-top: 1px dashed var(--border); margin: 2px 0; }
+.oc-stat { border-radius: 6px; padding: 8px 10px; }
+.oc-stat.clean { background: var(--green-dim); }
+.oc-stat.warn  { background: var(--red-dim); }
+.oc-stat.mild  { background: var(--amber-dim); }
+.oc-stat-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); margin-bottom: 2px; }
+.oc-stat-val   { font-family: var(--mono); font-size: 16px; font-weight: 700; line-height: 1; }
+.oc-stat-val.clean { color: var(--green); }
+.oc-stat-val.warn  { color: var(--red); }
+.oc-stat-val.mild  { color: var(--amber); }
+.oc-footer {
+  padding: 7px 14px; background: var(--bg);
+  border-top: 1px solid var(--border);
+  font-size: 9px; color: var(--ink-3); font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.oc-footer-expand { color: var(--blue); font-size: 9px; font-weight: 700; }
+
+/* ── OUTAGE DETAIL TABLE ── */
+.outage-detail { display: none; border-top: 1px solid var(--border); }
+.outage-detail.open { display: block; animation: fadeUp .2s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+.detail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 18px; background: #f8fafd; border-bottom: 1px solid var(--border);
+}
+.detail-title { font-size: 11px; font-weight: 700; color: var(--blue); }
+.detail-note  { font-size: 9px; color: var(--ink-3); margin-top: 1px; }
+.detail-close {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--ink-3); font-size: 9px; font-weight: 700;
+  padding: 3px 9px; border-radius: 5px; cursor: pointer; transition: all .15s;
+}
+.detail-close:hover { border-color: var(--red); color: var(--red); }
+.outage-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+.outage-tbl th { padding: 7px 18px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); background: #f8fafd; text-align: left; border-bottom: 1px solid var(--border); }
+.outage-tbl th.r { text-align: right; }
+.outage-tbl td { padding: 8px 18px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 10px; color: var(--ink-2); }
+.outage-tbl tr:last-child td { border-bottom: none; }
+.outage-tbl td.r { text-align: right; font-weight: 700; }
+.dur-ok  { color: var(--green); }
+.dur-mid { color: var(--amber); }
+.dur-bad { color: var(--red); }
+.still-off { color: var(--red); }
+.no-outages { padding: 24px; text-align: center; font-size: 11px; color: var(--ink-3); }
+
+/* ── PLATFORM MATRIX ── */
+.pm-wrap { }
+.pm-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.pm-table thead tr { border-bottom: 1px solid var(--border-2); }
+.pm-table th {
+  padding: 9px 10px; font-size: 8px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
+  background: #f8fafd; white-space: nowrap; text-align: center;
+}
+.pm-table th.outlet-col { width: 130px; text-align: left; }
+.pm-table th.pc-col     { width: 80px;  background: #f3f5fb; }
+.pm-table th .plat-name { display: block; font-size: 10px; font-weight: 700; color: var(--ink-2); text-transform: none; letter-spacing: 0; margin-bottom: 1px; }
+.pm-table th.delta-col  { background: #fdf8f0; color: var(--amber); font-size: 8px; }
+.pm-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+.pm-table tbody tr:last-child { border-bottom: none; }
+.pm-table tbody tr:hover .pm-outlet { color: var(--blue); }
+.pm-outlet { padding: 0 10px; font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.pm-pc { text-align: center; padding: 0 6px; background: #f8fafc; border-right: 1.5px solid var(--border); }
+.pm-pc-val { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.pm-pc-val.has { color: var(--ink-2); }
+.pm-cell {
+  position: relative; text-align: center; padding: 6px 4px;
+  cursor: default; border-right: 1px solid var(--border);
+  transition: filter .12s;
+}
+.pm-cell:last-child { border-right: none; }
+.pm-cell:hover { filter: brightness(.93); z-index: 2; }
+.pm-cell.c0   { background: #f8fafc; }
+.pm-cell.c-lo { background: #fefce8; }
+.pm-cell.c-md { background: #fff7ed; }
+.pm-cell.c-hi { background: #fef2f2; }
+.pm-val {
+  display: block; font-family: var(--mono); font-weight: 700; font-size: 13px; line-height: 1;
+  color: var(--ink);
+}
+.pm-cell.c0   .pm-val { color: var(--ink-3); font-weight: 400; font-size: 11px; }
+.pm-cell.c-lo .pm-val { color: #92400e; }
+.pm-cell.c-md .pm-val { color: var(--amber); }
+.pm-cell.c-hi .pm-val { color: var(--red); }
+
+/* ── POPOVER (shared) ── */
+.z-pop {
+  display: none; position: fixed; z-index: 9999;
+  background: #0d1829; color: #cbd5e1;
+  border-radius: 10px; overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.06);
+  pointer-events: none;
+}
+.z-pop.show { display: block; animation: fadeUp .14s ease; }
+.z-pop-head {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.z-pop-title { font-size: 11px; font-weight: 700; color: #fff; }
+.z-pop-sub   { font-size: 9px; color: #475569; white-space: nowrap; }
+.z-pop-cols  {
+  display: grid; padding: 5px 14px 3px;
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: #334155;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.z-pop-row {
+  display: grid; padding: 5px 14px; gap: 8px;
+  font-family: var(--mono); font-size: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.z-pop-row:last-child { border-bottom: none; padding-bottom: 10px; }
+.z-pop-off  { color: #f87171; }
+.z-pop-on   { color: #86efac; }
+.z-pop-on.still { color: #fbbf24; }
+.z-pop-dur  { color: #fff; font-weight: 600; text-align: right; }
+.z-pop-none { padding: 12px 14px; font-size: 10px; color: #334155; }
+
+/* ── LATE SIGN-IN ── */
+.ls-login-wrap {
+  display: flex; align-items: center; justify-content: center; min-height: 55vh;
+}
+.ls-login-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 36px 40px; width: 360px;
+  box-shadow: var(--sh-md);
+}
+.ls-login-eyebrow {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--blue); margin-bottom: 8px;
+}
+.ls-login-title { font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.ls-login-sub   { font-size: 12px; color: var(--ink-3); margin-bottom: 28px; line-height: 1.5; }
+.ls-field { margin-bottom: 14px; }
+.ls-field label { display: block; font-size: 10px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+.ls-field input {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: var(--r); font-family: var(--sans); font-size: 13px;
+  color: var(--ink); outline: none; transition: border .14s, box-shadow .14s;
+}
+.ls-field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-dim); }
+.ls-btn {
+  width: 100%; padding: 10px; border: none; border-radius: var(--r);
+  background: var(--blue); color: #fff; font-family: var(--sans);
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .2s; margin-top: 4px;
+}
+.ls-btn:hover { opacity: .88; }
+.ls-err { font-size: 11px; margin-top: 12px; min-height: 16px; }
+.ls-err.error { color: var(--red); }
+.ls-err.ok    { color: var(--green); }
+
+/* summary stats row */
+.ls-stats-row { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+.ls-stat {
+  flex: 1; padding: 14px 20px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.ls-stat:last-child { border-right: none; }
+.ls-stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+.ls-stat-val   { font-family: var(--mono); font-size: 22px; font-weight: 700; line-height: 1; }
+.ls-stat-val.red   { color: var(--red); }
+.ls-stat-val.amber { color: var(--amber); }
+.ls-stat-val.blue  { color: var(--blue); }
+.ls-stat-val.ink   { color: var(--ink-2); }
+.ls-stat-sub { font-size: 10px; color: var(--ink-3); }
+
+/* count cells */
+.ls-count-cell {
+  position: relative; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 28px; border-radius: 6px;
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  transition: all .14s;
+}
+.ls-count-cell.zero { color: var(--ink-3); background: transparent; }
+.ls-count-cell.late-c  { background: var(--amber-dim); color: #92400e; }
+.ls-count-cell.miss-c  { background: var(--red-dim);   color: var(--red); }
+.ls-count-cell.mso-c   { background: var(--blue-dim);  color: var(--blue); }
+.ls-count-cell:not(.zero):hover { filter: brightness(.92); transform: scale(1.06); }
+
+/* pulse ring on non-zero counts */
+.ls-count-cell:not(.zero)::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 8px;
+  border: 1.5px solid currentColor; opacity: 0;
+  animation: count-ring 2.4s ease-in-out infinite;
+}
+@keyframes count-ring {
+  0%   { opacity: 0;   transform: scale(1); }
+  30%  { opacity: .35; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(1.35); }
+}
+
+.ls-emp-name { font-weight: 700; font-size: 12px; color: var(--ink); }
+.ls-emp-id   { font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 1px; }
+.ls-outlet   { font-size: 11px; color: var(--ink-2); }
+.ls-total-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 20px; padding: 0 6px; border-radius: 20px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+}
+.ls-total-badge.zero { color: var(--ink-3); background: #f1f5f9; }
+.ls-total-badge.low  { color: var(--amber); background: var(--amber-dim); }
+.ls-total-badge.high { color: var(--red);   background: var(--red-dim); animation: count-ring 2.4s ease-in-out infinite; }
+
+.ls-logout-btn {
+  padding: 6px 14px; border: 1px solid var(--border);
+  border-radius: var(--r); background: transparent; color: var(--ink-3);
+  font-family: var(--sans); font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: all .14s;
+}
+.ls-logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* ── METRICS TABLE ── */
+.met-table { width: 100%; border-collapse: collapse; }
+.met-table thead tr { border-bottom: 2px solid var(--border-2); }
+.met-table th {
+  padding: 10px 16px; font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
+  background: #f8fafd; white-space: nowrap; text-align: center;
+}
+.met-table th.outlet-col { text-align: left; width: 160px; }
+.met-table th.plat-group { font-size: 10px; font-weight: 800; letter-spacing: 0; text-transform: none; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+.met-table th.swiggy-grp { color: #e8502a; background: #fff5f2; }
+.met-table th.zomato-grp { color: #e23744; background: #fff2f3; }
+.met-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+.met-table tbody tr:last-child { border-bottom: none; }
+.met-table tbody tr:hover { background: #f5f8ff; }
+.met-table td { padding: 13px 16px; font-size: 13px; text-align: center; vertical-align: middle; }
+.met-table td.outlet-col { text-align: left; font-weight: 700; font-size: 13px; }
+.met-val {
+  display: inline-flex; flex-direction: column; align-items: center;
+  gap: 1px; min-width: 60px;
+}
+.met-num { font-family: var(--mono); font-size: 15px; font-weight: 700; line-height: 1; }
+.met-unit { font-size: 9px; font-weight: 600; opacity: .55; letter-spacing: .04em; text-transform: uppercase; }
+.met-val.good  .met-num { color: var(--green); }
+.met-val.warn  .met-num { color: var(--amber); }
+.met-val.bad   .met-num { color: var(--red); }
+.met-val.none  .met-num { color: var(--ink-3); font-size: 13px; font-weight: 400; }
+.met-divider { width: 1px; background: var(--border); padding: 0 !important; }
+.met-period-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 600;
+  font-family: var(--mono);
+}
+.met-period-badge.swiggy { background: #fff5f2; color: #e8502a; }
+.met-period-badge.zomato { background: #fff2f3; color: #e23744; }
+
+/* ── SCORECARD ── */
+.sc-week-nav {
+  display: flex; align-items: center; gap: 8px;
+}
+.sc-week-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; cursor: pointer; font-size: 13px; color: var(--ink-2);
+  display: flex; align-items: center; justify-content: center; transition: all .14s;
+}
+.sc-week-btn:hover { border-color: var(--blue); color: var(--blue); }
+.sc-week-label { font-family: var(--mono); font-size: 11px; color: var(--ink-2); min-width: 140px; text-align: center; }
+
+.sc-table { width: 100%; border-collapse: collapse; }
+.sc-table thead tr { border-bottom: 2px solid var(--border-2); }
+.sc-table th {
+  padding: 9px 14px; font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--ink-3); background: #f8fafd;
+  white-space: nowrap; text-align: center;
+}
+.sc-table th.left { text-align: left; }
+.sc-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+.sc-table tbody tr:last-child { border-bottom: none; }
+.sc-table tbody tr:hover { background: #f5f8ff; }
+.sc-table td { padding: 11px 14px; font-size: 12px; text-align: center; vertical-align: middle; }
+.sc-table td.left { text-align: left; }
+
+.sc-emp-name { font-weight: 700; font-size: 12px; color: var(--ink); }
+.sc-emp-id   { font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 1px; }
+
+.sc-tier {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 20px; font-size: 9px; font-weight: 700;
+  font-family: var(--mono); white-space: nowrap;
+}
+.sc-tier.t1 { background: #fefce8; color: #854d0e; border: 1px solid #fde68a; }
+.sc-tier.t2 { background: #f1f5f9; color: var(--ink-3); border: 1px solid var(--border); }
+
+.sc-score {
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+}
+.sc-score.hi  { color: var(--green); }
+.sc-score.mid { color: var(--amber); }
+.sc-score.lo  { color: var(--red); }
+
+.sc-num { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.sc-pct { font-family: var(--mono); font-size: 11px; }
+.sc-pct.good { color: var(--green); }
+.sc-pct.warn { color: var(--amber); }
+.sc-pct.bad  { color: var(--red); }
+
+.sc-incentive {
+  font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--green);
+}
+.sc-incentive.none { color: var(--ink-3); font-weight: 400; }
+
+/* ── PROGRESS BAR ── */
+.ls-progress-wrap {
+  padding: 60px 40px 50px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.ls-progress-bar {
+  width: 0%; height: 3px; background: var(--blue); border-radius: 2px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+  position: relative; align-self: stretch;
+  box-shadow: 0 0 8px rgba(37,99,235,.4);
+}
+.ls-progress-bar::after {
+  content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+  box-shadow: 0 0 6px var(--blue);
+}
+.ls-progress-msg {
+  font-size: 11px; color: var(--ink-3); font-family: var(--mono); text-align: center;
+  animation: fadeUp .3s ease;
+}
+
+/* ── LOADING / ERROR ── */
+.loader-box { padding: 48px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--ink-3); font-size: 12px; }
+.loader { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; }
+.state-box { padding: 48px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.state-icon  { font-size: 32px; }
+.state-title { font-size: 14px; font-weight: 700; }
+.state-body  { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+.state-cmd   { font-family: var(--mono); font-size: 12px; color: var(--blue); background: var(--blue-dim); border: 1px solid rgba(37,99,235,.2); padding: 8px 18px; border-radius: var(--r); user-select: all; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo">
+      <div class="sb-logo-mark">Z</div>
+      <div>
+        <div class="sb-brand-name">Zaān Restaurants</div>
+        <div class="sb-brand-sub">Operations Centre</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-label">Monitoring</div>
+    <button class="sb-item active" id="sbitem-power" onclick="navTo('power')">
+      <span class="sb-icon">⚡</span> Power Status
+      <span class="sb-badge" id="sbOfflineBadge" style="display:none">!</span>
+    </button>
+    <button class="sb-item" id="sbitem-signin" onclick="navTo('signin')">
+      <span class="sb-icon">🕐</span> Late Sign-In
+    </button>
+    <button class="sb-item" id="sbitem-metrics" onclick="navTo('metrics')">
+      <span class="sb-icon">📊</span> Platform Metrics
+    </button>
+    <button class="sb-item" id="sbitem-scorecard" onclick="navTo('scorecard')">
+      <span class="sb-icon">👥</span> Employee Dashboard
+    </button>
+    <button class="sb-item" id="sbitem-ratings" onclick="navTo('ratings')">
+      <span class="sb-icon">⭐</span> Outlet Ratings
+    </button>
+    <button class="sb-item" id="sbitem-products" onclick="navTo('products')">
+      <span class="sb-icon">🍽️</span> Product Rankings
+    </button>
+    <button class="sb-item" id="sbitem-stock" onclick="navTo('stock')">
+      <span class="sb-icon">📦</span> Out of Stock
+    </button>
+    <button class="sb-item" id="sbitem-tracker" onclick="navTo('tracker')">
+      <span class="sb-icon">🔴</span> OOS Tracker
+    </button>
+  </div>
+
+  <div class="sb-footer" id="sbClock">—</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="pageTitle">⚡ Power Status</div>
+    <div class="topbar-right">
+      <span class="as-of-label" id="asOf"></span>
+      <button class="btn-refresh" id="refreshBtn" onclick="loadAll()">
+        <span id="refreshIcon">↻</span> Refresh
+      </button>
+    </div>
+  </div>
+  <div class="body" id="pageBody"></div>
+</div>
+
+</div><!-- /shell -->
+
+<script>
+const API = 'https://aodapp-backend.onrender.com';
+
+/* ── CLOCK ── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('sbClock').textContent =
+    now.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) + '  ' +
+    now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+}
+tickClock(); setInterval(tickClock, 1000);
+
+/* ── NAVIGATION ── */
+function navTo(page) {
+  ['power','signin','metrics','scorecard','ratings','products','stock','tracker'].forEach(id => {
+    const btn = document.getElementById('sbitem-' + id);
+    if (btn) btn.classList.toggle('active', id === page);
+  });
+  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker' };
+  document.getElementById('pageTitle').textContent = titles[page] || '';
+  const refreshBtn = document.getElementById('refreshBtn');
+  refreshBtn.style.display = page === 'power' ? '' : 'none';
+  if (page === 'power')     renderPowerPage();
+  if (page === 'signin')    renderSigninPage();
+  if (page === 'metrics')   renderMetricsPage();
+  if (page === 'scorecard') renderScorecardPage();
+  if (page === 'ratings')   renderRatingsPage();
+  if (page === 'products')  renderProductsPage();
+  if (page === 'stock')     renderStockPage();
+  if (page === 'tracker')   renderTrackerPage();
+}
+
+
+/* ── HELPERS ── */
+function setLoading(v) {
+  const btn  = document.getElementById('refreshBtn');
+  const icon = document.getElementById('refreshIcon');
+  if (!btn) return;
+  btn.disabled = v;
+  icon.className = v ? 'spin' : '';
+}
+
+function pill(s) {
+  const v   = (s && s.label) || '—';
+  const c   = (s && s.color) || 'gray';
+  const tip = (s && s.reason) ? ` data-tip="${s.reason.replace(/"/g,'&quot;')}"` : '';
+  return `<span class="pill ${c}"${tip}><span class="pill-dot"></span>${v}</span>`;
+}
+
+function safeId(s) { return s.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+function errBox(msg) {
+  return `<div class="state-box">
+    <div class="state-icon">⚠️</div>
+    <div class="state-title">Could not load data</div>
+    <div class="state-body">Check your connection or try refreshing.<br>${msg||''}</div>
+  </div>`;
+}
+
+/* ── POWER PAGE ── */
+function renderPowerPage() {
+  document.getElementById('pageBody').innerHTML = `
+    <div class="alert-banner" id="alertBanner">
+      <div class="alert-pulse"></div>
+      <span id="alertText">Outlets offline detected</span>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Outlets</div>
+        <div class="stat-value neu" id="scTotal">—</div>
+        <div class="stat-sub">Monitored locations</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Offline Now</div>
+        <div class="stat-value" id="scOffline">—</div>
+        <div class="stat-sub">Across all platforms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">7-Day Worst Outage</div>
+        <div class="stat-value" id="scWorst7">—</div>
+        <div class="stat-sub" id="scWorst7Name">–</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">28-Day Total</div>
+        <div class="stat-value amb" id="scTotal28">—</div>
+        <div class="stat-sub">Operating hours lost</div>
+      </div>
+    </div>
+    <div class="panel-tabs">
+      <button class="ptab active" id="ptab-live"     onclick="switchPTab('live')">Live Status</button>
+      <button class="ptab"        id="ptab-log"      onclick="switchPTab('log')">Power Cut Log</button>
+      <button class="ptab"        id="ptab-platform" onclick="switchPTab('platform')">Platform Downtime</button>
+    </div>
+
+    <div id="ppanel-live">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-icon blue">📡</div>
+            <div>
+              <div class="section-title">Real-time Platform Status</div>
+              <div class="section-sub">Swiggy & Zomato — most recent check per outlet</div>
+            </div>
+          </div>
+          <span class="section-meta" id="liveTs"></span>
+        </div>
+        <div id="live-content" class="loader-box"><div class="loader"></div> Loading…</div>
+      </div>
+    </div>
+
+    <div id="ppanel-platform" style="display:none">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-icon blue">📊</div>
+            <div>
+              <div class="section-title">Platform Downtime vs Power Cut</div>
+              <div class="section-sub">Operating-hours offline · Δ = platform time minus power cut baseline</div>
+            </div>
+          </div>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="pdtab-1"  onclick="setPdWindow(1)"  style="padding:4px 12px;font-size:10px">1 Day</button>
+            <button class="ptab"        id="pdtab-7"  onclick="setPdWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+            <button class="ptab"        id="pdtab-28" onclick="setPdWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+          </div>
+        </div>
+        <div id="platform-content" class="loader-box"><div class="loader"></div> Loading…</div>
+      </div>
+    </div>
+
+    <div id="ppanel-log" style="display:none">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-icon red">🔌</div>
+            <div>
+              <div class="section-title">Power Cut Log</div>
+              <div class="section-sub">Operating-hours outage · last 7 & 28 days · click outlet to expand</div>
+            </div>
+          </div>
+        </div>
+        <div id="log-content" class="loader-box"><div class="loader"></div> Loading…</div>
+      </div>
+    </div>`;
+
+  loadAll();
+}
+
+function switchPTab(t) {
+  ['live','log','platform'].forEach(id => {
+    document.getElementById('ptab-' + id).classList.toggle('active', id === t);
+    document.getElementById('ppanel-' + id).style.display = id === t ? 'block' : 'none';
+  });
+}
+
+/* ── RENDER LIVE ── */
+function renderLive(data) {
+  const outlets = data.outlets || [];
+  document.getElementById('liveTs').textContent = data.generated_at ? 'As of ' + data.generated_at : '';
+
+  const offlineList = outlets.filter(o =>
+    o.swiggy_aod.color === 'red' || o.swiggy_fc.color === 'red' || o.zomato.color === 'red'
+  );
+
+  const scOff = document.getElementById('scOffline');
+  document.getElementById('scTotal').textContent = outlets.length;
+  scOff.textContent = offlineList.length;
+  scOff.className   = 'stat-value ' + (offlineList.length > 0 ? 'warn' : 'ok');
+
+  const banner = document.getElementById('alertBanner');
+  if (offlineList.length > 0) {
+    banner.classList.add('show');
+    document.getElementById('alertText').textContent =
+      `${offlineList.length} outlet${offlineList.length>1?'s':''} offline: ${offlineList.map(o=>o.outlet).join(', ')}`;
+    document.getElementById('sbOfflineBadge').style.display = '';
+  } else {
+    banner.classList.remove('show');
+    document.getElementById('sbOfflineBadge').style.display = 'none';
+  }
+
+  if (!outlets.length) { document.getElementById('live-content').innerHTML = errBox(''); return; }
+
+  const rows = outlets.map(o => `
+    <tr>
+      <td><span class="outlet-cell">${o.outlet}</span></td>
+      <td class="c">${pill(o.swiggy_aod)}</td>
+      <td class="c">${pill(o.swiggy_fc)}</td>
+      <td class="c">${pill(o.zomato)}</td>
+      <td class="ts-cell c">${o.as_of}</td>
+    </tr>`).join('');
+
+  document.getElementById('live-content').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Outlet</th><th class="c">Swiggy AOD</th><th class="c">Swiggy FC</th>
+        <th class="c">Zomato</th><th class="c">Last Checked</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ── RENDER LOG ── */
+let _platformData = {};
+
+function statBlock(mins, fmt, label) {
+  const cls = mins > 0 ? (mins > 120 ? 'warn' : 'mild') : 'clean';
+  return `<div class="oc-stat ${cls}">
+    <div class="oc-stat-label">${label}</div>
+    <div class="oc-stat-val ${cls}">${fmt || '0m'}</div>
+  </div>`;
+}
+
+function incidentTable(rows, cols) {
+  if (!rows.length) return '<div class="no-outages">✓ No incidents in the last 28 days</div>';
+  const trs = rows.map(r => {
+    const cls = r.duration_mins > 120 ? 'dur-bad' : r.duration_mins > 30 ? 'dur-mid' : 'dur-ok';
+    const onC = (r.on === 'Still Off' || r.on === 'Still Offline') ? 'still-off' : '';
+    return `<tr><td>${r.off}</td><td class="${onC}">${r.on}</td><td class="r ${cls}">${r.duration_fmt}</td></tr>`;
+  }).join('');
+  return `<table class="outage-tbl">
+    <thead><tr><th>${cols[0]}</th><th>${cols[1]}</th><th class="r">Op-hrs Lost</th></tr></thead>
+    <tbody>${trs}</tbody>
+  </table>`;
+}
+
+function renderLog(summaryData) {
+  const outlets = summaryData.outlets || {};
+  const keys    = Object.keys(outlets).sort();
+  if (!keys.length) { document.getElementById('log-content').innerHTML = errBox(''); return; }
+
+  let worst7name = '—', worst7mins = 0, total28 = 0;
+  keys.forEach(k => {
+    const o = outlets[k];
+    total28 += o.last_28_days_mins || 0;
+    if ((o.last_7_days_mins || 0) > worst7mins) { worst7mins = o.last_7_days_mins; worst7name = k; }
+  });
+  const sc7 = document.getElementById('scWorst7');
+  sc7.textContent = worst7mins > 0 ? outlets[worst7name].last_7_days_fmt : '0m';
+  sc7.className   = 'stat-value ' + (worst7mins > 60 ? 'warn' : worst7mins > 0 ? 'amb' : 'ok');
+  document.getElementById('scWorst7Name').textContent = worst7mins > 0 ? worst7name : 'All clear';
+  const sc28 = document.getElementById('scTotal28');
+  const tot28h = Math.floor(total28/60), tot28m = total28%60;
+  sc28.textContent = total28 > 0 ? (tot28h > 0 ? `${tot28h}h ${tot28m}m` : `${tot28m}m`) : '0m';
+  sc28.className = 'stat-value ' + (total28 > 120 ? 'warn' : 'amb');
+
+  const cards = keys.map(name => {
+    const o  = outlets[name];
+    const pd = _platformData[name] || {};
+    const cnt = (o.recent_outages || []).length;
+    const pcRow = `<div class="oc-stats-row">
+      ${statBlock(o.last_7_days_mins, o.last_7_days_fmt, '7 Days')}
+      ${statBlock(o.last_28_days_mins, o.last_28_days_fmt, '28 Days')}
+    </div>`;
+    const platRows = ['swiggy_aod','swiggy_fc','zomato'].map(key => {
+      const p = pd[key] || {};
+      const label = key === 'swiggy_aod' ? 'Swiggy AOD' : key === 'swiggy_fc' ? 'Swiggy FC' : 'Zomato';
+      return `<div class="oc-source-label">${label} Offline</div>
+      <div class="oc-stats-row">
+        ${statBlock(p.last_7_days_mins||0, p.last_7_days_fmt||'0m', '7 Days')}
+        ${statBlock(p.last_28_days_mins||0, p.last_28_days_fmt||'0m', '28 Days')}
+      </div>`;
+    }).join('');
+    return `
+      <div class="outlet-card" id="ocard-${safeId(name)}" onclick="toggleDetail('${safeId(name)}')">
+        <div class="oc-head"><span class="oc-name">${name}</span><span class="oc-chev">▼</span></div>
+        <div class="oc-stats">
+          <div class="oc-source-label">⚡ Power Cut</div>
+          ${pcRow}<hr class="oc-divider">${platRows}
+        </div>
+        <div class="oc-footer">
+          <span>${cnt} outage event${cnt!==1?'s':''}</span>
+          <span class="oc-footer-expand">View log ↓</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const details = keys.map(name => {
+    const o  = outlets[name];
+    const pd = _platformData[name] || {};
+    const powerSection = `
+      <div class="detail-head" style="border-bottom:1px solid var(--border)">
+        <div><div class="detail-title">⚡ Power Cut Log</div>
+          <div class="detail-note">Physical outages — operating hours only</div></div>
+      </div>${incidentTable(o.recent_outages || [], ['Power Off','Power On'])}`;
+    const platSections = ['swiggy_aod','swiggy_fc','zomato'].map(key => {
+      const p = pd[key] || {};
+      const label = key === 'swiggy_aod' ? 'Swiggy AOD' : key === 'swiggy_fc' ? 'Swiggy FC' : 'Zomato';
+      return `<div class="detail-head" style="border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <div><div class="detail-title">📡 ${label} Platform Offline</div>
+          <div class="detail-note">Live status checks — operating hours only</div></div>
+      </div>${incidentTable(p.incidents || [], ['Went Offline','Back Online'])}`;
+    }).join('');
+    return `
+      <div class="outage-detail" id="odetail-${safeId(name)}">
+        <div class="detail-head">
+          <div><div class="detail-title">${name} — Full Downtime Log</div>
+            <div class="detail-note">Last 28 days · excludes closed hours</div></div>
+          <button class="detail-close" onclick="event.stopPropagation();toggleDetail('${safeId(name)}')">✕ Close</button>
+        </div>
+        ${powerSection}${platSections}
+      </div>`;
+  }).join('');
+
+  document.getElementById('log-content').innerHTML = `<div class="outlet-grid">${cards}</div>${details}`;
+}
+
+function toggleDetail(id) {
+  const card   = document.getElementById('ocard-' + id);
+  const detail = document.getElementById('odetail-' + id);
+  if (!card || !detail) return;
+  const open = detail.classList.toggle('open');
+  card.classList.toggle('expanded', open);
+  if (open) detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── PLATFORM DOWNTIME ── */
+function fmtMins(m) {
+  if (!m) return '0m';
+  const h = Math.floor(m / 60), mm = m % 60;
+  return h > 0 ? `${h}h ${mm}m` : `${mm}m`;
+}
+function cellClass(m) {
+  return m > 120 ? 'c-hi' : m > 30 ? 'c-md' : m > 0 ? 'c-lo' : 'c0';
+}
+
+let _pdWindow = 1;
+let _pdSummary = null, _pdPlatform = null;
+
+function setPdWindow(days) {
+  _pdWindow = days;
+  [1, 7, 28].forEach(d => {
+    const btn = document.getElementById('pdtab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  if (_pdSummary && _pdPlatform) renderPlatform(_pdSummary, _pdPlatform);
+}
+
+function minsForWindow(obj, days) {
+  if (days === 1) return obj.last_1_day_mins  || 0;
+  if (days === 7) return obj.last_7_days_mins  || 0;
+  return obj.last_28_days_mins || 0;
+}
+
+/* shared popover */
+let _zpopTimer;
+const _zpop = (() => {
+  const el = document.createElement('div');
+  el.className = 'z-pop'; el.id = 'zPop';
+  document.body.appendChild(el);
+  return el;
+})();
+
+function showZPop(e, html, cols) {
+  clearTimeout(_zpopTimer);
+  _zpop.innerHTML = html;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pw = 300;
+  const lines = (html.match(/z-pop-row/g) || []).length;
+  const estH  = 60 + lines * 28 + 30;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  let top  = rect.top - estH - 6;
+  if (top < 8) top = rect.bottom + 8;
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  _zpop.style.cssText = `left:${left}px;top:${top}px;width:${pw}px;position:fixed`;
+  _zpop.classList.add('show');
+}
+function hideZPop() {
+  _zpopTimer = setTimeout(() => _zpop.classList.remove('show'), 120);
+}
+
+function showPop(e, outlet, platform, pcM, pfKey) {
+  const pf = (_pdPlatform?.outlets?.[outlet]?.[pfKey]) || {};
+  const cutoffMs  = Date.now() - _pdWindow * 86400000;
+  const incidents = (pf.incidents || []).filter(i => new Date(i.off_iso).getTime() >= cutoffMs);
+  const platM     = minsForWindow(pf, _pdWindow);
+  const diff      = platM - pcM;
+  const diffTxt   = diff > 5  ? `+${fmtMins(diff)} beyond power cut`
+                  : diff < -5 ? `${fmtMins(-diff)} less than power cut`
+                  : '≈ matches power cut';
+
+  const rows = incidents.length
+    ? incidents.slice(0, 8).map(i => `
+        <div class="z-pop-row" style="grid-template-columns:1fr 1fr auto">
+          <span class="z-pop-off">${i.off}</span>
+          <span class="z-pop-on ${i.on==='Still Offline'?'still':''}">${i.on}</span>
+          <span class="z-pop-dur">${i.duration_fmt}</span>
+        </div>`).join('')
+    : `<div class="z-pop-none">No incidents this period</div>`;
+
+  const html = `
+    <div class="z-pop-head">
+      <span class="z-pop-title">${outlet} · ${platform}</span>
+      <span class="z-pop-sub">${diffTxt}</span>
+    </div>
+    <div class="z-pop-cols" style="grid-template-columns:1fr 1fr auto">
+      <span>Went offline</span><span>Back online</span><span>Lost</span>
+    </div>${rows}`;
+
+  showZPop(e, html);
+}
+
+function hidePop() { hideZPop(); }
+
+function renderPlatform(summaryData, platformData) {
+  _pdSummary  = summaryData;
+  _pdPlatform = platformData;
+  const el = document.getElementById('platform-content');
+  if (!el) return;
+  const outlets = summaryData.outlets || {};
+  const keys    = Object.keys(outlets).sort();
+  if (!keys.length) { el.innerHTML = errBox(''); return; }
+
+  const PLATS = [
+    { key: 'swiggy_aod', label: 'Swiggy AOD' },
+    { key: 'swiggy_fc',  label: 'Swiggy FC'  },
+    { key: 'zomato',     label: 'Zomato'      },
+  ];
+
+  const platHeaders = PLATS.map(p => `
+    <th class="plat-col"><span class="plat-name">${p.label}</span>Offline</th>
+    <th class="plat-col delta-col">Δ Lost</th>`).join('');
+
+  const totals = { pc: 0, plats: Object.fromEntries(PLATS.map(p => [p.key, { off: 0, delta: 0 }])) };
+
+  const bodyRows = keys.map(name => {
+    const pc  = outlets[name] || {};
+    const pd  = (platformData.outlets || {})[name] || {};
+    const pcM = minsForWindow(pc, _pdWindow);
+    totals.pc += pcM;
+    const esc = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+
+    const platCells = PLATS.map(p => {
+      const pf    = pd[p.key] || {};
+      const platM = minsForWindow(pf, _pdWindow);
+      const diff  = Math.max(0, platM - pcM);
+      const cls   = cellClass(platM);
+      totals.plats[p.key].off   += platM;
+      totals.plats[p.key].delta += diff;
+
+      const deltaCell = diff > 0
+        ? `<td class="pm-cell" style="background:#fef2f2;border-right:1px solid var(--border)"><span class="pm-val" style="font-size:11px;color:var(--red)">+${fmtMins(diff)}</span></td>`
+        : `<td class="pm-cell c0" style="border-right:1px solid var(--border)"><span class="pm-val" style="font-size:10px">0m</span></td>`;
+
+      return `<td class="pm-cell ${cls}" style="border-right:none"
+                  onmouseenter="showPop(event,'${esc}','${p.label}',${pcM},'${p.key}')"
+                  onmouseleave="hidePop()">
+        <span class="pm-val">${platM > 0 ? fmtMins(platM) : '—'}</span>
+      </td>${deltaCell}`;
+    }).join('');
+
+    return `<tr>
+      <td class="pm-outlet">${name}</td>
+      <td class="pm-pc"><span class="pm-pc-val ${pcM > 0 ? 'has' : ''}">${pcM > 0 ? fmtMins(pcM) : '—'}</span></td>
+      ${platCells}
+    </tr>`;
+  }).join('');
+
+  const totalPlatCells = PLATS.map(p => {
+    const t = totals.plats[p.key];
+    const cls = cellClass(t.off);
+    return `<td class="pm-cell ${cls}" style="border-right:none">
+        <span class="pm-val" style="font-weight:800">${t.off > 0 ? fmtMins(t.off) : '—'}</span>
+      </td>
+      <td class="pm-cell" style="background:${t.delta>0?'#fef2f2':'#f8fafc'};border-right:1px solid var(--border)">
+        <span class="pm-val" style="font-size:11px;font-weight:800;color:${t.delta>0?'var(--red)':'var(--ink-3)'}">${t.delta > 0 ? '+'+fmtMins(t.delta) : '0m'}</span>
+      </td>`;
+  }).join('');
+
+  const totalRow = `<tr style="border-top:2px solid var(--border-2);background:#f5f7fb">
+    <td class="pm-outlet" style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)">Total</td>
+    <td class="pm-pc"><span class="pm-pc-val has" style="font-weight:800">${totals.pc > 0 ? fmtMins(totals.pc) : '—'}</span></td>
+    ${totalPlatCells}
+  </tr>`;
+
+  el.innerHTML = `<table class="pm-table">
+    <thead><tr>
+      <th class="outlet-col">Outlet</th>
+      <th class="pc-col">⚡ Power Cut</th>
+      ${platHeaders}
+    </tr></thead>
+    <tbody>${bodyRows}${totalRow}</tbody>
+  </table>`;
+}
+
+/* ── LOAD ALL ── */
+function loadAll() {
+  setLoading(true);
+  const liveEl = document.getElementById('live-content');
+  const logEl  = document.getElementById('log-content');
+  if (liveEl) liveEl.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  if (logEl)  logEl.innerHTML  = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  document.getElementById('asOf').textContent = '';
+
+  let done = 0;
+  const finish = () => { if (++done === 3) setLoading(false); };
+
+  fetch(API + '/api/power/live')
+    .then(r => r.json())
+    .then(d => { document.getElementById('asOf').textContent = 'As of ' + d.generated_at; renderLive(d); })
+    .catch(() => { if (liveEl) liveEl.innerHTML = errBox(''); })
+    .finally(finish);
+
+  let _summary = null, _platform = null;
+  function tryRenderLog() {
+    if (_summary && _platform) { renderLog(_summary); renderPlatform(_summary, _platform); }
+  }
+
+  fetch(API + '/api/power/summary')
+    .then(r => r.json())
+    .then(d => { _summary = d; tryRenderLog(); })
+    .catch(() => { if (logEl) logEl.innerHTML = errBox(''); })
+    .finally(finish);
+
+  fetch(API + '/api/power/platform_downtime')
+    .then(r => r.json())
+    .then(d => { _platformData = d.outlets || {}; _platform = d; tryRenderLog(); })
+    .catch(() => { _platform = {}; tryRenderLog(); })
+    .finally(finish);
+}
+
+/* ══════════════════════════════════════════
+   LATE SIGN-IN
+═══════════════════════════════════════════ */
+const LS_API   = 'https://aodapp-backend.onrender.com';
+let   _lsToken = localStorage.getItem('adminToken');
+let   _lsPhone = '';
+let   _lsWindow = 1;
+
+fetch(`${LS_API}/api/`).catch(() => {});
+
+function renderSigninPage() {
+  document.getElementById('asOf').textContent = '';
+  const body = document.getElementById('pageBody');
+  _lsToken ? renderSigninMain(body) : renderSigninLogin(body);
+}
+
+function renderSigninLogin(body) {
+  body.innerHTML = `
+    <div class="ls-login-wrap">
+      <div class="ls-login-card">
+        <div class="ls-login-eyebrow">Zaān Operations</div>
+        <div class="ls-login-title">Admin Login</div>
+        <div class="ls-login-sub">Enter your employee ID and phone number to receive a one-time password.</div>
+        <div id="ls-step1">
+          <div class="ls-field"><label>Employee ID</label><input id="ls-empid" placeholder="e.g. EMP001" autocomplete="off"/></div>
+          <div class="ls-field"><label>Phone Number</label><input id="ls-phone" type="tel" maxlength="10" placeholder="10-digit mobile"/></div>
+          <button class="ls-btn" onclick="lsSendOTP()">Send OTP →</button>
+        </div>
+        <div id="ls-step2" style="display:none">
+          <div class="ls-field"><label>One-Time Password</label><input id="ls-otp" type="text" maxlength="6" placeholder="Enter 6-digit OTP" autocomplete="one-time-code"/></div>
+          <button class="ls-btn" onclick="lsVerifyOTP()">Verify & Login →</button>
+        </div>
+        <div class="ls-err" id="ls-err"></div>
+      </div>
+    </div>`;
+}
+
+function renderSigninMain(body) {
+  body.innerHTML = `
+    <div class="section-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon blue">🕐</div>
+          <div>
+            <div class="section-title">Late Sign-In Report</div>
+            <div class="section-sub">Attendance exceptions by employee — hover counts to see individual incidents</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="lstab-1"  onclick="lsSetWindow(1)"  style="padding:4px 12px;font-size:10px">1 Day</button>
+            <button class="ptab"        id="lstab-7"  onclick="lsSetWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+            <button class="ptab"        id="lstab-28" onclick="lsSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+          </div>
+          <button class="ls-logout-btn" onclick="lsLogout()">Logout</button>
+        </div>
+      </div>
+      <div id="ls-stats-row" class="ls-stats-row" style="display:none">
+        <div class="ls-stat">
+          <div class="ls-stat-label">Total Employees</div>
+          <div class="ls-stat-val ink" id="ls-s-emp">—</div>
+          <div class="ls-stat-sub">with exceptions</div>
+        </div>
+        <div class="ls-stat">
+          <div class="ls-stat-label">Late Sign-Ins</div>
+          <div class="ls-stat-val amber" id="ls-s-late">—</div>
+          <div class="ls-stat-sub">occurrences</div>
+        </div>
+        <div class="ls-stat">
+          <div class="ls-stat-label">Missed Sign-Ins</div>
+          <div class="ls-stat-val red" id="ls-s-miss">—</div>
+          <div class="ls-stat-sub">occurrences</div>
+        </div>
+        <div class="ls-stat">
+          <div class="ls-stat-label">Total Exceptions</div>
+          <div class="ls-stat-val red" id="ls-s-total">—</div>
+          <div class="ls-stat-sub">this period</div>
+        </div>
+      </div>
+      <div style="padding:6px 20px 8px;border-bottom:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--ink-3);font-family:var(--mono)" id="ls-status">Loading…</div>
+      </div>
+      <div id="ls-content" class="loader-box"><div class="loader"></div> Loading…</div>
+    </div>`;
+  lsSetWindow(1);
+}
+
+function lsSetWindow(days) {
+  _lsWindow = days;
+  [1, 7, 28].forEach(d => {
+    const btn = document.getElementById('lstab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  lsLoadReport();
+}
+
+function lsSetErr(msg, isOk) {
+  const el = document.getElementById('ls-err');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'ls-err ' + (isOk ? 'ok' : msg ? 'error' : '');
+}
+
+async function lsSendOTP() {
+  const empId = document.getElementById('ls-empid').value.trim();
+  _lsPhone    = document.getElementById('ls-phone').value.trim();
+  if (!empId)                      { lsSetErr('Enter your Employee ID'); return; }
+  if (!/^\d{10}$/.test(_lsPhone)) { lsSetErr('Enter a valid 10-digit phone number'); return; }
+  lsSetErr('Sending OTP…');
+  try {
+    const r = await fetch(`${LS_API}/api/auth/send-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: empId, phone: _lsPhone })
+    });
+    const d = await r.json();
+    if (!r.ok) { lsSetErr(d.detail || 'Failed to send OTP'); return; }
+    lsSetErr('OTP sent to your phone!', true);
+    document.getElementById('ls-step1').style.display = 'none';
+    document.getElementById('ls-step2').style.display = 'block';
+  } catch { lsSetErr('Network error — check your connection'); }
+}
+
+async function lsVerifyOTP() {
+  const empId = document.getElementById('ls-empid')?.value.trim() || '';
+  const otp   = document.getElementById('ls-otp').value.trim();
+  lsSetErr('Verifying…');
+  try {
+    const r = await fetch(`${LS_API}/api/auth/verify-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: empId, phone: _lsPhone, otp })
+    });
+    const d = await r.json();
+    if (!r.ok) { lsSetErr(d.detail || 'Invalid OTP'); return; }
+    if (d.role !== 'admin') { lsSetErr('This account does not have admin access.'); return; }
+    _lsToken = d.token;
+    localStorage.setItem('adminToken', _lsToken);
+    renderSigninMain(document.getElementById('pageBody'));
+  } catch { lsSetErr('Network error'); }
+}
+
+function lsLogout() {
+  localStorage.removeItem('adminToken');
+  _lsToken = null;
+  renderSigninLogin(document.getElementById('pageBody'));
+}
+
+function lsDateRange(days) {
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const end   = days === 1 ? yesterday : new Date();
+  const start = new Date(end); if (days > 1) start.setDate(end.getDate() - (days - 1));
+  const fmt   = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  return { start: fmt(start), end: fmt(end) };
+}
+
+async function lsLoadReport() {
+  const statusEl  = document.getElementById('ls-status');
+  const contentEl = document.getElementById('ls-content');
+  if (!contentEl) return;
+  const { start, end } = lsDateRange(_lsWindow);
+  const label = _lsWindow === 1 ? 'today' : `last ${_lsWindow} days`;
+  if (statusEl) statusEl.textContent = 'Connecting to server…';
+  contentEl.innerHTML = `
+    <div class="ls-progress-wrap">
+      <div class="ls-progress-bar" id="ls-pbar"></div>
+      <div class="ls-progress-msg" id="ls-pmsg">Waking up server — this takes ~15 s on first load</div>
+    </div>`;
+  // animated progress: fast to 70%, then slow crawl until response
+  let pct = 0;
+  const pbar = document.getElementById('ls-pbar');
+  const pmsg = document.getElementById('ls-pmsg');
+  const msgs = [
+    [10,  'Connecting…'],
+    [30,  'Server waking up…'],
+    [55,  'Fetching attendance records…'],
+    [72,  'Still loading — almost there…'],
+    [85,  'Processing data…'],
+    [93,  'Nearly done…'],
+  ];
+  let msgIdx = 0;
+  const tick = setInterval(() => {
+    const speed = pct < 70 ? 1.8 : 0.18;
+    pct = Math.min(95, pct + speed);
+    if (pbar) pbar.style.width = pct + '%';
+    while (msgIdx < msgs.length && pct >= msgs[msgIdx][0]) {
+      if (pmsg) pmsg.textContent = msgs[msgIdx][1];
+      msgIdx++;
+    }
+  }, 200);
+  try {
+    const r = await fetch(
+      `${LS_API}/api/admin/attendance-late-report?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`,
+      { headers: { 'Authorization': `Bearer ${_lsToken}` } }
+    );
+    if (r.status === 401 || r.status === 403) { clearInterval(tick); lsLogout(); return; }
+    const d = await r.json();
+    clearInterval(tick);
+    if (pbar) { pbar.style.transition = 'width .3s ease'; pbar.style.width = '100%'; }
+    await new Promise(res => setTimeout(res, 320));
+    const records = (d.records || []).filter(r =>
+      !/^wo$/i.test((r.outlet||'').trim()) &&
+      (r.type||'') !== 'missed_signout'
+    );
+    if (statusEl) statusEl.textContent = `${records.length} record${records.length!==1?'s':''} — ${label} · ${d.start_date} to ${d.end_date}`;
+    lsRenderTable(records, contentEl);
+  } catch {
+    clearInterval(tick);
+    if (statusEl) statusEl.textContent = 'Failed to load.';
+    contentEl.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
+  }
+}
+
+function lsGroupByEmployee(records) {
+  const map = {};
+  records.forEach(rec => {
+    const key = rec.employee_id;
+    if (!map[key]) map[key] = {
+      name: rec.employee_name, id: rec.employee_id, outlet: rec.outlet,
+      late: [], missed_signin: [], missed_signout: []
+    };
+    if (map[key][rec.type]) map[key][rec.type].push(rec);
+    map[key].outlet = rec.outlet;
+  });
+  return Object.values(map).sort((a,b) =>
+    (b.late.length + b.missed_signin.length + b.missed_signout.length) -
+    (a.late.length + a.missed_signin.length + a.missed_signout.length)
+  );
+}
+
+const _lsPopMap = {};
+
+function lsCountCell(incidents, cls, label, popKey) {
+  const n = incidents.length;
+  if (n === 0) return `<span class="ls-count-cell zero">—</span>`;
+  const rows = incidents.map(r => {
+    const time = r.sign_in ? r.sign_in.slice(11,16) : '—';
+    const late = r.late_by_minutes > 0 ? ` · ${r.late_by_minutes}m late` : '';
+    return `<div class="z-pop-row" style="grid-template-columns:1fr 1fr">
+      <span style="color:#94a3b8;font-size:10px">${r.date}</span>
+      <span style="color:#fff;font-weight:600;text-align:right">${time}${late}</span>
+    </div>`;
+  }).join('');
+  _lsPopMap[popKey] = `<div class="z-pop-head">
+      <span class="z-pop-title">${label}</span>
+      <span class="z-pop-sub">${n} occurrence${n!==1?'s':''}</span>
+    </div>
+    <div class="z-pop-cols" style="grid-template-columns:1fr 1fr">
+      <span>Date</span><span style="text-align:right">Sign-in time</span>
+    </div>${rows}`;
+  return `<span class="ls-count-cell ${cls}" onmouseenter="showZPop(event,_lsPopMap['${popKey}'])" onmouseleave="hideZPop()">${n}</span>`;
+}
+
+function lsRenderTable(records, el) {
+  if (!records.length) {
+    // hide stats row
+    const sr = document.getElementById('ls-stats-row');
+    if (sr) sr.style.display = 'none';
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No exceptions found for this period.</div>';
+    return;
+  }
+
+  const grouped = lsGroupByEmployee(records);
+
+  // update summary stats
+  const totalLate  = grouped.reduce((s,e) => s + e.late.length, 0);
+  const totalMiss  = grouped.reduce((s,e) => s + e.missed_signin.length, 0);
+  const totalAll   = grouped.reduce((s,e) => s + e.late.length + e.missed_signin.length + e.missed_signout.length, 0);
+  const sr = document.getElementById('ls-stats-row');
+  if (sr) {
+    sr.style.display = '';
+    document.getElementById('ls-s-emp').textContent   = grouped.length;
+    document.getElementById('ls-s-late').textContent  = totalLate;
+    document.getElementById('ls-s-miss').textContent  = totalMiss;
+    document.getElementById('ls-s-total').textContent = totalAll;
+  }
+
+  const rows = grouped.map((emp, i) => {
+    const total = emp.late.length + emp.missed_signin.length + emp.missed_signout.length;
+    const totalCls = total >= 5 ? 'high' : total >= 2 ? 'low' : 'zero';
+    return `<tr style="animation:fadeUp .2s ease both;animation-delay:${i*30}ms">
+      <td>
+        <div class="ls-emp-name">${emp.name}</div>
+        <div class="ls-emp-id">${emp.id}</div>
+      </td>
+      <td class="ls-outlet">${emp.outlet}</td>
+      <td class="c">${lsCountCell(emp.late,          'late-c', 'Late Sign-In',    emp.id+'_late')}</td>
+      <td class="c">${lsCountCell(emp.missed_signin, 'miss-c', 'Missed Sign-In',  emp.id+'_miss')}</td>
+      <td class="c">
+        <span class="ls-total-badge ${totalCls}">${total}</span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>Employee</th>
+      <th>Outlet</th>
+      <th class="c" style="color:var(--amber)">Late Sign-In</th>
+      <th class="c" style="color:var(--red)">Missed Sign-In</th>
+      <th class="c">Total</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+/* ══════════════════════════════════════════
+   PLATFORM METRICS
+═══════════════════════════════════════════ */
+let _metWindow = 1;
+
+function renderMetricsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div class="section-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon blue">📊</div>
+          <div>
+            <div class="section-title">KPT & MFR by Outlet</div>
+            <div class="section-sub">Kitchen Prep Time · Menu Fill Rate · Swiggy (latest month) & Zomato (daily, 3-day lag)</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="mettab-1"  onclick="metSetWindow(1)"  style="padding:4px 12px;font-size:10px">1 Day</button>
+            <button class="ptab"        id="mettab-7"  onclick="metSetWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+            <button class="ptab"        id="mettab-28" onclick="metSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center" id="met-periods"></div>
+        </div>
+      </div>
+      <div id="met-content" class="loader-box"><div class="loader"></div> Loading…</div>
+    </div>`;
+
+  metLoadData();
+}
+
+function metSetWindow(days) {
+  _metWindow = days;
+  [1,7,28].forEach(d => {
+    const btn = document.getElementById('mettab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  metLoadData();
+}
+
+function metLoadData() {
+  const el = document.getElementById('met-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  fetch(API + `/api/metrics/kpt_mfr?window=${_metWindow}`)
+    .then(r => r.json())
+    .then(renderMetricsTable)
+    .catch(() => { if (el) el.innerHTML = errBox(''); });
+}
+
+function metCell(val, unit, isKpt) {
+  if (val === null || val === undefined) {
+    return `<div class="met-val none"><span class="met-num">—</span></div>`;
+  }
+  let cls;
+  if (isKpt) {
+    cls = val <= 8 ? 'good' : val <= 12 ? 'warn' : 'bad';
+  } else {
+    cls = val >= 85 ? 'good' : val >= 70 ? 'warn' : 'bad';
+  }
+  return `<div class="met-val ${cls}">
+    <span class="met-num">${val}</span>
+    <span class="met-unit">${unit}</span>
+  </div>`;
+}
+
+function renderMetricsTable(data) {
+  const outlets = data.outlets || [];
+  const el = document.getElementById('met-content');
+
+  document.getElementById('met-periods').innerHTML = `
+    <span class="met-period-badge swiggy">Swiggy · ${data.swiggy_period}</span>
+    <span class="met-period-badge zomato">Zomato · ${data.zomato_label}</span>`;
+
+  if (!outlets.length) { el.innerHTML = '<div class="no-outages" style="padding:40px">No data available.</div>'; return; }
+
+  const rows = outlets.map((o, i) => `
+    <tr style="animation:fadeUp .2s ease both;animation-delay:${i*25}ms">
+      <td class="outlet-col">${o.outlet}</td>
+      <td>${metCell(o.swiggy_kpt, 'min', true)}</td>
+      <td>${metCell(o.swiggy_mfr, '%',   false)}</td>
+      <td class="met-divider"></td>
+      <td>${metCell(o.zomato_kpt, 'min', true)}</td>
+      <td>${metCell(o.zomato_mfr, '%',   false)}</td>
+    </tr>`).join('');
+
+  el.innerHTML = `<table class="met-table">
+    <thead>
+      <tr>
+        <th class="outlet-col" rowspan="2">Outlet</th>
+        <th class="plat-group swiggy-grp" colspan="2">Swiggy</th>
+        <th class="met-divider" rowspan="2"></th>
+        <th class="plat-group zomato-grp" colspan="2">Zomato</th>
+      </tr>
+      <tr>
+        <th>KPT</th><th>MFR</th>
+        <th>KPT</th><th>MFR</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+/* ══════════════════════════════════════════
+   SCORECARD
+═══════════════════════════════════════════ */
+let _scWindow = 7;
+let _scType = 'cloud';
+
+function scFmtISO(d) {
+  return d.toISOString().split('T')[0];
+}
+function scDateRange(days) {
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0,0,0,0);
+  const start = new Date(yesterday); start.setDate(yesterday.getDate() - (days - 1));
+  return { start, end: yesterday };
+}
+
+function renderScorecardPage() {
+  if (!_lsToken) { renderSigninLogin(document.getElementById('pageBody')); return; }
+
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div class="section-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon blue">👥</div>
+          <div>
+            <div class="section-title">Employee Dashboard</div>
+            <div class="section-sub">Orders · Quality · Checklist · Attendance · Incentive</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="sctab-7"  onclick="scSetWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+            <button class="ptab"        id="sctab-28" onclick="scSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+          </div>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="sctype-cloud"  onclick="scSetType('cloud')"  style="padding:4px 12px;font-size:10px">☁ Cloud</button>
+            <button class="ptab"        id="sctype-dinein" onclick="scSetType('dinein')" style="padding:4px 12px;font-size:10px">🍽 Dine-In</button>
+          </div>
+          <span class="as-of-label" id="scDateLabel"></span>
+          <button class="ls-logout-btn" onclick="lsLogout();renderScorecardPage()">Logout</button>
+        </div>
+      </div>
+      <div id="sc-content" class="loader-box"><div class="loader"></div> Loading…</div>
+    </div>`;
+
+  scLoadData();
+}
+
+function scSetWindow(days) {
+  _scWindow = days;
+  [7,28].forEach(d => {
+    const btn = document.getElementById('sctab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const el = document.getElementById('sc-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  scLoadData();
+}
+
+function scSetType(type) {
+  _scType = type;
+  ['cloud','dinein'].forEach(t => {
+    const btn = document.getElementById('sctype-' + t);
+    if (btn) btn.classList.toggle('active', t === type);
+  });
+  const el = document.getElementById('sc-content');
+  if (el && window._scLastRows) scRenderTable(window._scLastRows, el);
+}
+
+async function scLoadData() {
+  const { start, end } = scDateRange(_scWindow);
+  const fmt = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+  const labelEl = document.getElementById('scDateLabel');
+  if (labelEl) labelEl.textContent = _scWindow === 1 ? fmt(end) : `${fmt(start)} – ${fmt(end)}`;
+  const url = `${LS_API}/api/admin/employee-scorecard?week_start=${scFmtISO(start)}&week_end=${scFmtISO(end)}`;
+  const el = document.getElementById('sc-content');
+  try {
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderScorecardPage(); return; }
+    const d = await r.json();
+    window._scLastRows = d.scorecards || [];
+    scRenderTable(window._scLastRows, el);
+  } catch {
+    if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load scorecard</div></div>';
+  }
+}
+
+function scBuildTable(rows, offset) {
+  if (!rows.length) return '<div class="no-outages" style="padding:24px">No staff in this group this week.</div>';
+  const thead = `<thead><tr>
+    <th class="left">Employee</th>
+    <th>Orders</th>
+    <th>High Rated</th>
+    <th>High Rated %</th>
+    <th>Low Rated</th>
+    <th>IGCC</th>
+    <th>Errors</th>
+    <th>Error %</th>
+    <th>High − Low</th>
+    <th>Checklist</th>
+    <th>Late</th>
+  </tr></thead>`;
+  const trs = rows.map((e, i) => {
+    const errCls = e.errors > 10 ? 'bad' : e.errors > 4 ? 'warn' : 'good';
+    const clCls  = e.checklist_pct >= 90 ? 'good' : e.checklist_pct >= 70 ? 'warn' : 'bad';
+    const total = e.total_orders || 0;
+    const hrPct = total > 0 ? ((e.high_rated || 0) / total * 100).toFixed(1) : null;
+    const errPct = total > 0 ? ((e.errors || 0) / total * 100).toFixed(1) : null;
+    const hrPctCls = hrPct === null ? '' : hrPct >= 70 ? 'good' : hrPct >= 50 ? 'warn' : 'bad';
+    const errPctCls = errPct === null ? '' : errPct <= 2 ? 'good' : errPct <= 5 ? 'warn' : 'bad';
+    const netScore = (hrPct !== null && errPct !== null) ? (parseFloat(hrPct) - parseFloat(errPct)).toFixed(1) : null;
+    const netCls = netScore === null ? '' : netScore >= 65 ? 'good' : netScore >= 45 ? 'warn' : 'bad';
+    return `<tr style="animation:fadeUp .18s ease both;animation-delay:${(i+offset)*18}ms">
+      <td class="left">
+        <div class="sc-emp-name">${e.name}</div>
+        <div class="sc-emp-id">${e.employee_id}</div>
+      </td>
+      <td><span class="sc-num">${e.total_orders ?? '—'}</span></td>
+      <td><span class="sc-num" style="color:var(--green)">${e.high_rated ?? '—'}</span></td>
+      <td><span class="sc-pct ${hrPctCls}">${hrPct !== null ? hrPct + '%' : '—'}</span></td>
+      <td><span class="sc-num" style="color:var(--amber)">${e.low_rated ?? '—'}</span></td>
+      <td><span class="sc-num">${e.igcc ?? '—'}</span></td>
+      <td><span class="sc-pct ${errCls}">${e.errors ?? '—'}</span></td>
+      <td><span class="sc-pct ${errPctCls}">${errPct !== null ? errPct + '%' : '—'}</span></td>
+      <td><span class="sc-pct ${netCls}">${netScore !== null ? netScore + '%' : '—'}</span></td>
+      <td>
+        <span class="sc-pct ${clCls}">${e.checklist_pct != null ? e.checklist_pct+'%' : '—'}</span>
+        <div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.checklist_submitted ?? '—'}/${e.checklist_scheduled ?? '—'}</div>
+      </td>
+      <td><span class="sc-num ${e.late_count > 0 ? 'sc-pct bad' : ''}">${e.late_count ?? 0}</span></td>
+    </tr>`;
+  }).join('');
+  return `<table class="sc-table">${thead}<tbody>${trs}</tbody></table>`;
+}
+
+function scGroupLabel(key) {
+  return key === 'cloud'
+    ? `<div style="padding:12px 20px 6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);border-bottom:1px solid var(--border)">☁ Cloud Kitchen Staff</div>`
+    : `<div style="padding:12px 20px 6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);border-bottom:1px solid var(--border)">🍽 Dine-In Staff</div>`;
+}
+
+function scRenderTable(rows, el) {
+  if (!rows.length) {
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this period.</div>';
+    return;
+  }
+  const netOf = e => {
+    const t = e.total_orders || 0;
+    if (!t) return -Infinity;
+    return ((e.high_rated || 0) - (e.errors || 0)) / t * 100;
+  };
+  const sorted = [...rows].sort((a, b) => netOf(b) - netOf(a));
+  const cloud  = sorted.filter(e => e.outlet_type === 'cloud');
+  const dinein = sorted.filter(e => e.outlet_type === 'dine_in');
+  let html = '';
+  if (_scType === 'cloud') {
+    if (cloud.length)  html += `<div>${scGroupLabel('cloud')}${scBuildTable(cloud, 0)}</div>`;
+    else html = '<div class="no-outages" style="padding:40px">No cloud staff for this period.</div>';
+  } else if (_scType === 'dinein') {
+    if (dinein.length) html += `<div>${scGroupLabel('dine_in')}${scBuildTable(dinein, 0)}</div>`;
+    else html = '<div class="no-outages" style="padding:40px">No dine-in staff for this period.</div>';
+  }
+  el.innerHTML = html;
+}
+
+/* ══════════════════════════════════════════════════
+   OUTLET RATINGS
+═══════════════════════════════════════════════════ */
+let _orToken = localStorage.getItem('adminToken');
+
+function renderRatingsPage() {
+  const body = document.getElementById('pageBody');
+  if (!_orToken) { renderSigninLogin(body); return; }
+  body.innerHTML = `
+    <div style="padding:24px 28px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <button class="ptab active" id="ortab-7"  onclick="orSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+          <button class="ptab"        id="ortab-28" onclick="orSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">From</label>
+          <input type="date" id="or-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink-1)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">To</label>
+          <input type="date" id="or-end" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink-1)"/>
+        </div>
+        <button class="ptab active" onclick="orLoad()" style="padding:4px 14px;font-size:10px">Load</button>
+        <span class="as-of-label" id="or-status"></span>
+        <button class="ls-logout-btn" style="margin-left:auto" onclick="lsLogout();renderRatingsPage()">Logout</button>
+      </div>
+      <div id="or-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>
+    </div>`;
+  orSetPreset(7);
+}
+
+function orSetPreset(days) {
+  [7,28].forEach(d => {
+    const btn = document.getElementById('ortab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const today = new Date();
+  const from  = new Date(); from.setDate(today.getDate() - (days - 1));
+  const fmt = d => d.toISOString().split('T')[0];
+  const startEl = document.getElementById('or-start');
+  const endEl   = document.getElementById('or-end');
+  if (startEl) startEl.value = fmt(from);
+  if (endEl)   endEl.value   = fmt(today);
+  orLoad();
+}
+
+async function orLoad() {
+  const from = document.getElementById('or-start')?.value;
+  const to   = document.getElementById('or-end')?.value;
+  if (!from || !to) return;
+  const el = document.getElementById('or-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  try {
+    const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/outlet-ratings-summary?date_from=${from}&date_to=${to}`,
+      { headers: { 'Authorization': `Bearer ${_orToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderRatingsPage(); return; }
+    const d = await r.json();
+    const outlets = d.outlets || [];
+    const statusEl = document.getElementById('or-status');
+    if (statusEl) statusEl.textContent = outlets.length ? `${outlets.length} outlets · ${d.date_from} → ${d.date_to}` : '';
+    orRenderTable(outlets, el);
+  } catch {
+    if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div></div>';
+  }
+}
+
+function orRenderTable(outlets, el) {
+  if (!outlets.length) {
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this range.</div>';
+    return;
+  }
+  const thStyle = 'padding:10px 13px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono)';
+  const thL = `style="${thStyle};text-align:left"`;
+  const th  = `style="${thStyle}"`;
+  const thead = `<thead><tr>
+    <th ${thL}>Outlet</th>
+    <th ${th}>Swiggy ⭐</th>
+    <th ${th}>Swiggy 👎</th>
+    <th ${th}>Zomato ⭐</th>
+    <th ${th}>Zomato 👎</th>
+    <th ${th}>Total Rated</th>
+    <th ${th}>Rista Orders</th>
+    <th ${th}>High</th>
+    <th ${th}>Low</th>
+    <th ${th}>IGCC</th>
+    <th ${th}>Errors</th>
+    <th ${th}>High %</th>
+    <th ${th}>Error %</th>
+    <th ${th}>Net %</th>
+  </tr></thead>`;
+
+  const td  = (val, cls='') => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)"><span class="sc-pct ${cls}">${val}</span></td>`;
+  const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;font-weight:${bold?800:700};border-bottom:1px solid var(--border);color:var(--ink-1)">${val}</td>`;
+  const tdB = (val) => `<td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--blue)">${val}</td>`;
+
+  const rows = outlets.map(o => {
+    const netCls  = o.net_pct >= 10 ? 'good' : o.net_pct >= 0 ? '' : 'bad';
+    const errCls  = o.error_rate_pct < 1 ? 'good' : o.error_rate_pct < 2 ? 'warn' : 'bad';
+    const highCls = o.high_rate_pct >= 20 ? 'good' : o.high_rate_pct >= 10 ? 'warn' : 'bad';
+    return `<tr>
+      ${tdL(o.outlet_code)}
+      ${td(o.swiggy_high)} ${td(o.swiggy_low)}
+      ${td(o.zomato_high)} ${td(o.zomato_low)}
+      ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
+      ${td(o.total_high)} ${td(o.total_low)}
+      ${td(o.igcc)} ${td(o.total_errors)}
+      ${td(o.high_rate_pct + '%', highCls)}
+      ${td(o.error_rate_pct + '%', errCls)}
+      ${td(o.net_pct + '%', netCls)}
+    </tr>`;
+  }).join('');
+
+  // Totals row
+  const sum = k => outlets.reduce((a, o) => a + (Number(o[k]) || 0), 0);
+  const tSwiggyH = sum('swiggy_high'), tSwiggyL = sum('swiggy_low');
+  const tZomH    = sum('zomato_high'), tZomL    = sum('zomato_low');
+  const tRated   = sum('total_rated'), tRista   = sum('rista_orders');
+  const tHigh    = sum('total_high'),  tLow     = sum('total_low');
+  const tIgcc    = sum('igcc'),        tErrors  = sum('total_errors');
+  const tHighPct  = tRated > 0 ? (tHigh / tRated * 100).toFixed(1) : '—';
+  const tErrPct   = tRated > 0 ? (tErrors / tRated * 100).toFixed(1) : '—';
+  const tNetPct   = tRated > 0 ? ((tHigh - tErrors) / tRated * 100).toFixed(1) : '—';
+  const tNetCls   = tNetPct === '—' ? '' : tNetPct >= 10 ? 'good' : tNetPct >= 0 ? '' : 'bad';
+  const tErrCls   = tErrPct === '—' ? '' : tErrPct < 1 ? 'good' : tErrPct < 2 ? 'warn' : 'bad';
+  const tHighCls  = tHighPct === '—' ? '' : tHighPct >= 20 ? 'good' : tHighPct >= 10 ? 'warn' : 'bad';
+  const tdT  = (val, cls='') => `<td style="padding:11px 13px;text-align:right;font-size:12px;font-weight:800;font-family:var(--mono);background:var(--surface-2,#eef0f5);border-top:2px solid var(--border-2)"><span class="sc-pct ${cls}">${val}</span></td>`;
+  const tdTL = (val) => `<td style="padding:11px 13px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;background:var(--surface-2,#eef0f5);border-top:2px solid var(--border-2);color:var(--ink-2)">${val}</td>`;
+  const tdTB = (val) => `<td style="padding:11px 13px;text-align:right;font-size:12px;font-weight:800;font-family:var(--mono);background:var(--surface-2,#eef0f5);border-top:2px solid var(--border-2);color:var(--blue)">${val}</td>`;
+  const totalRow = `<tr>
+    ${tdTL('Total')}
+    ${tdT(tSwiggyH)} ${tdT(tSwiggyL)}
+    ${tdT(tZomH)}   ${tdT(tZomL)}
+    ${tdT(tRated)}  ${tdTB(tRista || '—')}
+    ${tdT(tHigh)}   ${tdT(tLow)}
+    ${tdT(tIgcc)}   ${tdT(tErrors)}
+    ${tdT(tRista > 0 ? (tHigh / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tHigh/tRista*100 >= 20 ? 'good' : tHigh/tRista*100 >= 10 ? 'warn' : 'bad') : '')}
+    ${tdT(tRista > 0 ? (tErrors / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tErrors/tRista*100 < 1 ? 'good' : tErrors/tRista*100 < 2 ? 'warn' : 'bad') : '')}
+    ${tdT(tRista > 0 ? ((tHigh - tErrors) / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? ((tHigh-tErrors)/tRista*100 >= 10 ? 'good' : (tHigh-tErrors)/tRista*100 >= 0 ? '' : 'bad') : '')}
+  </tr>`;
+
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}${totalRow}</tbody></table></div>`;
+}
+
+/* ── PRODUCT RANKINGS PAGE ── */
+let _prSubTab = 'products'; // 'products' | 'scoops'
+
+function renderProductsPage() {
+  const body = document.getElementById('pageBody');
+  if (!_orToken) { renderSigninLogin(body); return; }
+  body.innerHTML = `
+    <div style="padding:24px 28px">
+      <!-- Page-level sub-tab switcher -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <button class="ptab ${_prSubTab==='products'?'active':''}" id="pgsub-products" onclick="prSwitchSubTab('products')" style="padding:5px 16px;font-size:11px">All Products</button>
+          <button class="ptab ${_prSubTab==='scoops'?'active':''}"   id="pgsub-scoops"   onclick="prSwitchSubTab('scoops')"   style="padding:5px 16px;font-size:11px">🍦 Scoop Flavours</button>
+        </div>
+        <button class="ls-logout-btn" onclick="lsLogout();renderProductsPage()">Logout</button>
+      </div>
+      <div id="pr-subtab-body"></div>
+    </div>`;
+  prSwitchSubTab(_prSubTab, true);
+}
+
+function prSwitchSubTab(tab, skipState) {
+  if (!skipState) _prSubTab = tab;
+  ['products','scoops'].forEach(t => {
+    const btn = document.getElementById('pgsub-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  const wrap = document.getElementById('pr-subtab-body');
+  if (!wrap) return;
+  if (tab === 'products') {
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <button class="ptab active" id="prtab-7"  onclick="prSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+          <button class="ptab"        id="prtab-28" onclick="prSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">From</label>
+          <input type="date" id="pr-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">To</label>
+          <input type="date" id="pr-end" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        </div>
+        <button class="ptab active" onclick="prLoad()" style="padding:4px 14px;font-size:10px">Load</button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Min Orders</label>
+          <input type="number" id="pr-min-orders" min="0" value="0" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" oninput="prDrawTable()"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Category</label>
+          <select id="pr-category" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="prDrawTable()">
+            <option value="">All</option>
+          </select>
+        </div>
+        <span class="as-of-label" id="pr-status"></span>
+      </div>
+      <div id="pr-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
+    prSetPreset(7);
+  } else {
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <button class="ptab active" id="sctab-7"  onclick="scpSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+          <button class="ptab"        id="sctab-28" onclick="scpSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">From</label>
+          <input type="date" id="scp-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">To</label>
+          <input type="date" id="scp-end" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        </div>
+        <button class="ptab active" onclick="scpLoad()" style="padding:4px 14px;font-size:10px">Load</button>
+        <span class="as-of-label" id="scp-status"></span>
+      </div>
+      <!-- legend -->
+      <div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+        <span style="font-size:10px;color:var(--ink-3);font-family:var(--mono)">
+          <span style="background:#eff6ff;color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:700">Single (100g)</span>
+          = 2 units
+        </span>
+        <span style="font-size:10px;color:var(--ink-3);font-family:var(--mono)">
+          <span style="background:#f0fdf4;color:var(--green);padding:2px 7px;border-radius:4px;font-weight:700">Combo scoop</span>
+          = 1 unit (50g)
+        </span>
+      </div>
+      <div id="scp-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
+    scpSetPreset(7);
+  }
+}
+
+function prSetPreset(days) {
+  [7,28].forEach(d => {
+    const btn = document.getElementById('prtab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const today = new Date();
+  const from  = new Date(); from.setDate(today.getDate() - (days - 1));
+  const fmt = d => d.toISOString().split('T')[0];
+  const startEl = document.getElementById('pr-start');
+  const endEl   = document.getElementById('pr-end');
+  if (startEl) startEl.value = fmt(from);
+  if (endEl)   endEl.value   = fmt(today);
+  prLoad();
+}
+
+async function prLoad() {
+  const from = document.getElementById('pr-start')?.value;
+  const to   = document.getElementById('pr-end')?.value;
+  if (!from || !to) return;
+  const el = document.getElementById('pr-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
+  try {
+    const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
+      { headers: { 'Authorization': `Bearer ${_orToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); return; }
+    const d = await r.json();
+    const products = d.products || [];
+    const statusEl = document.getElementById('pr-status');
+    if (statusEl) statusEl.textContent = products.length ? `${products.length} products · ${d.date_from} → ${d.date_to}` : '';
+    prRenderTable(products, el);
+  } catch(e) {
+    if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
+  }
+}
+
+let _prData = [];
+let _prSort = { key: 'rista_orders', dir: -1 };
+
+function prRenderTable(products, el) {
+  if (!products.length) {
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this range.</div>';
+    return;
+  }
+  _prData = products;
+  // Populate category dropdown
+  const cats = [...new Set(products.map(p => p.category || '').filter(Boolean))].sort();
+  const sel = document.getElementById('pr-category');
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">All</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (cats.includes(prev)) sel.value = prev;
+  }
+  prDrawTable(el);
+}
+
+function prDrawTable(el) {
+  if (!el) el = document.getElementById('pr-content');
+  const minOrders = parseInt(document.getElementById('pr-min-orders')?.value || '0', 10) || 0;
+  const catFilter = document.getElementById('pr-category')?.value || '';
+  const { key, dir } = _prSort;
+  const sorted = [..._prData]
+    .filter(p => (p.rista_orders || 0) >= minOrders)
+    .filter(p => !catFilter || (p.category || '') === catFilter)
+    .sort((a, b) => {
+      const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
+      return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir;
+    });
+
+  const thBase = 'padding:10px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono);cursor:pointer;user-select:none;transition:color .14s';
+  const thR = `${thBase};text-align:right`;
+  const thL = `${thBase};text-align:left`;
+
+  const col = (label, k, align='right') => {
+    const active = key === k;
+    const arrow  = active ? (dir === 1 ? ' ↑' : ' ↓') : ' ↕';
+    const color  = active ? 'color:var(--blue)' : 'color:var(--ink-3)';
+    const base   = align === 'left' ? thL : thR;
+    return `<th style="${base};${color}" onclick="prSortBy('${k}')">${label}<span style="opacity:.5;font-size:9px">${arrow}</span></th>`;
+  };
+
+  const thead = `<thead><tr>
+    <th style="${thL};color:var(--ink-3)">#</th>
+    ${col('Product','product','left')}
+    ${col('Category','category','left')}
+    ${col('Rista Orders','rista_orders')}
+    ${col('Total Rated','total_rated')}
+    ${col('High ⭐','high_rated')}
+    ${col('Low 👎','low_rated')}
+    ${col('IGCC','igcc')}
+    ${col('Errors','total_errors')}
+    ${col('High %','high_pct')}
+    ${col('Error %','error_pct')}
+    ${col('Net %','net_pct')}
+  </tr></thead>`;
+
+  const rows = sorted.map((p, i) => {
+    const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0  ? '' : 'bad';
+    const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2  ? 'warn' : 'bad';
+    const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
+    const td  = (val, cls='') => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)"><span class="sc-pct ${cls}">${val}</span></td>`;
+    const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
+    const tdB = (val) => `<td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--blue)">${val}</td>`;
+    return `<tr>
+      ${tdL(i + 1)}
+      ${tdL(p.product, true)}
+      ${tdL(p.category || '—')}
+      ${tdB(p.rista_orders > 0 ? p.rista_orders : '—')}
+      ${tdB(p.total_rated)}
+      ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
+      ${td(p.high_pct + '%', highCls)}
+      ${td(p.error_pct + '%', errCls)}
+      ${td(p.net_pct + '%', netCls)}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}</tbody></table></div>`;
+}
+
+function prSortBy(key) {
+  if (_prSort.key === key) {
+    _prSort.dir *= -1;
+  } else {
+    _prSort = { key, dir: -1 };
+  }
+  prDrawTable();
+}
+
+/* ── SCOOP FLAVOUR RANKINGS ── */
+let _scpData = [];
+let _scpSort = { key: 'units', dir: -1 };
+
+function scpSetPreset(days) {
+  [7,28].forEach(d => {
+    const btn = document.getElementById('sctab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const today = new Date();
+  const from  = new Date(); from.setDate(today.getDate() - (days - 1));
+  const fmt = d => d.toISOString().split('T')[0];
+  const s = document.getElementById('scp-start');
+  const e = document.getElementById('scp-end');
+  if (s) s.value = fmt(from);
+  if (e) e.value = fmt(today);
+  scpLoad();
+}
+
+async function scpLoad() {
+  const from = document.getElementById('scp-start')?.value;
+  const to   = document.getElementById('scp-end')?.value;
+  if (!from || !to) return;
+  const el = document.getElementById('scp-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
+  try {
+    const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`,
+      { headers: { 'Authorization': `Bearer ${_orToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); return; }
+    const d = await r.json();
+    const flavours = d.flavours || [];
+    const statusEl = document.getElementById('scp-status');
+    if (statusEl) statusEl.textContent = flavours.length ? `${flavours.length} flavours · ${d.date_from} → ${d.date_to}` : '';
+    scpRenderTable(flavours, el);
+  } catch(e) {
+    if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
+  }
+}
+
+function scpRenderTable(flavours, el) {
+  if (!flavours.length) {
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No scoop data for this range.</div>';
+    return;
+  }
+  _scpData = flavours;
+  _scpSort = { key: 'units', dir: -1 };
+  scpDrawTable(el);
+}
+
+function scpDrawTable(el) {
+  if (!el) el = document.getElementById('scp-content');
+  const { key, dir } = _scpSort;
+  const sorted = [..._scpData].sort((a, b) => {
+    const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
+    return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir;
+  });
+
+  const thBase = 'padding:10px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono);cursor:pointer;user-select:none;transition:color .14s';
+  const thR = `${thBase};text-align:right`;
+  const thL = `${thBase};text-align:left`;
+
+  const col = (label, k, align='right') => {
+    const active = key === k;
+    const arrow  = active ? (dir === 1 ? ' ↑' : ' ↓') : ' ↕';
+    const color  = active ? 'color:var(--blue)' : 'color:var(--ink-3)';
+    const base   = align === 'left' ? thL : thR;
+    return `<th style="${base};${color}" onclick="scpSortBy('${k}')">${label}<span style="opacity:.5;font-size:9px">${arrow}</span></th>`;
+  };
+
+  const thead = `<thead><tr>
+    <th style="${thL};color:var(--ink-3)">#</th>
+    ${col('Flavour','flavour','left')}
+    ${col('Total Units (50g)','units')}
+    ${col('Singles (100g)','single_orders')}
+    ${col('Units from Singles','single_units')}
+    ${col('2-Scoop Scoops','two_scoop_scoops')}
+    ${col('3-Scoop Scoops','three_scoop_scoops')}
+    ${col('Combo Units','combo_units')}
+  </tr></thead>`;
+
+  const rows = sorted.map((f, i) => {
+    const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
+    const tdN = (val, highlight=false) => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${highlight?'font-weight:700;color:var(--blue)':''}">${val ?? '—'}</td>`;
+    return `<tr>
+      ${tdL(i + 1)}
+      ${tdL(f.flavour, true)}
+      ${tdN(f.units, true)}
+      ${tdN(f.single_orders)}
+      ${tdN(f.single_units)}
+      ${tdN(f.two_scoop_scoops)}
+      ${tdN(f.three_scoop_scoops)}
+      ${tdN(f.combo_units)}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${rows}</tbody></table></div>`;
+}
+
+function scpSortBy(key) {
+  if (_scpSort.key === key) {
+    _scpSort.dir *= -1;
+  } else {
+    _scpSort = { key, dir: -1 };
+  }
+  scpDrawTable();
+}
+
+/* ── OUT OF STOCK PAGE ── */
+function renderStockPage() {
+  const el = document.getElementById('pageBody');
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+
+  fetch(API + '/api/inventory/live')
+    .then(r => r.json())
+    .then(d => {
+      const items = d.items || [];
+      const oos   = items.filter(x => x.status === 'OUT OF STOCK');
+      const ins   = items.filter(x => x.status === 'IN STOCK');
+
+      const byOutlet = {};
+      oos.forEach(x => {
+        (byOutlet[x.outlet] = byOutlet[x.outlet] || []).push(x);
+      });
+
+      const outletCount = Object.keys(byOutlet).length;
+
+      const statRow = `
+        <div class="stat-row">
+          <div class="stat-card">
+            <div class="stat-label">Items Out of Stock</div>
+            <div class="stat-value" style="color:var(--red)">${oos.length}</div>
+            <div class="stat-sub">Right now</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Outlets Affected</div>
+            <div class="stat-value" style="color:var(--amber)">${outletCount}</div>
+            <div class="stat-sub">With at least 1 OOS item</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Back In Stock</div>
+            <div class="stat-value" style="color:var(--green)">${ins.length}</div>
+            <div class="stat-sub">Resolved today</div>
+          </div>
+        </div>`;
+
+      if (oos.length === 0) {
+        el.innerHTML = statRow + `<div class="state-box" style="margin-top:24px">
+          <div class="state-icon">✅</div>
+          <div class="state-title">All clear</div>
+          <div class="state-body">No items currently out of stock.</div>
+        </div>`;
+        return;
+      }
+
+      const fmtDur = hrs => {
+        if (hrs == null) return '—';
+        const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
+        return h === 0 ? `${m}m` : `${h}h ${m}m`;
+      };
+
+      const tables = Object.entries(byOutlet).sort((a,b) => b[1].length - a[1].length).map(([outlet, rows]) => {
+        const rowsHtml = rows.map(r => `
+          <tr>
+            <td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);font-weight:600">${r.item || '—'}</td>
+            <td style="padding:9px 13px;font-size:11px;border-bottom:1px solid var(--border);color:var(--ink-3);font-family:var(--mono)">${r.sku || '—'}</td>
+            <td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink-2)">${r.out_since || '—'}</td>
+            <td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--red);font-weight:600">${fmtDur(r.duration_hrs)}</td>
+          </tr>`).join('');
+        return `
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-header" style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:13px;font-weight:700">${outlet}</span>
+              <span style="background:var(--red-dim);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${rows.length} OOS</span>
+            </div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse">
+                <thead><tr style="background:var(--bg)">
+                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Item</th>
+                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">SKU</th>
+                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Out Since</th>
+                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Op. Hours Lost</th>
+                </tr></thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }).join('');
+
+      el.innerHTML = statRow + `<div style="margin-top:8px;font-size:11px;color:var(--ink-3);margin-bottom:16px">Last updated: ${d.generated_at}</div>` + tables;
+    })
+    .catch(() => { el.innerHTML = errBox(''); });
+}
+
+/* ── OOS TRACKER PAGE ── */
+let _trackerDays = 7;
+
+function renderTrackerPage() {
+  const el = document.getElementById('pageBody');
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+
+  fetch(`${API}/api/inventory/tracker?days=${_trackerDays}`)
+    .then(r => r.json())
+    .then(d => {
+      const events = d.events || [];
+
+      const dayBar = `
+        <div style="display:flex;gap:1px;margin-bottom:16px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
+          ${[1,3,7,14,28].map(n => `<button class="ptab ${_trackerDays===n?'active':''}" onclick="_trackerSetDays(${n})">${n}d</button>`).join('')}
+        </div>`;
+
+      if (events.length === 0) {
+        el.innerHTML = dayBar + `<div class="state-box">
+          <div class="state-icon">✅</div>
+          <div class="state-title">No critical stock-outs</div>
+          <div class="state-body">No critical items went out of stock in the last ${_trackerDays} day${_trackerDays>1?'s':''}.</div>
+        </div>`;
+        return;
+      }
+
+      const rows = events.map(e => `
+        <tr>
+          <td class="ts-cell">${e.timestamp}</td>
+          <td style="font-weight:700;font-size:13px">${e.outlet}</td>
+          <td style="font-size:12px">${e.item}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">${e.sku}</td>
+        </tr>`).join('');
+
+      el.innerHTML = dayBar + `
+        <div class="section-card">
+          <div class="section-head">
+            <div class="section-head-left">
+              <div class="section-icon red">🔴</div>
+              <div>
+                <div class="section-title">Critical Stock-Out Events</div>
+                <div class="section-sub">${events.length} event${events.length>1?'s':''} · last ${_trackerDays} day${_trackerDays>1?'s':''} · as of ${d.generated_at}</div>
+              </div>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Timestamp</th>
+              <th>Outlet</th>
+              <th>Item</th>
+              <th>SKU</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    })
+    .catch(() => { el.innerHTML = errBox(''); });
+}
+
+function _trackerSetDays(n) {
+  _trackerDays = n;
+  renderTrackerPage();
+}
+
+/* ── BOOT ── */
+renderPowerPage();
+</script>
+</body>
+</html>
