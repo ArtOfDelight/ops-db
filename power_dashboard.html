@@ -2044,7 +2044,7 @@ function prSetPreset(days) {
     if (btn) btn.classList.toggle('active', d === days);
   });
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const from = new Date(); from.setDate(yesterday.getDate() - (days - 1));
+  const from = new Date(yesterday); from.setDate(yesterday.getDate() - (days - 1));
   const fmt = d => d.toISOString().split('T')[0];
   const startEl = document.getElementById('pr-start');
   const endEl   = document.getElementById('pr-end');
