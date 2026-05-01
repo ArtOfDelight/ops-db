@@ -2332,10 +2332,13 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
   const thL = `${thBase};text-align:left`;
   const tdL = v => `<td style="padding:9px 12px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink)">${v}</td>`;
   const tdN = v => `<td style="padding:9px 12px;text-align:center;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--ink)">${v}</td>`;
-  const tdD = (v) => {
+  const tdD = (v, base) => {
     const cls = v > 0 ? 'color:#16a34a;font-weight:700' : v < 0 ? 'color:#dc2626;font-weight:700' : 'color:var(--ink-3)';
-    const sym = v > 0 ? '▲ +' : v < 0 ? '▼ ' : '— ';
-    return `<td style="padding:9px 12px;text-align:center;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${cls}">${sym}${Math.abs(v)||'0'}</td>`;
+    const sym = v > 0 ? '▲' : v < 0 ? '▼' : '—';
+    const pct = base > 0 ? Math.round(Math.abs(v) / base * 100) : null;
+    const pctStr = pct !== null ? `<span style="font-size:10px;opacity:.8"> ${pct}%</span>` : '';
+    const val = v !== 0 ? `${sym} ${Math.abs(v)}${pctStr}` : '—';
+    return `<td style="padding:9px 12px;text-align:center;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${cls}">${val}</td>`;
   };
   const thead = `<thead>
     <tr>
@@ -2362,7 +2365,7 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
     ${tdL(i+1)} ${tdL(`<strong>${r.product}</strong>`)} ${tdL(r.category||'—')}
     ${tdN(r.aHigh||'—')} ${tdN(r.aLow||'—')} ${tdN(r.aTotal||'—')}
     ${tdN(r.bHigh||'—')} ${tdN(r.bLow||'—')} ${tdN(r.bTotal||'—')}
-    ${tdD(r.dHigh)} ${tdD(r.dLow*-1)} ${tdD(r.dTotal)}
+    ${tdD(r.dHigh, r.bHigh)} ${tdD(r.dLow*-1, r.bLow)} ${tdD(r.dTotal, r.bTotal)}
   </tr>`).join('');
   el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${tbody}</tbody></table></div>
     <div style="font-size:11px;color:var(--ink-3);margin-top:10px;font-family:var(--mono)">
