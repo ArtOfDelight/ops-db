@@ -2346,30 +2346,27 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
       <th style="${thL}" rowspan="2">#</th>
       <th style="${thL}" rowspan="2">Product</th>
       <th style="${thL}" rowspan="2">Category</th>
-      <th style="${thC};background:#eff6ff;border-left:2px solid var(--blue)" colspan="4">Period A · ${aFrom} → ${aTo}</th>
-      <th style="${thC};background:#f0fdf4;border-left:2px solid var(--green)" colspan="4">Period B · ${bFrom} → ${bTo}</th>
-      <th style="${thC};background:#faf5ff;border-left:2px solid #7c3aed" colspan="4">Δ Change (A − B)</th>
+      <th style="${thC};background:#eff6ff;border-left:2px solid var(--blue)" colspan="3">Period A · ${aFrom} → ${aTo}</th>
+      <th style="${thC};background:#f0fdf4;border-left:2px solid var(--green)" colspan="3">Period B · ${bFrom} → ${bTo}</th>
+      <th style="${thC};background:#faf5ff;border-left:2px solid #7c3aed" colspan="3">Δ Change (A − B)</th>
     </tr>
     <tr>
       <th style="${thC};background:#eff6ff;color:var(--blue)">Orders</th>
       <th style="${thC};background:#eff6ff;color:var(--blue)">High ⭐</th>
       <th style="${thC};background:#eff6ff;color:var(--blue)">Low 👎</th>
-      <th style="${thC};background:#eff6ff;color:var(--blue)">Total</th>
       <th style="${thC};background:#f0fdf4;color:var(--green);border-left:2px solid var(--green)">Orders</th>
       <th style="${thC};background:#f0fdf4;color:var(--green)">High ⭐</th>
       <th style="${thC};background:#f0fdf4;color:var(--green)">Low 👎</th>
-      <th style="${thC};background:#f0fdf4;color:var(--green)">Total</th>
       <th style="${thC};background:#faf5ff;color:#7c3aed;border-left:2px solid #7c3aed">Orders</th>
       <th style="${thC};background:#faf5ff;color:#7c3aed">High</th>
       <th style="${thC};background:#faf5ff;color:#7c3aed">Low</th>
-      <th style="${thC};background:#faf5ff;color:#7c3aed">Total</th>
     </tr>
   </thead>`;
   const tbody = rows.map((r,i) => `<tr>
     ${tdL(i+1)} ${tdL(`<strong>${r.product}</strong>`)} ${tdL(r.category||'—')}
-    ${tdN(r.aOrders||'—')} ${tdN(r.aHigh||'—')} ${tdN(r.aLow||'—')} ${tdN(r.aTotal||'—')}
-    ${tdN(r.bOrders||'—')} ${tdN(r.bHigh||'—')} ${tdN(r.bLow||'—')} ${tdN(r.bTotal||'—')}
-    ${tdD(r.dOrders, r.bOrders)} ${tdD(r.dHigh, r.bHigh)} ${tdD(r.dLow*-1, r.bLow)} ${tdD(r.dTotal, r.bTotal)}
+    ${tdN(r.aOrders||'—')} ${tdN(r.aHigh||'—')} ${tdN(r.aLow||'—')}
+    ${tdN(r.bOrders||'—')} ${tdN(r.bHigh||'—')} ${tdN(r.bLow||'—')}
+    ${tdD(r.dOrders, r.bOrders)} ${tdD(r.dHigh, r.bHigh)} ${tdD(r.dLow*-1, r.bLow)}
   </tr>`).join('');
   el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${tbody}</tbody></table></div>
     <div style="font-size:11px;color:var(--ink-3);margin-top:10px;font-family:var(--mono)">
