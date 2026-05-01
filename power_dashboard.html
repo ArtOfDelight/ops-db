@@ -1941,13 +1941,13 @@ function orRenderTable(outlets, el) {
 
 /* ── PRODUCT RANKINGS PAGE ── */
 let _prSubTab = 'products'; // 'products' | 'scoops'
+let _prViewTab = 'online';  // 'online' | 'dinein' | 'combined'
 
 function renderProductsPage() {
   const body = document.getElementById('pageBody');
   if (!_orToken) { renderSigninLogin(body); return; }
   body.innerHTML = `
     <div style="padding:24px 28px">
-      <!-- Page-level sub-tab switcher -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
         <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
           <button class="ptab ${_prSubTab==='products'?'active':''}" id="pgsub-products" onclick="prSwitchSubTab('products')" style="padding:5px 16px;font-size:11px">All Products</button>
@@ -1970,7 +1970,7 @@ function prSwitchSubTab(tab, skipState) {
   if (!wrap) return;
   if (tab === 'products') {
     wrap.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
         <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
           <button class="ptab active" id="prtab-7"  onclick="prSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
           <button class="ptab"        id="prtab-28" onclick="prSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
@@ -1995,6 +1995,12 @@ function prSwitchSubTab(tab, skipState) {
           </select>
         </div>
         <span class="as-of-label" id="pr-status"></span>
+      </div>
+      <!-- Online / Dine In / Combined view tabs -->
+      <div class="panel-tabs" style="margin:0 0 16px 0;padding:3px;gap:1px;width:fit-content">
+        <button class="ptab ${_prViewTab==='online'  ?'active':''}" id="prvtab-online"   onclick="prSetViewTab('online')"   style="padding:4px 14px;font-size:10px">🌐 Online</button>
+        <button class="ptab ${_prViewTab==='dinein'  ?'active':''}" id="prvtab-dinein"   onclick="prSetViewTab('dinein')"   style="padding:4px 14px;font-size:10px">🪑 Dine In</button>
+        <button class="ptab ${_prViewTab==='combined'?'active':''}" id="prvtab-combined" onclick="prSetViewTab('combined')" style="padding:4px 14px;font-size:10px">📊 Combined</button>
       </div>
       <div id="pr-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     prSetPreset(7);
@@ -2047,6 +2053,17 @@ function prSetPreset(days) {
   prLoad();
 }
 
+function prSetViewTab(tab) {
+  _prViewTab = tab;
+  ['online','dinein','combined'].forEach(t => {
+    const btn = document.getElementById('prvtab-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  // reset sort key to match the new tab's primary column
+  _prSort = { key: tab === 'dinein' ? 'dine_in_orders' : tab === 'combined' ? 'rista_orders' : 'online_orders', dir: -1 };
+  prDrawTable();
+}
+
 async function prLoad() {
   const from = document.getElementById('pr-start')?.value;
   const to   = document.getElementById('pr-end')?.value;
@@ -2068,7 +2085,7 @@ async function prLoad() {
 }
 
 let _prData = [];
-let _prSort = { key: 'rista_orders', dir: -1 };
+let _prSort = { key: 'online_orders', dir: -1 };
 
 function prRenderTable(products, el) {
   if (!products.length) {
@@ -2076,7 +2093,6 @@ function prRenderTable(products, el) {
     return;
   }
   _prData = products;
-  // Populate category dropdown
   const cats = [...new Set(products.map(p => p.category || '').filter(Boolean))].sort();
   const sel = document.getElementById('pr-category');
   if (sel) {
@@ -2092,9 +2108,16 @@ function prDrawTable(el) {
   const minOrders = parseInt(document.getElementById('pr-min-orders')?.value || '0', 10) || 0;
   const catFilter = document.getElementById('pr-category')?.value || '';
   const { key, dir } = _prSort;
+  const view = _prViewTab; // 'online' | 'dinein' | 'combined'
+
+  // For min-orders filter, use the primary order col for the current view
+  const orderKey = view === 'dinein' ? 'dine_in_orders' : view === 'combined' ? 'rista_orders' : 'online_orders';
+
   const sorted = [..._prData]
-    .filter(p => (p.rista_orders || 0) >= minOrders)
+    .filter(p => (p[orderKey] || 0) >= minOrders)
     .filter(p => !catFilter || (p.category || '') === catFilter)
+    // hide products with 0 orders in current view
+    .filter(p => (p[orderKey] || 0) > 0 || view === 'combined')
     .sort((a, b) => {
       const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
       return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir;
@@ -2112,42 +2135,84 @@ function prDrawTable(el) {
     return `<th style="${base};${color}" onclick="prSortBy('${k}')">${label}<span style="opacity:.5;font-size:9px">${arrow}</span></th>`;
   };
 
-  const thead = `<thead><tr>
-    <th style="${thL};color:var(--ink-3)">#</th>
-    ${col('Product','product','left')}
-    ${col('Category','category','left')}
-    ${col('Rista Orders','rista_orders')}
-    ${col('Total Rated','total_rated')}
-    ${col('High ⭐','high_rated')}
-    ${col('Low 👎','low_rated')}
-    ${col('IGCC','igcc')}
-    ${col('Errors','total_errors')}
-    ${col('High %','high_pct')}
-    ${col('Error %','error_pct')}
-    ${col('Net %','net_pct')}
-  </tr></thead>`;
+  let thead, rowsFn;
 
-  const rows = sorted.map((p, i) => {
-    const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0  ? '' : 'bad';
-    const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2  ? 'warn' : 'bad';
-    const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
-    const td  = (val, cls='') => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)"><span class="sc-pct ${cls}">${val}</span></td>`;
-    const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
-    const tdB = (val) => `<td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--blue)">${val}</td>`;
-    return `<tr>
-      ${tdL(i + 1)}
-      ${tdL(p.product, true)}
-      ${tdL(p.category || '—')}
-      ${tdB(p.rista_orders > 0 ? p.rista_orders : '—')}
-      ${tdB(p.total_rated)}
-      ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
-      ${td(p.high_pct + '%', highCls)}
-      ${td(p.error_pct + '%', errCls)}
-      ${td(p.net_pct + '%', netCls)}
+  const td  = (val, cls='') => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)"><span class="sc-pct ${cls}">${val}</span></td>`;
+  const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
+  const tdB = (val) => `<td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--blue)">${val}</td>`;
+
+  if (view === 'online') {
+    thead = `<thead><tr>
+      <th style="${thL};color:var(--ink-3)">#</th>
+      ${col('Product','product','left')}
+      ${col('Category','category','left')}
+      ${col('Online Orders','online_orders')}
+      ${col('Total Rated','total_rated')}
+      ${col('High ⭐','high_rated')}
+      ${col('Low 👎','low_rated')}
+      ${col('IGCC','igcc')}
+      ${col('Errors','total_errors')}
+      ${col('High %','high_pct')}
+      ${col('Error %','error_pct')}
+      ${col('Net %','net_pct')}
+    </tr></thead>`;
+    rowsFn = (p, i) => {
+      const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
+      const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2 ? 'warn' : 'bad';
+      const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
+      return `<tr>
+        ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
+        ${tdB(p.online_orders||'—')} ${tdB(p.total_rated)}
+        ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
+        ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
+      </tr>`;
+    };
+  } else if (view === 'dinein') {
+    thead = `<thead><tr>
+      <th style="${thL};color:var(--ink-3)">#</th>
+      ${col('Product','product','left')}
+      ${col('Category','category','left')}
+      ${col('Dine In Orders','dine_in_orders')}
+    </tr></thead>`;
+    rowsFn = (p, i) => `<tr>
+      ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
+      ${tdB(p.dine_in_orders||'—')}
     </tr>`;
-  }).join('');
+  } else {
+    // combined — sorted by online_orders, shows both + ratings
+    thead = `<thead><tr>
+      <th style="${thL};color:var(--ink-3)">#</th>
+      ${col('Product','product','left')}
+      ${col('Category','category','left')}
+      ${col('Online','online_orders')}
+      ${col('Dine In','dine_in_orders')}
+      ${col('Total','rista_orders')}
+      ${col('Total Rated','total_rated')}
+      ${col('High ⭐','high_rated')}
+      ${col('Low 👎','low_rated')}
+      ${col('IGCC','igcc')}
+      ${col('High %','high_pct')}
+      ${col('Error %','error_pct')}
+      ${col('Net %','net_pct')}
+    </tr></thead>`;
+    rowsFn = (p, i) => {
+      const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
+      const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2 ? 'warn' : 'bad';
+      const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
+      return `<tr>
+        ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
+        ${tdB(p.online_orders||'—')} ${tdB(p.dine_in_orders||'—')} ${tdB(p.rista_orders||'—')}
+        ${tdB(p.total_rated)}
+        ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)}
+        ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
+      </tr>`;
+    };
+  }
 
-  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}</tbody></table></div>`;
+  const rows = sorted.map(rowsFn).join('');
+  const minW = view === 'dinein' ? '500px' : view === 'combined' ? '1100px' : '1000px';
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:${minW}">${thead}<tbody>${rows}</tbody></table></div>`;
+  if (!sorted.length) el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this view.</div>';
 }
 
 function prSortBy(key) {
