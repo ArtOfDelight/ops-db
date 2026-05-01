@@ -1205,15 +1205,19 @@ function renderSigninLogin(body) {
       <div class="ls-login-card">
         <div class="ls-login-eyebrow">Zaān Operations</div>
         <div class="ls-login-title">Admin Login</div>
-        <div class="ls-login-sub">Enter your employee ID and phone number to receive a one-time password.</div>
+        <div class="ls-login-sub" id="ls-login-sub">Enter your employee ID and phone number to receive a one-time password.</div>
         <div id="ls-step1">
-          <div class="ls-field"><label>Employee ID</label><input id="ls-empid" placeholder="e.g. EMP001" autocomplete="off"/></div>
-          <div class="ls-field"><label>Phone Number</label><input id="ls-phone" type="tel" maxlength="10" placeholder="10-digit mobile"/></div>
-          <button class="ls-btn" onclick="lsSendOTP()">Send OTP →</button>
+          <div class="ls-field"><label>Employee ID</label><input id="ls-empid" placeholder="e.g. EMP001" autocomplete="off" oninput="lsOnEmpIdChange()"/></div>
+          <div class="ls-field" id="ls-phone-field"><label>Phone Number</label><input id="ls-phone" type="tel" maxlength="10" placeholder="10-digit mobile"/></div>
+          <button class="ls-btn" onclick="lsSendOTP()">Continue →</button>
         </div>
         <div id="ls-step2" style="display:none">
           <div class="ls-field"><label>One-Time Password</label><input id="ls-otp" type="text" maxlength="6" placeholder="Enter 6-digit OTP" autocomplete="one-time-code"/></div>
           <button class="ls-btn" onclick="lsVerifyOTP()">Verify & Login →</button>
+        </div>
+        <div id="ls-step-password" style="display:none">
+          <div class="ls-field"><label>Password</label><input id="ls-password" type="password" placeholder="Enter password" autocomplete="current-password"/></div>
+          <button class="ls-btn" onclick="lsVerifyPassword()">Login →</button>
         </div>
         <div class="ls-err" id="ls-err"></div>
       </div>
@@ -1286,10 +1290,27 @@ function lsSetErr(msg, isOk) {
   el.className = 'ls-err ' + (isOk ? 'ok' : msg ? 'error' : '');
 }
 
+const LS_PASSWORD_AUTH_IDS = ['AOD001'];
+
+function lsOnEmpIdChange() {
+  const empId = document.getElementById('ls-empid').value.trim().toUpperCase();
+  const isPasswordAuth = LS_PASSWORD_AUTH_IDS.includes(empId);
+  document.getElementById('ls-phone-field').style.display = isPasswordAuth ? 'none' : '';
+  document.getElementById('ls-login-sub').textContent = isPasswordAuth
+    ? 'Enter your employee ID and password to login.'
+    : 'Enter your employee ID and phone number to receive a one-time password.';
+}
+
 async function lsSendOTP() {
   const empId = document.getElementById('ls-empid').value.trim();
-  _lsPhone    = document.getElementById('ls-phone').value.trim();
-  if (!empId)                      { lsSetErr('Enter your Employee ID'); return; }
+  if (!empId) { lsSetErr('Enter your Employee ID'); return; }
+  if (LS_PASSWORD_AUTH_IDS.includes(empId.toUpperCase())) {
+    document.getElementById('ls-step1').style.display = 'none';
+    document.getElementById('ls-step-password').style.display = 'block';
+    setTimeout(() => document.getElementById('ls-password')?.focus(), 50);
+    return;
+  }
+  _lsPhone = document.getElementById('ls-phone').value.trim();
   if (!/^\d{10}$/.test(_lsPhone)) { lsSetErr('Enter a valid 10-digit phone number'); return; }
   lsSetErr('Sending OTP…');
   try {
@@ -1303,6 +1324,25 @@ async function lsSendOTP() {
     document.getElementById('ls-step1').style.display = 'none';
     document.getElementById('ls-step2').style.display = 'block';
   } catch { lsSetErr('Network error — check your connection'); }
+}
+
+async function lsVerifyPassword() {
+  const empId    = document.getElementById('ls-empid')?.value.trim() || '';
+  const password = document.getElementById('ls-password').value;
+  if (!password) { lsSetErr('Enter your password'); return; }
+  lsSetErr('Verifying…');
+  try {
+    const r = await fetch(`${LS_API}/api/auth/login-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: empId, password })
+    });
+    const d = await r.json();
+    if (!r.ok) { lsSetErr(d.detail || 'Invalid credentials'); return; }
+    if (d.role !== 'admin') { lsSetErr('This account does not have admin access.'); return; }
+    _lsToken = d.token;
+    localStorage.setItem('adminToken', _lsToken);
+    renderSigninMain(document.getElementById('pageBody'));
+  } catch { lsSetErr('Network error'); }
 }
 
 async function lsVerifyOTP() {
