@@ -2043,13 +2043,13 @@ function prSetPreset(days) {
     const btn = document.getElementById('prtab-' + d);
     if (btn) btn.classList.toggle('active', d === days);
   });
-  const today = new Date();
-  const from  = new Date(); from.setDate(today.getDate() - (days - 1));
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const from = new Date(); from.setDate(yesterday.getDate() - (days - 1));
   const fmt = d => d.toISOString().split('T')[0];
   const startEl = document.getElementById('pr-start');
   const endEl   = document.getElementById('pr-end');
   if (startEl) startEl.value = fmt(from);
-  if (endEl)   endEl.value   = fmt(today);
+  if (endEl)   endEl.value   = fmt(yesterday);
   prLoad();
 }
 
