@@ -2036,7 +2036,8 @@ function prSwitchSubTab(tab, skipState) {
       </div>
       <div id="scp-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     scpSetPreset(7);
-  } else {
+  }
+  if (tab === 'trends') {
     // ── Rating Trends tab ──
     wrap.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
