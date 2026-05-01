@@ -1940,7 +1940,7 @@ function orRenderTable(outlets, el) {
 }
 
 /* ── PRODUCT RANKINGS PAGE ── */
-let _prSubTab = 'products'; // 'products' | 'scoops'
+let _prSubTab = 'products'; // 'products' | 'scoops' | 'trends'
 let _prViewTab = 'online';  // 'online' | 'dinein' | 'combined'
 
 function renderProductsPage() {
@@ -1951,7 +1951,8 @@ function renderProductsPage() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
         <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
           <button class="ptab ${_prSubTab==='products'?'active':''}" id="pgsub-products" onclick="prSwitchSubTab('products')" style="padding:5px 16px;font-size:11px">All Products</button>
-          <button class="ptab ${_prSubTab==='scoops'?'active':''}"   id="pgsub-scoops"   onclick="prSwitchSubTab('scoops')"   style="padding:5px 16px;font-size:11px">🍦 Scoop Flavours</button>
+          <button class="ptab ${_prSubTab==='scoops'  ?'active':''}" id="pgsub-scoops"   onclick="prSwitchSubTab('scoops')"   style="padding:5px 16px;font-size:11px">🍦 Scoop Flavours</button>
+          <button class="ptab ${_prSubTab==='trends'  ?'active':''}" id="pgsub-trends"   onclick="prSwitchSubTab('trends')"   style="padding:5px 16px;font-size:11px">📈 Rating Trends</button>
         </div>
         <button class="ls-logout-btn" onclick="lsLogout();renderProductsPage()">Logout</button>
       </div>
@@ -1962,7 +1963,7 @@ function renderProductsPage() {
 
 function prSwitchSubTab(tab, skipState) {
   if (!skipState) _prSubTab = tab;
-  ['products','scoops'].forEach(t => {
+  ['products','scoops','trends'].forEach(t => {
     const btn = document.getElementById('pgsub-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
@@ -2035,6 +2036,33 @@ function prSwitchSubTab(tab, skipState) {
       </div>
       <div id="scp-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     scpSetPreset(7);
+  } else {
+    // ── Rating Trends tab ──
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <button class="ptab active" id="trtab-7"  onclick="trSetPreset(7)"  style="padding:4px 12px;font-size:10px">7D vs 7D</button>
+          <button class="ptab"        id="trtab-1"  onclick="trSetPreset(1)"  style="padding:4px 12px;font-size:10px">1D vs 1D</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;background:#eff6ff;color:var(--blue);padding:2px 8px;border-radius:4px;font-weight:700">Period A</span>
+            <input type="date" id="tr-a-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <span style="font-size:11px;color:var(--ink-3)">→</span>
+            <input type="date" id="tr-a-end"   style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;background:#f0fdf4;color:var(--green);padding:2px 8px;border-radius:4px;font-weight:700">Period B</span>
+            <input type="date" id="tr-b-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <span style="font-size:11px;color:var(--ink-3)">→</span>
+            <input type="date" id="tr-b-end"   style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+          </div>
+          <button class="ptab active" onclick="trLoad()" style="padding:4px 14px;font-size:10px">Compare</button>
+        </div>
+        <span class="as-of-label" id="tr-status"></span>
+      </div>
+      <div id="tr-content"><div style="color:var(--ink-3);font-size:13px;padding:20px 0">Select date ranges and click Compare.</div></div>`;
+    trSetPreset(7);
   }
 }
 
@@ -2222,6 +2250,117 @@ function prSortBy(key) {
     _prSort = { key, dir: -1 };
   }
   prDrawTable();
+}
+
+/* ── RATING TRENDS ── */
+function trSetPreset(days) {
+  [7,1].forEach(d => {
+    const btn = document.getElementById('trtab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const fmt = d => d.toISOString().split('T')[0];
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  // Period A = most recent period ending yesterday
+  const aEnd   = new Date(yesterday);
+  const aStart = new Date(yesterday); aStart.setDate(aEnd.getDate() - (days - 1));
+  // Period B = previous period ending the day before Period A starts
+  const bEnd   = new Date(aStart); bEnd.setDate(aStart.getDate() - 1);
+  const bStart = new Date(bEnd);   bStart.setDate(bEnd.getDate() - (days - 1));
+  const s = id => document.getElementById(id);
+  if (s('tr-a-start')) s('tr-a-start').value = fmt(aStart);
+  if (s('tr-a-end'))   s('tr-a-end').value   = fmt(aEnd);
+  if (s('tr-b-start')) s('tr-b-start').value = fmt(bStart);
+  if (s('tr-b-end'))   s('tr-b-end').value   = fmt(bEnd);
+  trLoad();
+}
+
+async function trLoad() {
+  const s = id => document.getElementById(id)?.value;
+  const aFrom = s('tr-a-start'), aTo = s('tr-a-end');
+  const bFrom = s('tr-b-start'), bTo = s('tr-b-end');
+  if (!aFrom || !aTo || !bFrom || !bTo) return;
+  const el = document.getElementById('tr-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading both periods…</div>';
+  const statusEl = document.getElementById('tr-status');
+  try {
+    const fetchPeriod = async (from, to) => {
+      const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
+        { headers: { 'Authorization': `Bearer ${_orToken}` } });
+      if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); throw new Error('auth'); }
+      return (await r.json()).products || [];
+    };
+    const [pA, pB] = await Promise.all([fetchPeriod(aFrom, aTo), fetchPeriod(bFrom, bTo)]);
+    // Build lookup by product name
+    const mapB = {};
+    pB.forEach(p => { mapB[p.product] = p; });
+    // Only show products that have ratings in at least one period
+    const allNames = [...new Set([...pA.map(p=>p.product), ...pB.map(p=>p.product)])];
+    const rows = allNames.map(name => {
+      const a = pA.find(p=>p.product===name) || { high_rated:0, low_rated:0, total_rated:0, online_orders:0, category:'' };
+      const b = mapB[name]                   || { high_rated:0, low_rated:0, total_rated:0, online_orders:0, category:'' };
+      return {
+        product:   name,
+        category:  a.category || b.category || '',
+        aHigh: a.high_rated, aLow: a.low_rated, aTotal: a.total_rated, aOrders: a.online_orders,
+        bHigh: b.high_rated, bLow: b.low_rated, bTotal: b.total_rated, bOrders: b.online_orders,
+        dHigh: a.high_rated - b.high_rated,
+        dLow:  a.low_rated  - b.low_rated,
+        dTotal: a.total_rated - b.total_rated,
+      };
+    }).filter(r => r.aTotal > 0 || r.bTotal > 0)
+      .sort((a,b) => b.aOrders - a.aOrders);
+
+    if (statusEl) statusEl.textContent = `${rows.length} products · A: ${aFrom}→${aTo} · B: ${bFrom}→${bTo}`;
+    trRenderTable(rows, aFrom, aTo, bFrom, bTo, el);
+  } catch(e) {
+    if (e.message !== 'auth' && el)
+      el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
+  }
+}
+
+function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
+  if (!rows.length) { el.innerHTML = '<div class="no-outages" style="padding:40px">No rated data for these ranges.</div>'; return; }
+  const thBase = 'padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono);color:var(--ink-3)';
+  const thC = `${thBase};text-align:center`;
+  const thL = `${thBase};text-align:left`;
+  const tdL = v => `<td style="padding:9px 12px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink)">${v}</td>`;
+  const tdN = v => `<td style="padding:9px 12px;text-align:center;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--ink)">${v}</td>`;
+  const tdD = (v) => {
+    const cls = v > 0 ? 'color:#16a34a;font-weight:700' : v < 0 ? 'color:#dc2626;font-weight:700' : 'color:var(--ink-3)';
+    const sym = v > 0 ? '▲ +' : v < 0 ? '▼ ' : '— ';
+    return `<td style="padding:9px 12px;text-align:center;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${cls}">${sym}${Math.abs(v)||'0'}</td>`;
+  };
+  const thead = `<thead>
+    <tr>
+      <th style="${thL}" rowspan="2">#</th>
+      <th style="${thL}" rowspan="2">Product</th>
+      <th style="${thL}" rowspan="2">Category</th>
+      <th style="${thC};background:#eff6ff;border-left:2px solid var(--blue)" colspan="3">Period A · ${aFrom} → ${aTo}</th>
+      <th style="${thC};background:#f0fdf4;border-left:2px solid var(--green)" colspan="3">Period B · ${bFrom} → ${bTo}</th>
+      <th style="${thC};background:#faf5ff;border-left:2px solid #7c3aed" colspan="3">Δ Change (A − B)</th>
+    </tr>
+    <tr>
+      <th style="${thC};background:#eff6ff;color:var(--blue)">High ⭐</th>
+      <th style="${thC};background:#eff6ff;color:var(--blue)">Low 👎</th>
+      <th style="${thC};background:#eff6ff;color:var(--blue)">Total</th>
+      <th style="${thC};background:#f0fdf4;color:var(--green);border-left:2px solid var(--green)">High ⭐</th>
+      <th style="${thC};background:#f0fdf4;color:var(--green)">Low 👎</th>
+      <th style="${thC};background:#f0fdf4;color:var(--green)">Total</th>
+      <th style="${thC};background:#faf5ff;color:#7c3aed;border-left:2px solid #7c3aed">High</th>
+      <th style="${thC};background:#faf5ff;color:#7c3aed">Low</th>
+      <th style="${thC};background:#faf5ff;color:#7c3aed">Total</th>
+    </tr>
+  </thead>`;
+  const tbody = rows.map((r,i) => `<tr>
+    ${tdL(i+1)} ${tdL(`<strong>${r.product}</strong>`)} ${tdL(r.category||'—')}
+    ${tdN(r.aHigh||'—')} ${tdN(r.aLow||'—')} ${tdN(r.aTotal||'—')}
+    ${tdN(r.bHigh||'—')} ${tdN(r.bLow||'—')} ${tdN(r.bTotal||'—')}
+    ${tdD(r.dHigh)} ${tdD(r.dLow*-1)} ${tdD(r.dTotal)}
+  </tr>`).join('');
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${tbody}</tbody></table></div>
+    <div style="font-size:11px;color:var(--ink-3);margin-top:10px;font-family:var(--mono)">
+      Δ High ▲ = more high ratings in A vs B (good). Δ Low ▲ = fewer low ratings in A vs B (good). Sorted by Period A online orders.
+    </div>`;
 }
 
 /* ── SCOOP FLAVOUR RANKINGS ── */
