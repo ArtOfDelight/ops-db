@@ -2260,13 +2260,19 @@ function trSetPreset(days) {
   });
   const fmt = d => d.toISOString().split('T')[0];
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  // Period A = most recent period ending yesterday
-  const aEnd   = new Date(yesterday);
-  const aStart = new Date(yesterday); aStart.setDate(aEnd.getDate() - (days - 1));
-  // Period B = previous period ending the day before Period A starts
-  const bEnd   = new Date(aStart); bEnd.setDate(aStart.getDate() - 1);
-  const bStart = new Date(bEnd);   bStart.setDate(bEnd.getDate() - (days - 1));
   const s = id => document.getElementById(id);
+  let aStart, aEnd, bStart, bEnd;
+  if (days === 1) {
+    // 1D: yesterday vs same day last week (7 days before)
+    aStart = aEnd = new Date(yesterday);
+    bStart = bEnd = new Date(yesterday); bStart.setDate(yesterday.getDate() - 7); bEnd = new Date(bStart);
+  } else {
+    // 7D: last 7 days vs the 7 days before that
+    aEnd   = new Date(yesterday);
+    aStart = new Date(yesterday); aStart.setDate(aEnd.getDate() - 6);
+    bEnd   = new Date(aStart); bEnd.setDate(aStart.getDate() - 1);
+    bStart = new Date(bEnd);   bStart.setDate(bEnd.getDate() - 6);
+  }
   if (s('tr-a-start')) s('tr-a-start').value = fmt(aStart);
   if (s('tr-a-end'))   s('tr-a-end').value   = fmt(aEnd);
   if (s('tr-b-start')) s('tr-b-start').value = fmt(bStart);
