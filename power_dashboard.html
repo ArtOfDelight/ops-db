@@ -3023,7 +3023,7 @@ function _renderRRRecon() {
       <div class="stat-card">
         <div class="stat-label">Variance</div>
         <div class="stat-value" style="color:${totalColor}">₹${Math.abs(tDiff).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
-        <div class="stat-sub">${tDiff < -1 ? 'Short' : tDiff > 1 ? 'Over' : 'Balanced'}</div>
+        <div class="stat-sub">${tDiff < -1 ? 'Kim received less' : tDiff > 1 ? 'Kim received more' : 'Balanced'}</div>
       </div>
     </div>
     <div class="section-card">
