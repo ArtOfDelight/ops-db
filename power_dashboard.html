@@ -2758,13 +2758,15 @@ function _renderRecon() {
         ? `<td rowspan="${dayRows.length}" style="font-size:11px;font-weight:700;color:var(--ink-2);vertical-align:top;padding-top:10px;border-right:1px solid var(--border)">${dateLabel}${dayMissing > 0 ? `<br><span style="font-size:10px;color:var(--red);font-weight:700">-₹${dayMissing.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>` : ''}</td>`
         : '';
       const byTxt = r.submitted_by
-        ? `<div style="font-size:10px;color:var(--ink-3);margin-top:1px">${r.submitted_by}</div>`
+        ? `<div style="font-size:10px;color:var(--ink-3);margin-top:2px">by ${r.submitted_by}</div>`
         : '';
       return `<tr>
         ${outletFirst}
         <td style="font-weight:600">${r.outlet}${byTxt}</td>
         <td class="r" id="rcash-${r._idx}">
-          <span id="rcash-val-${r._idx}" style="cursor:pointer;text-decoration:underline dotted" onclick="_editCash(${r._idx})" title="Click to edit">${r.cash > 0 ? fmt(r.cash) : '—'}</span>
+          <input id="rcash-inp-${r._idx}" type="number" value="${r.cash || 0}"
+            style="width:72px;text-align:right;border:1px solid var(--border-2);border-radius:4px;padding:2px 4px;font-size:12px;font-family:inherit;background:var(--surface)"
+            onblur="_saveCash(${r._idx})" onkeydown="if(event.key==='Enter')this.blur()">
         </td>
         <td class="r">${r.bharatpe > 0 ? fmt(r.bharatpe) : '—'}</td>
         <td class="r">${r.zomato > 0 ? fmt(r.zomato) : '—'}</td>
@@ -2819,17 +2821,17 @@ function _renderRecon() {
     </div>`;
 }
 
-function _editCash(idx) {
-  const r = _reconRows()[idx] || _reconData.find(x => x._idx === idx);
+function _saveCash(idx) {
+  const r = _reconData.find(x => x._idx === idx);
   if (!r) return;
-  const cur = r.cash || 0;
-  const newVal = prompt(`Edit cash for ${r.outlet} on ${r.date}:\nCurrent: ₹${cur}`, cur);
-  if (newVal === null) return;
-  const parsed = parseFloat(newVal);
-  if (isNaN(parsed) || parsed < 0) { alert('Invalid amount'); return; }
+  const inp = document.getElementById('rcash-inp-' + idx);
+  if (!inp) return;
+  const parsed = parseFloat(inp.value);
+  if (isNaN(parsed) || parsed < 0) { inp.value = r.cash || 0; return; }
+  if (Math.abs(parsed - (r.cash || 0)) < 0.01) return; // no change
 
-  const btn = document.getElementById('rcash-val-' + idx);
-  if (btn) btn.textContent = 'Saving…';
+  inp.style.opacity = '0.5';
+  inp.disabled = true;
 
   fetch('/api/ops/daily-recon/cash', {
     method: 'PATCH',
@@ -2842,8 +2844,12 @@ function _editCash(idx) {
     r.cash  = d.cash;
     r.total = d.total;
     r.diff  = d.diff;
+    inp.value = d.cash;
+    inp.style.opacity = '1';
+    inp.disabled = false;
+    inp.style.borderColor = 'var(--green)';
+    setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 1500);
     const fmtN = n => n === 0 ? '—' : '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
-    if (btn) { btn.textContent = d.cash > 0 ? fmtN(d.cash) : '—'; }
     const tEl = document.getElementById('rtotal-' + idx);
     if (tEl) tEl.textContent = fmtN(d.total);
     const dEl = document.getElementById('rdiff-' + idx);
@@ -2852,7 +2858,13 @@ function _editCash(idx) {
       else { dEl.textContent = (d.diff < 0 ? '-' : '+') + fmtN(d.diff); dEl.style.color = d.diff < 0 ? 'var(--red)' : 'var(--green)'; }
     }
   })
-  .catch(e => { alert('Save failed: ' + e.message); if (btn) btn.textContent = fmtN(cur); });
+  .catch(e => {
+    inp.value = r.cash || 0;
+    inp.style.opacity = '1';
+    inp.disabled = false;
+    inp.style.borderColor = 'var(--red)';
+    setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 2000);
+  });
 }
 
 /* ── BOOT ── */
