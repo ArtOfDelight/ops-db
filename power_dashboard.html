@@ -2640,7 +2640,7 @@ function _trackerSetDays(n) {
 }
 
 /* ── DAILY RECON PAGE ── */
-let _reconWindow = 1; // 1 = yesterday, 7 = 7 days, 28 = 28 days
+let _reconWindow = 7;
 let _reconData   = null;
 
 function renderReconPage() {
@@ -2665,16 +2665,18 @@ function _reconSetWindow(w) {
   _renderRecon();
 }
 
+function _localDateStr(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
 function _reconRows() {
   if (!_reconData) return [];
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const cutoff = new Date(today);
-  cutoff.setDate(cutoff.getDate() - _reconWindow);
-  return _reconData.filter(r => {
-    const d = new Date(r.date);
-    return d >= cutoff && d < today;
-  });
+  const todayStr  = _localDateStr(0);
+  const cutoffStr = _localDateStr(-_reconWindow);
+  return _reconData.filter(r => r.date >= cutoffStr && r.date < todayStr);
 }
 
 function _renderRecon() {
@@ -2705,7 +2707,7 @@ function _renderRecon() {
   };
 
   const tabBar = `<div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
-    ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Yesterday':n+' Days'}</button>`).join('')}
+    ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Yesterday':n===7?'7 Days':'28 Days'}</button>`).join('')}
   </div>`;
 
   // Summary cards
