@@ -641,6 +641,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-tracker" onclick="navTo('tracker')">
       <span class="sb-icon">🔴</span> OOS Tracker
     </button>
+    <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
+      <span class="sb-icon">💰</span> Daily Recon
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -680,7 +683,7 @@ function navTo(page) {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker' };
+  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -692,6 +695,7 @@ function navTo(page) {
   if (page === 'products')  renderProductsPage();
   if (page === 'stock')     renderStockPage();
   if (page === 'tracker')   renderTrackerPage();
+  if (page === 'recon')     renderReconPage();
 }
 
 
@@ -2633,6 +2637,173 @@ function renderTrackerPage() {
 function _trackerSetDays(n) {
   _trackerDays = n;
   renderTrackerPage();
+}
+
+/* ── DAILY RECON PAGE ── */
+let _reconWindow = 1; // 1 = yesterday, 7 = 7 days, 28 = 28 days
+let _reconData   = null;
+
+function renderReconPage() {
+  const el = document.getElementById('pageBody');
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+
+  fetch(`${API}/api/ops/daily-recon`)
+    .then(r => r.json())
+    .then(d => {
+      _reconData = d.rows || [];
+      _renderRecon();
+    })
+    .catch(() => { el.innerHTML = errBox(''); });
+}
+
+function _reconSetWindow(w) {
+  _reconWindow = w;
+  [1,7,28].forEach(n => {
+    const b = document.getElementById('recontab-' + n);
+    if (b) b.classList.toggle('active', n === w);
+  });
+  _renderRecon();
+}
+
+function _reconRows() {
+  if (!_reconData) return [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - _reconWindow);
+  return _reconData.filter(r => {
+    const d = new Date(r.date);
+    return d >= cutoff && d < today;
+  });
+}
+
+function _renderRecon() {
+  const el = document.getElementById('pageBody');
+  if (!_reconData) return;
+
+  const rows   = _reconRows();
+  const label  = _reconWindow === 1 ? 'Yesterday' : `Last ${_reconWindow} Days`;
+
+  // Totals
+  let tCash=0, tBharatpe=0, tSwiggy=0, tZomato=0, tTotal=0, tRista=0, tDiff=0, tMissing=0;
+  rows.forEach(r => {
+    tCash     += r.cash;
+    tBharatpe += r.bharatpe;
+    tSwiggy   += r.swiggy;
+    tZomato   += r.zomato;
+    tTotal    += r.total;
+    tRista    += r.rista;
+    tDiff     += r.diff;
+    if (r.diff < 0) tMissing += Math.abs(r.diff);
+  });
+
+  const fmt = n => n === 0 ? '—' : '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+  const diffCell = (d) => {
+    if (Math.abs(d) < 1) return `<td class="r" style="color:var(--green);font-weight:700">✓</td>`;
+    const col = d < 0 ? 'var(--red)' : 'var(--green)';
+    return `<td class="r" style="color:${col};font-weight:700">${d < 0 ? '-' : '+'}${fmt(d)}</td>`;
+  };
+
+  const tabBar = `<div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
+    ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Yesterday':n+' Days'}</button>`).join('')}
+  </div>`;
+
+  // Summary cards
+  const missingColor = tMissing > 5000 ? 'var(--red)' : tMissing > 1000 ? 'var(--amber)' : 'var(--green)';
+  const summaryCards = `
+    <div class="stat-row" style="margin-bottom:0">
+      <div class="stat-card">
+        <div class="stat-label">Total Collected</div>
+        <div class="stat-value neu">₹${tTotal.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">${label}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Rista POS</div>
+        <div class="stat-value neu">₹${tRista.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">Expected</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Missing</div>
+        <div class="stat-value" style="color:${missingColor}">₹${tMissing.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">Unaccounted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cash Collected</div>
+        <div class="stat-value neu">₹${tCash.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">From checklist</div>
+      </div>
+    </div>`;
+
+  // Group rows by date
+  const byDate = {};
+  rows.forEach(r => { (byDate[r.date] = byDate[r.date] || []).push(r); });
+  const dates = Object.keys(byDate).sort().reverse();
+
+  const tableRows = dates.flatMap(date => {
+    const dayRows = byDate[date];
+    const dayDiff = dayRows.reduce((s,r) => s + r.diff, 0);
+    const dayMissing = dayRows.reduce((s,r) => r.diff < 0 ? s + Math.abs(r.diff) : s, 0);
+    const dateLabel = new Date(date).toLocaleDateString('en-IN',{day:'numeric',month:'short',weekday:'short'});
+    return dayRows.map((r,i) => {
+      const outletFirst = i === 0
+        ? `<td rowspan="${dayRows.length}" style="font-size:11px;font-weight:700;color:var(--ink-2);vertical-align:top;padding-top:10px;border-right:1px solid var(--border)">${dateLabel}${dayMissing > 0 ? `<br><span style="font-size:10px;color:var(--red);font-weight:700">-₹${dayMissing.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>` : ''}</td>`
+        : '';
+      return `<tr>
+        ${outletFirst}
+        <td style="font-weight:600">${r.outlet}</td>
+        <td class="r">${r.cash > 0 ? fmt(r.cash) : '—'}</td>
+        <td class="r">${r.bharatpe > 0 ? fmt(r.bharatpe) : '—'}</td>
+        <td class="r">${r.zomato > 0 ? fmt(r.zomato) : '—'}</td>
+        <td class="r" style="font-weight:700">${fmt(r.total)}</td>
+        <td class="r" style="color:var(--ink-3)">${fmt(r.rista)}</td>
+        ${diffCell(r.diff)}
+      </tr>`;
+    });
+  });
+
+  // Totals row
+  const totalsRow = `<tr style="border-top:2px solid var(--border-2);background:#f5f7fb;font-weight:800">
+    <td colspan="2" style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)">Total</td>
+    <td class="r">${fmt(tCash)}</td>
+    <td class="r">${fmt(tBharatpe)}</td>
+    <td class="r">${fmt(tZomato)}</td>
+    <td class="r">${fmt(tTotal)}</td>
+    <td class="r" style="color:var(--ink-3)">${fmt(tRista)}</td>
+    <td class="r" style="color:${tDiff < -1 ? 'var(--red)' : 'var(--green)'};font-weight:800">${tDiff < -1 ? '-'+fmt(tDiff) : tDiff > 1 ? '+'+fmt(tDiff) : '✓'}</td>
+  </tr>`;
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      ${tabBar}
+      <span style="font-size:11px;color:var(--ink-3)">${rows.length} rows · ${dates.length} days</span>
+    </div>
+    ${summaryCards}
+    <div class="section-card" style="margin-top:16px">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon" style="background:#fef3c7">💰</div>
+          <div>
+            <div class="section-title">Daily Reconciliation — ${label}</div>
+            <div class="section-sub">Cash · BharatPe · Zomato vs Rista POS</div>
+          </div>
+        </div>
+      </div>
+      ${rows.length === 0
+        ? `<div class="no-outages">No data for this period</div>`
+        : `<table>
+          <thead><tr>
+            <th>Date</th>
+            <th>Outlet</th>
+            <th class="r">Cash</th>
+            <th class="r">BharatPe</th>
+            <th class="r">Zomato</th>
+            <th class="r">Collected</th>
+            <th class="r">Rista POS</th>
+            <th class="r">Diff</th>
+          </tr></thead>
+          <tbody>${tableRows.join('')}${totalsRow}</tbody>
+        </table>`}
+    </div>`;
 }
 
 /* ── BOOT ── */
