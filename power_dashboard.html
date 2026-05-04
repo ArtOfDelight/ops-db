@@ -644,6 +644,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
       <span class="sb-icon">💰</span> Daily Recon
     </button>
+    <button class="sb-item" id="sbitem-rrrecon" onclick="navTo('rrrecon')">
+      <span class="sb-icon">🏦</span> RR Recon
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -679,11 +682,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['power','signin','metrics','scorecard','ratings','products','stock','tracker'].forEach(id => {
+  ['power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon' };
+  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -696,6 +699,7 @@ function navTo(page) {
   if (page === 'stock')     renderStockPage();
   if (page === 'tracker')   renderTrackerPage();
   if (page === 'recon')     renderReconPage();
+  if (page === 'rrrecon')   renderRRReconPage();
 }
 
 
@@ -2787,7 +2791,11 @@ function _renderRecon() {
         </td>
         <td class="r">${r.bharatpe > 0 ? fmt(r.bharatpe) : '—'}</td>
         <td class="r">${r.zomato > 0 ? fmt(r.zomato) : '—'}</td>
-        <td class="r" style="color:var(--red)">${r.expenses > 0 ? fmt(r.expenses) : '—'}</td>
+        <td class="r" style="color:var(--red)">
+          <input id="rexp-inp-${r._idx}" type="number" value="${r.expenses || 0}"
+            style="width:72px;text-align:right;border:1px solid var(--border-2);border-radius:4px;padding:2px 4px;font-size:12px;font-family:inherit;background:var(--surface);color:var(--red)"
+            onblur="_saveExpenses(${r._idx})" onkeydown="if(event.key==='Enter')this.blur()">
+        </td>
         <td class="r" style="color:var(--amber)">${r.send_to_rr > 0 ? fmt(r.send_to_rr) : '—'}</td>
         <td class="r" style="font-weight:700" id="rtotal-${r._idx}">${fmt(r.total)}</td>
         <td class="r" style="color:var(--ink-3)">${fmt(r.rista)}</td>
@@ -2894,6 +2902,154 @@ function _saveCash(idx) {
     inp.style.borderColor = 'var(--red)';
     setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 2000);
   });
+}
+
+function _saveExpenses(idx) {
+  const r = _reconData.find(x => x._idx === idx);
+  if (!r) return;
+  const inp = document.getElementById('rexp-inp-' + idx);
+  if (!inp) return;
+  const parsed = parseFloat(inp.value);
+  if (isNaN(parsed) || parsed < 0) { inp.value = r.expenses || 0; return; }
+  if (Math.abs(parsed - (r.expenses || 0)) < 0.01) return;
+
+  inp.style.opacity = '0.5';
+  inp.disabled = true;
+
+  fetch('/api/ops/daily-recon/expenses', {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json', 'x-api-key': API_KEY},
+    body: JSON.stringify({row: r.row, expenses: parsed})
+  })
+  .then(res => res.json())
+  .then(d => {
+    if (!d.ok) throw new Error(d.detail || 'Error');
+    r.expenses = d.expenses;
+    inp.value = d.expenses;
+    inp.style.opacity = '1';
+    inp.disabled = false;
+    inp.style.borderColor = 'var(--green)';
+    setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 1500);
+  })
+  .catch(() => {
+    inp.value = r.expenses || 0;
+    inp.style.opacity = '1';
+    inp.disabled = false;
+    inp.style.borderColor = 'var(--red)';
+    setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 2000);
+  });
+}
+
+/* ── RR RECON PAGE ── */
+let _rrReconData = null;
+
+function renderRRReconPage() {
+  const el = document.getElementById('pageBody');
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+
+  fetch(`${API}/api/ops/rr-recon`, { headers: {'x-api-key': API_KEY} })
+    .then(r => r.json())
+    .then(d => {
+      _rrReconData = d.rows || [];
+      _renderRRRecon();
+    })
+    .catch(() => { el.innerHTML = errBox('Failed to load RR recon data'); });
+}
+
+function _renderRRRecon() {
+  const el = document.getElementById('pageBody');
+  if (!_rrReconData) return;
+
+  const rows = [..._rrReconData].sort((a,b) => b.date.localeCompare(a.date));
+
+  let tCash=0, tExp=0, tExpected=0, tActual=0, tDiff=0;
+  rows.forEach(r => {
+    tCash     += r.cash_collected    || 0;
+    tExp      += r.expenses          || 0;
+    tExpected += r.expected_handover || 0;
+    tActual   += r.actual_received   || 0;
+    tDiff     += r.difference        || 0;
+  });
+
+  const fmt = n => '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+  const diffCell = d => {
+    if (Math.abs(d) < 1) return `<td class="r" style="color:var(--green);font-weight:700">✓</td>`;
+    const col = d < 0 ? 'var(--red)' : 'var(--green)';
+    return `<td class="r" style="color:${col};font-weight:700">${d < 0 ? '-' : '+'}${fmt(d)}</td>`;
+  };
+
+  const totalShort = tDiff < -1 ? tDiff : 0;
+  const totalColor = totalShort < -5000 ? 'var(--red)' : totalShort < -1000 ? 'var(--amber)' : 'var(--green)';
+
+  const tableRows = rows.map(r => {
+    const [y,m,d] = r.date.split('-').map(Number);
+    const dateLabel = new Date(y,m-1,d).toLocaleDateString('en-IN',{day:'numeric',month:'short',weekday:'short'});
+    return `<tr>
+      <td style="font-size:11px;font-weight:700;color:var(--ink-2)">${dateLabel}</td>
+      <td class="r">${r.cash_collected > 0 ? fmt(r.cash_collected) : '—'}</td>
+      <td class="r" style="color:var(--red)">${r.expenses > 0 ? fmt(r.expenses) : '—'}</td>
+      <td class="r" style="font-weight:700">${fmt(r.expected_handover)}</td>
+      <td class="r" style="color:var(--blue);font-weight:600">${r.actual_received > 0 ? fmt(r.actual_received) : '—'}</td>
+      ${diffCell(r.difference)}
+    </tr>`;
+  }).join('');
+
+  const totalsRow = `<tr style="border-top:2px solid var(--border-2);background:#f5f7fb;font-weight:800">
+    <td style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)">Total</td>
+    <td class="r">${fmt(tCash)}</td>
+    <td class="r" style="color:var(--red)">${fmt(tExp)}</td>
+    <td class="r">${fmt(tExpected)}</td>
+    <td class="r" style="color:var(--blue)">${fmt(tActual)}</td>
+    <td class="r" style="color:${tDiff < -1 ? 'var(--red)' : 'var(--green)'};font-weight:800">${tDiff < -1 ? '-'+fmt(tDiff) : tDiff > 1 ? '+'+fmt(tDiff) : '✓'}</td>
+  </tr>`;
+
+  el.innerHTML = `
+    <div class="stat-row" style="margin-bottom:16px">
+      <div class="stat-card">
+        <div class="stat-label">Total Cash Collected</div>
+        <div class="stat-value neu">₹${tCash.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">RR Daily Recon</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Expected Handover</div>
+        <div class="stat-value neu">₹${tExpected.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">Cash − Expenses</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Actual Received</div>
+        <div class="stat-value" style="color:var(--blue)">₹${tActual.toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">Kim's Before Deposit</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Variance</div>
+        <div class="stat-value" style="color:${totalColor}">₹${Math.abs(tDiff).toLocaleString('en-IN',{maximumFractionDigits:0})}</div>
+        <div class="stat-sub">${tDiff < -1 ? 'Short' : tDiff > 1 ? 'Over' : 'Balanced'}</div>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon" style="background:#eff6ff">🏦</div>
+          <div>
+            <div class="section-title">RR Daily Reconciliation — Apr 1 onwards</div>
+            <div class="section-sub">Expected handover (Cash − Expenses) vs Actual received by Kim (Before Deposit)</div>
+          </div>
+        </div>
+      </div>
+      ${rows.length === 0
+        ? `<div class="no-outages">No data available</div>`
+        : `<table>
+          <thead><tr>
+            <th>Date</th>
+            <th class="r">Cash Collected</th>
+            <th class="r">Expenses</th>
+            <th class="r">Expected Handover</th>
+            <th class="r">Actual Received</th>
+            <th class="r">Difference</th>
+          </tr></thead>
+          <tbody>${tableRows}${totalsRow}</tbody>
+        </table>`}
+    </div>`;
 }
 
 /* ── BOOT ── */
