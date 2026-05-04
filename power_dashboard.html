@@ -2918,7 +2918,7 @@ function _saveExpenses(idx) {
 
   fetch('/api/ops/daily-recon/expenses', {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json', 'x-api-key': API_KEY},
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({row: r.row, expenses: parsed})
   })
   .then(res => res.json())
@@ -2947,7 +2947,7 @@ function renderRRReconPage() {
   const el = document.getElementById('pageBody');
   el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
 
-  fetch(`${API}/api/ops/rr-recon`, { headers: {'x-api-key': API_KEY} })
+  fetch(`${API}/api/ops/rr-recon`)
     .then(r => r.json())
     .then(d => {
       _rrReconData = d.rows || [];
