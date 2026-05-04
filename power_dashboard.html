@@ -2870,9 +2870,9 @@ function _saveCash(idx) {
   inp.style.opacity = '0.5';
   inp.disabled = true;
 
-  fetch('/api/ops/daily-recon/cash', {
+  fetch(`${API}/api/ops/daily-recon/cash`, {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json', 'x-api-key': API_KEY},
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({row: r.row, cash: parsed})
   })
   .then(res => res.json())
@@ -2916,7 +2916,7 @@ function _saveExpenses(idx) {
   inp.style.opacity = '0.5';
   inp.disabled = true;
 
-  fetch('/api/ops/daily-recon/expenses', {
+  fetch(`${API}/api/ops/daily-recon/expenses`, {
     method: 'PATCH',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({date: r.date, outlet: r.outlet, expenses: parsed})
