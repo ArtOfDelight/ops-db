@@ -2641,6 +2641,7 @@ function _trackerSetDays(n) {
 
 /* ── DAILY RECON PAGE ── */
 let _reconWindow = 7;
+let _reconOutlet = 'All';
 let _reconData   = null;
 
 function renderReconPage() {
@@ -2654,6 +2655,11 @@ function renderReconPage() {
       _renderRecon();
     })
     .catch(() => { el.innerHTML = errBox(''); });
+}
+
+function _reconSetOutlet(o) {
+  _reconOutlet = o;
+  _renderRecon();
 }
 
 function _reconSetWindow(w) {
@@ -2690,7 +2696,8 @@ function _renderRecon() {
   const el = document.getElementById('pageBody');
   if (!_reconData) return;
 
-  const rows   = _reconRows();
+  const allRows = _reconRows();
+  const rows    = _reconOutlet === 'All' ? allRows : allRows.filter(r => r.outlet === _reconOutlet);
   const latestInRows = rows.length ? rows[0].date : '';
   const label  = _reconWindow === 1
     ? `Latest Day (${latestInRows || 'no data'})`
@@ -2721,6 +2728,11 @@ function _renderRecon() {
 
   const tabBar = `<div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
     ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Yesterday':n===7?'7 Days':'28 Days'}</button>`).join('')}
+  </div>`;
+
+  const OUTLET_LABELS = {'All':'All Outlets','Sahakar Nagar':'SKN','Residency Road':'RR','Koramangala':'KOR','Jayanagar':'JAY'};
+  const outletBar = `<div style="display:flex;gap:6px;flex-wrap:wrap">
+    ${Object.entries(OUTLET_LABELS).map(([o,lbl]) => `<button onclick="_reconSetOutlet('${o}')" style="padding:4px 14px;border-radius:20px;border:1px solid ${_reconOutlet===o?'var(--blue)':'var(--border-2)'};background:${_reconOutlet===o?'var(--blue-dim)':'var(--surface)'};color:${_reconOutlet===o?'var(--blue)':'var(--ink-2)'};font-size:11px;font-weight:${_reconOutlet===o?'700':'500'};cursor:pointer;font-family:var(--sans)">${lbl}</button>`).join('')}
   </div>`;
 
   const missingColor = tMissing > 5000 ? 'var(--red)' : tMissing > 1000 ? 'var(--amber)' : 'var(--green)';
@@ -2800,10 +2812,11 @@ function _renderRecon() {
   </tr>`;
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       ${tabBar}
       <span style="font-size:11px;color:var(--ink-3)">${rows.length} rows · ${dates.length} days</span>
     </div>
+    <div style="margin-bottom:16px">${outletBar}</div>
     ${summaryCards}
     <div class="section-card" style="margin-top:16px">
       <div class="section-head">
