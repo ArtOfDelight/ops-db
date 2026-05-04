@@ -2919,7 +2919,7 @@ function _saveExpenses(idx) {
   fetch('/api/ops/daily-recon/expenses', {
     method: 'PATCH',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({row: r.row, expenses: parsed})
+    body: JSON.stringify({date: r.date, outlet: r.outlet, expenses: parsed})
   })
   .then(res => res.json())
   .then(d => {
