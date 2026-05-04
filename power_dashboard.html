@@ -2676,6 +2676,13 @@ function _reconRows() {
   if (!_reconData) return [];
   const todayStr  = _localDateStr(0);
   const cutoffStr = _localDateStr(-_reconWindow);
+
+  if (_reconWindow === 1) {
+    // Show the most recent available date (calu may not have run yet for true yesterday)
+    const latestDate = _reconData.reduce((max, r) => r.date > max ? r.date : max, '');
+    return _reconData.filter(r => r.date === latestDate);
+  }
+
   return _reconData.filter(r => r.date >= cutoffStr && r.date < todayStr);
 }
 
@@ -2684,7 +2691,10 @@ function _renderRecon() {
   if (!_reconData) return;
 
   const rows   = _reconRows();
-  const label  = _reconWindow === 1 ? 'Yesterday' : `Last ${_reconWindow} Days`;
+  const latestInRows = rows.length ? rows[0].date : '';
+  const label  = _reconWindow === 1
+    ? `Latest Day (${latestInRows || 'no data'})`
+    : `Last ${_reconWindow} Days`;
 
   // Totals
   let tCash=0, tBharatpe=0, tSwiggy=0, tZomato=0, tTotal=0, tRista=0, tDiff=0, tMissing=0;
