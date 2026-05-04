@@ -2696,7 +2696,7 @@ function _renderRecon() {
     ? `Latest Day (${latestInRows || 'no data'})`
     : `Last ${_reconWindow} Days`;
 
-  let tCash=0, tBharatpe=0, tSwiggy=0, tZomato=0, tTotal=0, tRista=0, tDiff=0, tMissing=0, tOpeningBal=0, tExpenses=0, tClosingBal=0;
+  let tCash=0, tBharatpe=0, tSwiggy=0, tZomato=0, tTotal=0, tRista=0, tDiff=0, tMissing=0, tOpeningBal=0, tExpenses=0, tSendToRR=0, tClosingBal=0;
   rows.forEach(r => {
     tCash       += r.cash        || 0;
     tBharatpe   += r.bharatpe    || 0;
@@ -2707,6 +2707,7 @@ function _renderRecon() {
     tDiff       += r.diff        || 0;
     tOpeningBal += r.opening_balance || 0;
     tExpenses   += r.expenses    || 0;
+    tSendToRR   += r.send_to_rr  || 0;
     tClosingBal += r.closing_balance || 0;
     if (r.diff < 0) tMissing += Math.abs(r.diff);
   });
@@ -2775,6 +2776,7 @@ function _renderRecon() {
         <td class="r">${r.bharatpe > 0 ? fmt(r.bharatpe) : '—'}</td>
         <td class="r">${r.zomato > 0 ? fmt(r.zomato) : '—'}</td>
         <td class="r" style="color:var(--red)">${r.expenses > 0 ? fmt(r.expenses) : '—'}</td>
+        <td class="r" style="color:var(--amber)">${r.send_to_rr > 0 ? fmt(r.send_to_rr) : '—'}</td>
         <td class="r" style="font-weight:700" id="rtotal-${r._idx}">${fmt(r.total)}</td>
         <td class="r" style="color:var(--ink-3)">${fmt(r.rista)}</td>
         ${diffCell(r.diff, r._idx)}
@@ -2790,6 +2792,7 @@ function _renderRecon() {
     <td class="r">${fmt(tBharatpe)}</td>
     <td class="r">${fmt(tZomato)}</td>
     <td class="r" style="color:var(--red)">${fmt(tExpenses)}</td>
+    <td class="r" style="color:var(--amber)">${fmt(tSendToRR)}</td>
     <td class="r">${fmt(tTotal)}</td>
     <td class="r" style="color:var(--ink-3)">${fmt(tRista)}</td>
     <td class="r" style="color:${tDiff < -1 ? 'var(--red)' : 'var(--green)'};font-weight:800">${tDiff < -1 ? '-'+fmt(tDiff) : tDiff > 1 ? '+'+fmt(tDiff) : '✓'}</td>
@@ -2823,6 +2826,7 @@ function _renderRecon() {
             <th class="r">BharatPe</th>
             <th class="r">Zomato</th>
             <th class="r">Expenses</th>
+            <th class="r">Sent to RR</th>
             <th class="r">Collected</th>
             <th class="r">Rista POS</th>
             <th class="r">Diff</th>
