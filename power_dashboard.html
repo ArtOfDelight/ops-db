@@ -2921,9 +2921,9 @@ function _saveExpenses(idx) {
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({date: r.date, outlet: r.outlet, expenses: parsed})
   })
-  .then(res => res.json())
+  .then(res => res.json().then(d => ({ ok: res.ok, status: res.status, ...d })))
   .then(d => {
-    if (!d.ok) throw new Error(d.detail || 'Error');
+    if (!d.ok) throw new Error(d.detail || `HTTP ${d.status}`);
     r.expenses = d.expenses;
     r.closing_balance = d.closing_balance;
     inp.value = d.expenses;
@@ -2935,7 +2935,8 @@ function _saveExpenses(idx) {
     const clEl = document.getElementById('rclosing-' + idx);
     if (clEl) clEl.textContent = d.closing_balance > 0 ? fmtN(d.closing_balance) : '—';
   })
-  .catch(() => {
+  .catch(e => {
+    alert('Expenses save failed: ' + (e?.message || 'unknown error'));
     inp.value = r.expenses || 0;
     inp.style.opacity = '1';
     inp.disabled = false;
