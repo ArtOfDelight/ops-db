@@ -647,6 +647,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-rrrecon" onclick="navTo('rrrecon')">
       <span class="sb-icon">🏦</span> RR Recon
     </button>
+    <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
+      <span class="sb-icon">📅</span> Roster
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -682,11 +685,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon'].forEach(id => {
+  ['power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation' };
+  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '📅 Roster' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -700,6 +703,7 @@ function navTo(page) {
   if (page === 'tracker')   renderTrackerPage();
   if (page === 'recon')     renderReconPage();
   if (page === 'rrrecon')   renderRRReconPage();
+  if (page === 'roster')    renderRosterPage();
 }
 
 
@@ -2389,6 +2393,7 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
 /* ── SCOOP FLAVOUR RANKINGS ── */
 let _scpData = [];
 let _scpSort = { key: 'units', dir: -1 };
+let _scpCogsData = null;
 
 function scpSetPreset(days) {
   [7,28].forEach(d => {
@@ -2412,10 +2417,14 @@ async function scpLoad() {
   const el = document.getElementById('scp-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
   try {
-    const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`,
-      { headers: { 'Authorization': `Bearer ${_orToken}` } });
-    if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); return; }
-    const d = await r.json();
+    const [rankRes, cogsRes] = await Promise.all([
+      fetch(`https://aodapp-backend.onrender.com/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`, { headers: { 'Authorization': `Bearer ${_orToken}` } }),
+      fetch(`https://aodapp-backend.onrender.com/api/admin/scoop-cogs?date_from=${from}&date_to=${to}`,     { headers: { 'Authorization': `Bearer ${_orToken}` } }),
+    ]);
+    if (rankRes.status === 401 || rankRes.status === 403) { lsLogout(); renderProductsPage(); return; }
+    const d    = await rankRes.json();
+    const cogs = cogsRes.ok ? await cogsRes.json() : null;
+    _scpCogsData = cogs;
     const flavours = d.flavours || [];
     const statusEl = document.getElementById('scp-status');
     if (statusEl) statusEl.textContent = flavours.length ? `${flavours.length} flavours · ${d.date_from} → ${d.date_to}` : '';
@@ -2458,30 +2467,105 @@ function scpDrawTable(el) {
   const thead = `<thead><tr>
     <th style="${thL};color:var(--ink-3)">#</th>
     ${col('Flavour','flavour','left')}
-    ${col('Total Units (50g)','units')}
-    ${col('Singles (100g)','single_orders')}
-    ${col('Units from Singles','single_units')}
-    ${col('2-Scoop Scoops','two_scoop_scoops')}
-    ${col('3-Scoop Scoops','three_scoop_scoops')}
+    ${col('Total Units','units')}
+    ${col('2-Scoop','two_scoop_scoops')}
+    ${col('3-Scoop','three_scoop_scoops')}
     ${col('Combo Units','combo_units')}
   </tr></thead>`;
 
-  const rows = sorted.map((f, i) => {
-    const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
-    const tdN = (val, highlight=false) => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${highlight?'font-weight:700;color:var(--blue)':''}">${val ?? '—'}</td>`;
+  const mkRows = (rows) => rows.map((f, i) => {
+    const tdL = (val, bold=false) => `<td style="padding:9px 12px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
+    const tdN = (val, hi=false) => `<td style="padding:9px 12px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${hi?'font-weight:700;color:var(--blue)':''}">${val ?? '—'}</td>`;
     return `<tr>
       ${tdL(i + 1)}
       ${tdL(f.flavour, true)}
       ${tdN(f.units, true)}
-      ${tdN(f.single_orders)}
-      ${tdN(f.single_units)}
       ${tdN(f.two_scoop_scoops)}
       ${tdN(f.three_scoop_scoops)}
       ${tdN(f.combo_units)}
     </tr>`;
   }).join('');
 
-  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${rows}</tbody></table></div>`;
+  const mkTable = (rows) => `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:340px">${thead}<tbody>${mkRows(rows)}</tbody></table></div>`;
+
+  // Split into dine-in vs online — flavour data doesn't have channel split
+  // so we show combined flavour table in both panels with a note
+  const flavourHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
+          🪑 Dine In
+        </div>
+        ${mkTable(sorted.filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0))}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
+          🌐 Online
+        </div>
+        ${mkTable(sorted.filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0))}
+      </div>
+    </div>`;
+
+  const cogsHtml = _scpCogsData ? scpRenderCogs(_scpCogsData) : '';
+  el.innerHTML = flavourHtml + cogsHtml;
+}
+
+function scpRenderCogs(data) {
+  const rows = data.rows || [];
+  const total = data.total || {};
+  const fmt = v => v == null ? '—' : Number(v).toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2});
+  const cogsColor = v => v > 30 ? 'color:var(--red);font-weight:700' : v > 25 ? 'color:var(--amber);font-weight:700' : 'color:var(--green);font-weight:700';
+
+  const thS = 'padding:9px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);background:#f8fafd;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono)';
+  const thSR = thS + ';text-align:right';
+
+  const thead = `<thead><tr>
+    <th style="${thS}">Row</th>
+    <th style="${thSR}">Combos</th>
+    <th style="${thSR}">Gross</th>
+    <th style="${thSR}">Net</th>
+    <th style="${thSR}">Material</th>
+    <th style="${thSR}">Supplies</th>
+    <th style="${thSR}">Pkg Charge</th>
+    <th style="${thSR}">COGS %</th>
+  </tr></thead>`;
+
+  const tdL = (v, bold=false) => `<td style="padding:9px 14px;font-size:12px;border-bottom:1px solid var(--border);${bold?'font-weight:700':''}color:var(--ink)">${v}</td>`;
+  const tdR = (v, extra='') => `<td style="padding:9px 14px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${extra}">${v}</td>`;
+
+  const bodyRows = rows.map(r => `<tr>
+    ${tdL(r.label, true)}
+    ${tdR(r.combos)}
+    ${tdR(fmt(r.gross))}
+    ${tdR(fmt(r.net))}
+    ${tdR(fmt(r.mat))}
+    ${tdR(fmt(r.sup))}
+    ${tdR(fmt(r.pkg))}
+    ${tdR(r.cogs_pct != null ? r.cogs_pct.toFixed(2)+'%' : '—', cogsColor(r.cogs_pct))}
+  </tr>`).join('');
+
+  const totalRow = `<tr style="background:#f8fafd">
+    ${tdL('<strong>Total</strong>', true)}
+    ${tdR(`<strong>${total.combos ?? ''}</strong>`)}
+    ${tdR(`<strong>${fmt(total.gross)}</strong>`)}
+    ${tdR(`<strong>${fmt(total.net)}</strong>`)}
+    ${tdR(`<strong>${fmt(total.mat)}</strong>`)}
+    ${tdR(`<strong>${fmt(total.sup)}</strong>`)}
+    ${tdR(`<strong>${fmt(total.pkg)}</strong>`)}
+    ${tdR(total.cogs_pct != null ? `<strong>${total.cogs_pct.toFixed(2)}%</strong>` : '—', cogsColor(total.cogs_pct))}
+  </tr>`;
+
+  return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-top:4px">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink)">
+        📊 Scoop COGS Breakdown
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:700px">
+          ${thead}<tbody>${bodyRows}${totalRow}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 function scpSortBy(key) {
@@ -2723,7 +2807,7 @@ function _renderRecon() {
     if (r.diff < 0) tMissing += Math.abs(r.diff);
   });
 
-  const fmt = n => n === 0 ? '—' : '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+  const fmt = n => n === 0 ? '—' : (n < 0 ? '-' : '') + '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
   const diffCell = (d, rowIdx) => {
     if (Math.abs(d) < 1) return `<td class="r" style="color:var(--green);font-weight:700" id="rdiff-${rowIdx}">✓</td>`;
     const col = d < 0 ? 'var(--red)' : 'var(--green)';
@@ -3070,6 +3154,221 @@ function _showToast(msg) {
   t.style.opacity = '1';
   clearTimeout(t._hide);
   t._hide = setTimeout(() => { t.style.opacity = '0'; }, 2000);
+}
+
+/* ── ROSTER ── */
+let _rosterState = {
+  date: '', rrkor_pool: [], skn_pool: [], shifts: [],
+  entries: { SKN: [], RR: [], KOR: [] },
+  loaded: false
+};
+
+function renderRosterPage() {
+  const body = document.getElementById('pageBody');
+  if (!_rosterState.date) {
+    const now = new Date();
+    _rosterState.date = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  }
+  body.innerHTML = `
+    <div style="max-width:960px;margin:0 auto;padding:16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <input type="date" id="rosterDatePicker"
+          style="padding:8px 12px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)"
+          value="${_rosterState.date.split('/').reverse().join('-')}"
+          onchange="const [y,m,d]=this.value.split('-');_rosterState.date=d+'/'+m+'/'+y;_rosterState.entries={SKN:[],RR:[],KOR:[]};_rosterState.loaded=false;_loadRosterData();">
+        <button onclick="_loadRosterData()"
+          style="padding:8px 18px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:600;cursor:pointer;font-size:13px">Load</button>
+        <span id="rosterDayLabel" style="font-size:14px;font-weight:700;color:var(--ink)"></span>
+        <button onclick="_publishRoster()"
+          style="margin-left:auto;padding:10px 28px;border:none;border-radius:8px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px">Publish Roster</button>
+      </div>
+      <div id="rosterBody" style="color:var(--ink-2);font-size:14px">Select a date and click Load.</div>
+    </div>`;
+  _loadRosterData();
+}
+
+async function _loadRosterData() {
+  document.getElementById('rosterBody').innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--ink-3)">Loading employees & templates…</div>';
+  try {
+    const [empRes, shiftRes, existRes] = await Promise.all([
+      fetch(`${API}/api/ops/roster/employees?date=${encodeURIComponent(_rosterState.date)}`).then(r=>r.json()),
+      fetch(`${API}/api/ops/roster/shifts`).then(r=>r.json()),
+      fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(_rosterState.date)}`).then(r=>r.json()),
+    ]);
+    _rosterState.rrkor_pool = empRes.rrkor_pool || [];
+    _rosterState.skn_pool   = empRes.skn_pool   || [];
+    _rosterState.shifts     = (shiftRes.shifts || []).sort((a,b)=>a.start_time.localeCompare(b.start_time));
+
+    if (!_rosterState.loaded) {
+      _rosterState.loaded = true;
+      const existing = existRes.entries || [];
+      _rosterState.entries = { SKN: [], RR: [], KOR: [] };
+
+      if (existing.length) {
+        // Load from saved roster
+        existing.forEach(e => {
+          if (_rosterState.entries[e.outlet] !== undefined)
+            _rosterState.entries[e.outlet].push({ employee_id: e.employee_id, shift: e.shift, start_time: e.start_time, end_time: e.end_time });
+        });
+      } else {
+        // Pre-populate SKN with fixed employees + their template shifts
+        _rosterState.skn_pool.forEach(emp => {
+          _rosterState.entries.SKN.push({
+            employee_id: emp.employee_id,
+            shift: emp.default_shift || '',
+            start_time: emp.default_start || '',
+            end_time: emp.default_end || '',
+          });
+        });
+      }
+    }
+
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const [d,m,y] = _rosterState.date.split('/');
+    document.getElementById('rosterDayLabel').textContent = days[new Date(`${y}-${m}-${d}`).getDay()];
+    _renderRosterBody();
+  } catch(e) {
+    document.getElementById('rosterBody').innerHTML =
+      `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+  }
+}
+
+function _renderRosterBody() {
+  const { rrkor_pool, skn_pool, shifts, entries } = _rosterState;
+
+  // Build lookup: all employees by id
+  const empById = {};
+  [...rrkor_pool, ...skn_pool].forEach(e => empById[e.employee_id] = e);
+
+  const shiftOptsFor = (selectedId) =>
+    shifts.map(s => `<option value="${s.shift_id}" ${selectedId===s.shift_id?'selected':''}>${s.shift_name}&nbsp;&nbsp;${s.start_time}–${s.end_time}</option>`).join('');
+
+  // Roster section: shows added employees + pool of available ones with Add button
+  const renderSection = (outlet, pool) => {
+    const rows = entries[outlet];
+    const usedIds = new Set(rows.map(r => r.employee_id));
+    const available = pool.filter(e => !usedIds.has(e.employee_id));
+
+    // Added employees table
+    const addedRows = rows.map((row, idx) => {
+      const emp = empById[row.employee_id];
+      const name = emp ? emp.name : row.employee_id;
+      return `
+        <tr style="border-top:1px solid var(--border-2)">
+          <td style="padding:9px 14px;font-size:14px;font-weight:600;color:var(--ink)">${name}</td>
+          <td style="padding:9px 14px">
+            <select onchange="_rosterSetShift('${outlet}',${idx},this.value)"
+              style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:220px">
+              <option value="">— Select shift —</option>
+              ${shiftOptsFor(row.shift)}
+            </select>
+          </td>
+          <td style="padding:9px 14px;text-align:right">
+            <button onclick="_rosterRemove('${outlet}',${idx})"
+              style="padding:4px 12px;border:1.5px solid var(--red);border-radius:6px;color:var(--red);background:none;cursor:pointer;font-size:12px;font-weight:600">✕ Remove</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    // Available pool rows
+    const poolRows = available.map(emp => {
+      const badge = emp.default_shift_name
+        ? `<span style="font-size:11px;color:var(--ink-3);margin-left:8px">${emp.default_shift_name} ${emp.default_start}–${emp.default_end}</span>`
+        : '';
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border-2)">
+          <span style="font-size:13px;color:var(--ink-2)">${emp.name}${badge}</span>
+          <button onclick="_rosterAddEmp('${outlet}','${emp.employee_id}')"
+            style="padding:4px 14px;border:1.5px solid var(--blue);border-radius:6px;color:var(--blue);background:none;cursor:pointer;font-size:12px;font-weight:600">+ Add</button>
+        </div>`;
+    }).join('');
+
+    const outletColor = { SKN: '#7c3aed', RR: '#0369a1', KOR: '#b45309' }[outlet] || '#333';
+
+    return `
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;
+            color:${outletColor};background:${outletColor}18;padding:4px 12px;border-radius:20px">${outlet}</span>
+          <span style="font-size:13px;color:var(--ink-2)">${rows.length} scheduled</span>
+        </div>
+
+        ${rows.length ? `
+        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface);margin-bottom:10px">
+          <div style="background:var(--surface-2);padding:7px 14px;display:grid;grid-template-columns:1fr 240px 90px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">
+            <span>Employee</span><span>Shift</span><span></span>
+          </div>
+          <table style="width:100%;border-collapse:collapse">${addedRows}</table>
+        </div>` : '<div style="font-size:13px;color:var(--ink-3);margin-bottom:10px;padding:0 4px">No staff added yet.</div>'}
+
+        ${available.length ? `
+        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+          <div style="background:var(--surface-2);padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">
+            Available (${available.length}) — tap to add
+          </div>
+          ${poolRows}
+        </div>` : ''}
+      </div>`;
+  };
+
+  document.getElementById('rosterBody').innerHTML =
+    renderSection('SKN', skn_pool) +
+    renderSection('RR',  rrkor_pool) +
+    renderSection('KOR', rrkor_pool);
+}
+
+function _rosterSetShift(outlet, idx, shiftId) {
+  const shift = _rosterState.shifts.find(s => s.shift_id === shiftId) || {};
+  _rosterState.entries[outlet][idx].shift      = shiftId;
+  _rosterState.entries[outlet][idx].start_time = shift.start_time || '';
+  _rosterState.entries[outlet][idx].end_time   = shift.end_time   || '';
+}
+
+function _rosterAddEmp(outlet, eid) {
+  const pool = outlet === 'SKN' ? _rosterState.skn_pool : _rosterState.rrkor_pool;
+  const emp  = pool.find(e => e.employee_id === eid);
+  _rosterState.entries[outlet].push({
+    employee_id: eid,
+    shift:       emp ? (emp.default_shift || '') : '',
+    start_time:  emp ? (emp.default_start || '') : '',
+    end_time:    emp ? (emp.default_end   || '') : '',
+  });
+  _renderRosterBody();
+}
+
+function _rosterRemove(outlet, idx) {
+  _rosterState.entries[outlet].splice(idx, 1);
+  _renderRosterBody();
+}
+
+async function _publishRoster() {
+  const { date, entries } = _rosterState;
+  const allEntries = [
+    ...entries.SKN.map(e => ({...e, outlet:'SKN'})),
+    ...entries.RR.map(e  => ({...e, outlet:'RR'})),
+    ...entries.KOR.map(e => ({...e, outlet:'KOR'})),
+  ].filter(e => e.employee_id);
+
+  if (!allEntries.length) { alert('No entries to publish.'); return; }
+  const noShift = allEntries.filter(e => !e.shift);
+  if (noShift.length && !confirm(`${noShift.length} employee(s) have no shift. Publish anyway?`)) return;
+
+  try {
+    const res = await fetch(`${API}/api/ops/roster/publish`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ date, entries: allEntries }),
+    }).then(r=>r.json());
+    if (res.success) {
+      _showToast(`Roster published — ${res.published} entries ✓`);
+      _rosterState.loaded = false;
+      _rosterState.entries = { SKN: [], RR: [], KOR: [] };
+      _loadRosterData();
+    } else {
+      alert('Publish failed: ' + JSON.stringify(res));
+    }
+  } catch(e) { alert('Error: ' + e.message); }
 }
 
 /* ── BOOT ── */
