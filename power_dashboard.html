@@ -2392,6 +2392,8 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
 
 /* ── SCOOP FLAVOUR RANKINGS ── */
 let _scpData = [];
+let _scpOnlineData = [];
+let _scpDineinData = [];
 let _scpSort = { key: 'units', dir: -1 };
 let _scpCogsData = null;
 
@@ -2426,6 +2428,8 @@ async function scpLoad() {
     const cogs = cogsRes.ok ? await cogsRes.json() : null;
     _scpCogsData = cogs;
     const flavours = d.flavours || [];
+    _scpOnlineData = d.flavours_online || [];
+    _scpDineinData = d.flavours_dinein || [];
     const statusEl = document.getElementById('scp-status');
     if (statusEl) statusEl.textContent = flavours.length ? `${flavours.length} flavours · ${d.date_from} → ${d.date_to}` : '';
     scpRenderTable(flavours, el);
@@ -2488,21 +2492,22 @@ function scpDrawTable(el) {
 
   const mkTable = (rows) => `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:340px">${thead}<tbody>${mkRows(rows)}</tbody></table></div>`;
 
-  // Split into dine-in vs online — flavour data doesn't have channel split
-  // so we show combined flavour table in both panels with a note
+  const sortFn = (a, b) => { const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity; return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir; };
+  const onlineSorted = [..._scpOnlineData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
+  const dineinSorted = [..._scpDineinData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
   const flavourHtml = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
         <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
           🪑 Dine In
         </div>
-        ${mkTable(sorted.filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0))}
+        ${mkTable(dineinSorted)}
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
         <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
           🌐 Online
         </div>
-        ${mkTable(sorted.filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0))}
+        ${mkTable(onlineSorted)}
       </div>
     </div>`;
 
