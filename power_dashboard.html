@@ -648,7 +648,7 @@ td.c { text-align: center; }
       <span class="sb-icon">🏦</span> RR Recon
     </button>
     <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
-      <span class="sb-icon">📅</span> Roster
+      <span class="sb-icon">🍳</span> CK Roster
     </button>
   </div>
 
@@ -689,7 +689,7 @@ function navTo(page) {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '📅 Roster' };
+  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -3161,219 +3161,375 @@ function _showToast(msg) {
   t._hide = setTimeout(() => { t.style.opacity = '0'; }, 2000);
 }
 
-/* ── ROSTER ── */
-let _rosterState = {
-  date: '', rrkor_pool: [], skn_pool: [], shifts: [],
-  entries: { SKN: [], RR: [], KOR: [] },
-  loaded: false
+/* ── CK ROSTER ── */
+const CK_GREEN = '#15803d';
+let _ckState = {
+  date: '',
+  ck_pool: [],          // all active CK employees
+  recent_ids: new Set(),// employee IDs who worked CK in past 2 weeks
+  shifts: [],
+  entries: [],          // [{employee_id, shift, start_time, end_time}]
+  loaded: false,
 };
 
 function renderRosterPage() {
   const body = document.getElementById('pageBody');
-  if (!_rosterState.date) {
+  if (!_ckState.date) {
     const now = new Date();
-    _rosterState.date = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+    _ckState.date = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
   }
-  body.innerHTML = `
-    <div style="max-width:960px;margin:0 auto;padding:16px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-        <input type="date" id="rosterDatePicker"
-          style="padding:8px 12px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)"
-          value="${_rosterState.date.split('/').reverse().join('-')}"
-          onchange="const [y,m,d]=this.value.split('-');_rosterState.date=d+'/'+m+'/'+y;_rosterState.entries={SKN:[],RR:[],KOR:[]};_rosterState.loaded=false;_loadRosterData();">
-        <button onclick="_loadRosterData()"
-          style="padding:8px 18px;border:none;border-radius:8px;background:var(--blue);color:#fff;font-weight:600;cursor:pointer;font-size:13px">Load</button>
-        <span id="rosterDayLabel" style="font-size:14px;font-weight:700;color:var(--ink)"></span>
-        <button onclick="_publishRoster()"
-          style="margin-left:auto;padding:10px 28px;border:none;border-radius:8px;background:#16a34a;color:#fff;font-weight:700;cursor:pointer;font-size:14px">Publish Roster</button>
-      </div>
-      <div id="rosterBody" style="color:var(--ink-2);font-size:14px">Select a date and click Load.</div>
-    </div>`;
-  _loadRosterData();
+  body.innerHTML = `<div style="max-width:860px;margin:0 auto;padding:16px"><div id="ckBody">Loading…</div></div>`;
+  _ckLoadBuild();
 }
 
-async function _loadRosterData() {
-  document.getElementById('rosterBody').innerHTML =
-    '<div style="text-align:center;padding:40px;color:var(--ink-3)">Loading employees & templates…</div>';
+/* ── BUILD TAB ── */
+async function _ckLoadBuild() {
+  document.getElementById('ckBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <input type="date" id="ckDatePicker"
+        style="padding:8px 12px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)"
+        value="${_ckState.date.split('/').reverse().join('-')}"
+        onchange="const [y,m,d]=this.value.split('-');_ckState.date=d+'/'+m+'/'+y;_ckState.entries=[];_ckState.loaded=false;_ckLoadBuild();">
+      <span id="ckDayLabel" style="font-size:14px;font-weight:700;color:var(--ink)"></span>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button onclick="_ckPrePopulate()"
+          style="padding:8px 16px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;color:var(--ink-2);font-weight:600;cursor:pointer;font-size:13px">
+          ↩ Auto-fill All
+        </button>
+        <button onclick="_ckPublish()"
+          style="padding:10px 28px;border:none;border-radius:8px;background:${CK_GREEN};color:#fff;font-weight:700;cursor:pointer;font-size:14px">
+          ☁ Publish
+        </button>
+      </div>
+    </div>
+    <div id="ckBuildBody"><div style="text-align:center;padding:40px;color:var(--ink-3)">Loading kitchen staff…</div></div>`;
+
   try {
-    const [empRes, shiftRes, existRes] = await Promise.all([
-      fetch(`${API}/api/ops/roster/employees?date=${encodeURIComponent(_rosterState.date)}`).then(r=>r.json()),
+    // Build 14 past dates for recent-workers detection
+    const pastDates = [];
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      pastDates.push(`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);
+    }
+
+    const [empRes, shiftRes, existRes, ...historyResults] = await Promise.all([
+      fetch(`${API}/api/ops/roster/employees?date=${encodeURIComponent(_ckState.date)}`).then(r=>r.json()),
       fetch(`${API}/api/ops/roster/shifts`).then(r=>r.json()),
-      fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(_rosterState.date)}`).then(r=>r.json()),
+      fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(_ckState.date)}`).then(r=>r.json()),
+      ...pastDates.map(d => fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(d)}`).then(r=>r.json())),
     ]);
-    _rosterState.rrkor_pool = empRes.rrkor_pool || [];
-    _rosterState.skn_pool   = empRes.skn_pool   || [];
-    _rosterState.shifts     = (shiftRes.shifts || []).sort((a,b)=>a.start_time.localeCompare(b.start_time));
 
-    if (!_rosterState.loaded) {
-      _rosterState.loaded = true;
-      const existing = existRes.entries || [];
-      _rosterState.entries = { SKN: [], RR: [], KOR: [] };
+    // Collect IDs who worked CK in past 2 weeks
+    const recentIds = new Set();
+    historyResults.forEach(res => {
+      (res.entries || []).forEach(e => { if (e.outlet === 'CK') recentIds.add(e.employee_id); });
+    });
+    _ckState.recent_ids = recentIds;
 
+    const pools = empRes.pools_by_outlet || {};
+    const allCK = pools['CK'] || [];
+    // Sort: recent workers first, then alphabetical
+    _ckState.ck_pool = [
+      ...allCK.filter(e =>  recentIds.has(e.employee_id)).sort((a,b)=>a.name.localeCompare(b.name)),
+      ...allCK.filter(e => !recentIds.has(e.employee_id)).sort((a,b)=>a.name.localeCompare(b.name)),
+    ];
+    _ckState.shifts = (shiftRes.shifts || []).sort((a,b)=>a.start_time.localeCompare(b.start_time));
+
+    if (!_ckState.loaded) {
+      _ckState.loaded = true;
+      const existing = (existRes.entries || []).filter(e => e.outlet === 'CK');
       if (existing.length) {
-        // Load from saved roster
-        existing.forEach(e => {
-          if (_rosterState.entries[e.outlet] !== undefined)
-            _rosterState.entries[e.outlet].push({ employee_id: e.employee_id, shift: e.shift, start_time: e.start_time, end_time: e.end_time });
-        });
+        _ckState.entries = existing.map(e => ({
+          employee_id: e.employee_id,
+          shift: e.shift || '',
+          start_time: e.start_time || '',
+          end_time: e.end_time || '',
+        }));
       } else {
-        // Pre-populate SKN with fixed employees + their template shifts
-        _rosterState.skn_pool.forEach(emp => {
-          _rosterState.entries.SKN.push({
+        // Auto-fill recent workers with their default shift
+        _ckState.entries = _ckState.ck_pool
+          .filter(emp => recentIds.has(emp.employee_id))
+          .map(emp => ({
             employee_id: emp.employee_id,
             shift: emp.default_shift || '',
             start_time: emp.default_start || '',
             end_time: emp.default_end || '',
-          });
-        });
+          }));
       }
     }
 
     const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const [d,m,y] = _rosterState.date.split('/');
-    document.getElementById('rosterDayLabel').textContent = days[new Date(`${y}-${m}-${d}`).getDay()];
-    _renderRosterBody();
+    const [d,m,y] = _ckState.date.split('/');
+    document.getElementById('ckDayLabel').textContent = days[new Date(`${y}-${m}-${d}`).getDay()];
+    _ckRenderBuild();
   } catch(e) {
-    document.getElementById('rosterBody').innerHTML =
-      `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+    document.getElementById('ckBuildBody').innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
   }
 }
 
-function _renderRosterBody() {
-  const { rrkor_pool, skn_pool, shifts, entries } = _rosterState;
+function _ckPrePopulate() {
+  _ckState.entries = _ckState.ck_pool.map(emp => ({
+    employee_id: emp.employee_id,
+    shift: emp.default_shift || '',
+    start_time: emp.default_start || '',
+    end_time: emp.default_end || '',
+  }));
+  _ckRenderBuild();
+}
 
-  // Build lookup: all employees by id
+function _ckRenderBuild() {
+  const { ck_pool, shifts, entries } = _ckState;
   const empById = {};
-  [...rrkor_pool, ...skn_pool].forEach(e => empById[e.employee_id] = e);
+  ck_pool.forEach(e => empById[e.employee_id] = e);
 
   const shiftOptsFor = (selectedId) =>
-    shifts.map(s => `<option value="${s.shift_id}" ${selectedId===s.shift_id?'selected':''}>${s.shift_name}&nbsp;&nbsp;${s.start_time}–${s.end_time}</option>`).join('');
+    shifts.map(s => `<option value="${s.shift_id}" ${selectedId===s.shift_id?'selected':''}>${s.shift_name} &nbsp; ${s.start_time}–${s.end_time}</option>`).join('');
 
-  // Roster section: shows added employees + pool of available ones with Add button
-  const renderSection = (outlet, pool) => {
-    const rows = entries[outlet];
-    const usedIds = new Set(rows.map(r => r.employee_id));
-    const available = pool.filter(e => !usedIds.has(e.employee_id));
+  const usedIds = new Set(entries.map(r => r.employee_id));
+  const available = ck_pool.filter(e => !usedIds.has(e.employee_id));
 
-    // Added employees table
-    const addedRows = rows.map((row, idx) => {
-      const emp = empById[row.employee_id];
-      const name = emp ? emp.name : row.employee_id;
-      return `
-        <tr style="border-top:1px solid var(--border-2)">
-          <td style="padding:9px 14px;font-size:14px;font-weight:600;color:var(--ink)">${name}</td>
-          <td style="padding:9px 14px">
-            <select onchange="_rosterSetShift('${outlet}',${idx},this.value)"
-              style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:220px">
-              <option value="">— Select shift —</option>
-              ${shiftOptsFor(row.shift)}
-            </select>
-          </td>
-          <td style="padding:9px 14px;text-align:right">
-            <button onclick="_rosterRemove('${outlet}',${idx})"
-              style="padding:4px 12px;border:1.5px solid var(--red);border-radius:6px;color:var(--red);background:none;cursor:pointer;font-size:12px;font-weight:600">✕ Remove</button>
-          </td>
-        </tr>`;
-    }).join('');
-
-    // Available pool rows
-    const poolRows = available.map(emp => {
-      const badge = emp.default_shift_name
-        ? `<span style="font-size:11px;color:var(--ink-3);margin-left:8px">${emp.default_shift_name} ${emp.default_start}–${emp.default_end}</span>`
-        : '';
-      return `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border-2)">
-          <span style="font-size:13px;color:var(--ink-2)">${emp.name}${badge}</span>
-          <button onclick="_rosterAddEmp('${outlet}','${emp.employee_id}')"
-            style="padding:4px 14px;border:1.5px solid var(--blue);border-radius:6px;color:var(--blue);background:none;cursor:pointer;font-size:12px;font-weight:600">+ Add</button>
-        </div>`;
-    }).join('');
-
-    const outletColor = { SKN: '#7c3aed', RR: '#0369a1', KOR: '#b45309' }[outlet] || '#333';
-
+  const scheduledRows = entries.map((row, idx) => {
+    const emp = empById[row.employee_id];
+    const name = emp ? emp.name : row.employee_id;
+    const timeLabel = row.start_time && row.end_time
+      ? `<span style="font-size:11px;color:var(--ink-3);margin-left:6px">${row.start_time}–${row.end_time}</span>` : '';
     return `
-      <div style="margin-bottom:28px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;
-            color:${outletColor};background:${outletColor}18;padding:4px 12px;border-radius:20px">${outlet}</span>
-          <span style="font-size:13px;color:var(--ink-2)">${rows.length} scheduled</span>
-        </div>
+      <tr style="border-top:1px solid var(--border-2)">
+        <td style="padding:9px 14px;font-size:14px;font-weight:600;color:var(--ink)">${name}</td>
+        <td style="padding:9px 14px">
+          <select onchange="_ckSetShift(${idx},this.value)"
+            style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:240px">
+            <option value="">— Select shift —</option>
+            ${shiftOptsFor(row.shift)}
+          </select>
+          ${timeLabel}
+        </td>
+        <td style="padding:9px 14px;text-align:right">
+          <button onclick="_ckRemove(${idx})"
+            style="padding:4px 12px;border:1.5px solid var(--red);border-radius:6px;color:var(--red);background:none;cursor:pointer;font-size:12px;font-weight:600">✕</button>
+        </td>
+      </tr>`;
+  }).join('');
 
-        ${rows.length ? `
-        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface);margin-bottom:10px">
-          <div style="background:var(--surface-2);padding:7px 14px;display:grid;grid-template-columns:1fr 240px 90px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">
+  const poolRows = available.map(emp => {
+    const isRecent = _ckState.recent_ids.has(emp.employee_id);
+    const recentBadge = isRecent
+      ? `<span style="font-size:10px;font-weight:700;background:#dcfce7;color:${CK_GREEN};padding:2px 7px;border-radius:20px;margin-left:6px">Recent</span>` : '';
+    const shiftBadge = emp.default_shift_name
+      ? `<span style="font-size:11px;color:var(--ink-3);margin-left:6px">${emp.default_shift_name} ${emp.default_start}–${emp.default_end}</span>` : '';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--border-2)">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+          <span style="font-size:13px;color:var(--ink);font-weight:600">${emp.name}</span>
+          ${recentBadge}${shiftBadge}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button onclick="_ckAddWO('${emp.employee_id}')"
+            style="padding:4px 12px;border:1.5px solid #2196f3;border-radius:6px;color:#2196f3;background:none;cursor:pointer;font-size:12px;font-weight:600">WO</button>
+          <button onclick="_ckAddEmp('${emp.employee_id}')"
+            style="padding:4px 14px;border:1.5px solid ${CK_GREEN};border-radius:6px;color:${CK_GREEN};background:none;cursor:pointer;font-size:12px;font-weight:600">+ Add</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('ckBuildBody').innerHTML = `
+    <!-- Scheduled -->
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">
+        Kitchen Staff — ${entries.length} Scheduled
+      </div>
+      ${entries.length ? `
+        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+          <div style="background:#f8f9fb;padding:7px 14px;display:grid;grid-template-columns:160px 1fr 60px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">
             <span>Employee</span><span>Shift</span><span></span>
           </div>
-          <table style="width:100%;border-collapse:collapse">${addedRows}</table>
-        </div>` : '<div style="font-size:13px;color:var(--ink-3);margin-bottom:10px;padding:0 4px">No staff added yet.</div>'}
+          <table style="width:100%;border-collapse:collapse">${scheduledRows}</table>
+        </div>` :
+        `<div style="font-size:13px;color:var(--ink-3);padding:4px">No staff added yet. Use "Auto-fill All" or add from the pool below.</div>`
+      }
+    </div>
 
-        ${available.length ? `
-        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
-          <div style="background:var(--surface-2);padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">
-            Available (${available.length}) — tap to add
-          </div>
-          ${poolRows}
-        </div>` : ''}
-      </div>`;
-  };
-
-  document.getElementById('rosterBody').innerHTML =
-    renderSection('SKN', skn_pool) +
-    renderSection('RR',  rrkor_pool) +
-    renderSection('KOR', rrkor_pool);
+    <!-- Available pool -->
+    ${available.length ? `
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">
+        Available (${available.length})
+      </div>
+      <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+        ${poolRows}
+      </div>
+    </div>` : ''}`;
 }
 
-function _rosterSetShift(outlet, idx, shiftId) {
-  const shift = _rosterState.shifts.find(s => s.shift_id === shiftId) || {};
-  _rosterState.entries[outlet][idx].shift      = shiftId;
-  _rosterState.entries[outlet][idx].start_time = shift.start_time || '';
-  _rosterState.entries[outlet][idx].end_time   = shift.end_time   || '';
+function _ckSetShift(idx, shiftId) {
+  const shift = _ckState.shifts.find(s => s.shift_id === shiftId) || {};
+  _ckState.entries[idx].shift      = shiftId;
+  _ckState.entries[idx].start_time = shift.start_time || '';
+  _ckState.entries[idx].end_time   = shift.end_time   || '';
+  _ckRenderBuild();
 }
 
-function _rosterAddEmp(outlet, eid) {
-  const pool = outlet === 'SKN' ? _rosterState.skn_pool : _rosterState.rrkor_pool;
-  const emp  = pool.find(e => e.employee_id === eid);
-  _rosterState.entries[outlet].push({
+function _ckAddEmp(eid) {
+  const emp = _ckState.ck_pool.find(e => e.employee_id === eid);
+  _ckState.entries.push({
     employee_id: eid,
-    shift:       emp ? (emp.default_shift || '') : '',
-    start_time:  emp ? (emp.default_start || '') : '',
-    end_time:    emp ? (emp.default_end   || '') : '',
+    shift:       emp ? (emp.default_shift  || '') : '',
+    start_time:  emp ? (emp.default_start  || '') : '',
+    end_time:    emp ? (emp.default_end    || '') : '',
   });
-  _renderRosterBody();
+  _ckRenderBuild();
 }
 
-function _rosterRemove(outlet, idx) {
-  _rosterState.entries[outlet].splice(idx, 1);
-  _renderRosterBody();
+function _ckAddWO(eid) {
+  _ckState.entries.push({ employee_id: eid, shift: 'WO', start_time: '', end_time: '' });
+  _ckRenderBuild();
 }
 
-async function _publishRoster() {
-  const { date, entries } = _rosterState;
-  const allEntries = [
-    ...entries.SKN.map(e => ({...e, outlet:'SKN'})),
-    ...entries.RR.map(e  => ({...e, outlet:'RR'})),
-    ...entries.KOR.map(e => ({...e, outlet:'KOR'})),
-  ].filter(e => e.employee_id);
+function _ckRemove(idx) {
+  _ckState.entries.splice(idx, 1);
+  _ckRenderBuild();
+}
 
-  if (!allEntries.length) { alert('No entries to publish.'); return; }
-  const noShift = allEntries.filter(e => !e.shift);
-  if (noShift.length && !confirm(`${noShift.length} employee(s) have no shift. Publish anyway?`)) return;
+async function _ckPublish() {
+  const { date, entries } = _ckState;
+  const toPublish = entries.filter(e => e.employee_id).map(e => ({
+    ...e, outlet: e.shift === 'WO' ? 'WO' : 'CK',
+  }));
+  if (!toPublish.length) { alert('No entries to publish.'); return; }
+  const noShift = toPublish.filter(e => !e.shift && e.outlet !== 'WO');
+  if (noShift.length && !confirm(`${noShift.length} employee(s) have no shift set. Publish anyway?`)) return;
 
   try {
     const res = await fetch(`${API}/api/ops/roster/publish`, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ date, entries: allEntries }),
-    }).then(r=>r.json());
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, entries: toPublish }),
+    }).then(r => r.json());
     if (res.success) {
-      _showToast(`Roster published — ${res.published} entries ✓`);
-      _rosterState.loaded = false;
-      _rosterState.entries = { SKN: [], RR: [], KOR: [] };
-      _loadRosterData();
+      _showToast(`CK Roster published — ${res.published} entries ✓`);
+      _ckState.loaded = false;
+      _ckState.entries = [];
+      _ckLoadBuild();
     } else {
       alert('Publish failed: ' + JSON.stringify(res));
     }
   } catch(e) { alert('Error: ' + e.message); }
+}
+
+// (history tab removed — past workers shown inline in build pool with "Recent" badge)
+async function _ckLoadHistory_UNUSED() {
+  document.getElementById('ckBody').innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--ink-3)">Loading past 2 weeks…</div>';
+
+  if (_ckState.historyLoaded) { _ckRenderHistory(); return; }
+
+  try {
+    const [empRes, shiftRes] = await Promise.all([
+      fetch(`${API}/api/ops/roster/employees`).then(r=>r.json()),
+      fetch(`${API}/api/ops/roster/shifts`).then(r=>r.json()),
+    ]);
+    const pools = empRes.pools_by_outlet || {};
+    const ck_pool = pools['CK'] || [];
+    const empById = {};
+    ck_pool.forEach(e => empById[e.employee_id] = e);
+    const shifts = shiftRes.shifts || [];
+    const shiftById = {};
+    shifts.forEach(s => shiftById[s.shift_id] = s);
+
+    // Build list of past 14 dates (today inclusive)
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const dates = [];
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yy = d.getFullYear();
+      dates.push({ str: `${dd}/${mm}/${yy}`, dayName: days[d.getDay()] });
+    }
+
+    // Fetch all 14 days in parallel
+    const results = await Promise.all(
+      dates.map(({ str }) =>
+        fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(str)}`).then(r=>r.json())
+      )
+    );
+
+    _ckState.history = dates.map(({ str, dayName }, i) => {
+      const ckEntries = (results[i].entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
+      return {
+        date: str,
+        dayName,
+        entries: ckEntries.map(e => {
+          const sh = shiftById[e.shift] || {};
+          const emp = empById[e.employee_id] || {};
+          return {
+            name: e.employee_name || emp.name || e.employee_id,
+            shift_name: e.outlet === 'WO' ? 'Weekly Off' : (sh.shift_name || e.shift || '—'),
+            start_time: e.start_time || sh.start_time || '',
+            end_time: e.end_time || sh.end_time || '',
+            is_wo: e.outlet === 'WO',
+          };
+        }),
+      };
+    });
+    _ckState.historyLoaded = true;
+    _ckRenderHistory();
+  } catch(e) {
+    document.getElementById('ckBody').innerHTML =
+      `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+  }
+}
+
+function _ckRenderHistory_UNUSED() {
+  const rows = _ckState.history.map(day => {
+    if (!day.entries.length) {
+      return `
+        <div style="margin-bottom:14px;border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+          <div style="padding:10px 16px;background:#f8f9fb;display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:700;color:var(--ink)">${day.date}</span>
+            <span style="font-size:12px;color:var(--ink-3)">${day.dayName}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--ink-3)">No roster published</span>
+          </div>
+        </div>`;
+    }
+    const empRows = day.entries.map(e => {
+      const times = !e.is_wo && e.start_time && e.end_time
+        ? `<span style="font-size:11px;color:var(--ink-3);font-family:var(--mono)">${e.start_time}–${e.end_time}</span>` : '';
+      const badge = e.is_wo
+        ? `<span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px">WO</span>` : '';
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border-2)">
+          <span style="font-size:13px;font-weight:600;color:var(--ink)">${e.name}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${badge}
+            <span style="font-size:12px;color:var(--ink-2)">${e.is_wo ? '' : e.shift_name}</span>
+            ${times}
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:14px;border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+        <div style="padding:10px 16px;background:#f8f9fb;display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px;font-weight:700;color:var(--ink)">${day.date}</span>
+          <span style="font-size:12px;color:var(--ink-3)">${day.dayName}</span>
+          <span style="margin-left:auto;font-size:12px;font-weight:600;color:${CK_GREEN}">${day.entries.filter(e=>!e.is_wo).length} kitchen</span>
+        </div>
+        ${empRows}
+      </div>`;
+  }).join('');
+
+  document.getElementById('ckBody').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3)">
+        CK Kitchen Roster — Last 14 Days
+      </div>
+      <button onclick="_ckState.historyLoaded=false;_ckLoadHistory()"
+        style="padding:6px 14px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink-2)">
+        ↻ Refresh
+      </button>
+    </div>
+    ${rows}`;
 }
 
 /* ── BOOT ── */
