@@ -3212,12 +3212,18 @@ async function _ckLoadBuild() {
       pastDates.push(`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);
     }
 
-    const [empRes, shiftRes, existRes, ...historyResults] = await Promise.all([
+    const [empRes, existRes, ...historyResults] = await Promise.all([
       fetch(`${API}/api/ops/roster/employees?date=${encodeURIComponent(_ckState.date)}`).then(r=>r.json()),
-      fetch(`${API}/api/ops/roster/shifts`).then(r=>r.json()),
       fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(_ckState.date)}`).then(r=>r.json()),
       ...pastDates.map(d => fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(d)}`).then(r=>r.json())),
     ]);
+
+    // Hardcoded CK kitchen shifts only
+    _ckState.shifts = [
+      { shift_id: 'ck-morning', shift_name: 'Morning', start_time: '09:00', end_time: '17:00' },
+      { shift_id: 'ck-mid',     shift_name: 'Mid',     start_time: '13:00', end_time: '21:00' },
+      { shift_id: 'ck-evening', shift_name: 'Evening', start_time: '16:00', end_time: '00:00' },
+    ];
 
     // Collect IDs who worked CK in past 2 weeks
     const recentIds = new Set();
@@ -3233,29 +3239,35 @@ async function _ckLoadBuild() {
       ...allCK.filter(e =>  recentIds.has(e.employee_id)).sort((a,b)=>a.name.localeCompare(b.name)),
       ...allCK.filter(e => !recentIds.has(e.employee_id)).sort((a,b)=>a.name.localeCompare(b.name)),
     ];
-    _ckState.shifts = (shiftRes.shifts || []).sort((a,b)=>a.start_time.localeCompare(b.start_time));
 
     if (!_ckState.loaded) {
       _ckState.loaded = true;
-      const existing = (existRes.entries || []).filter(e => e.outlet === 'CK');
+      const existing = (existRes.entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
+      // Map start_time to canonical CK shift ID
+      const _mapShift = (start) => {
+        if (start === '09:00') return 'ck-morning';
+        if (start === '13:00') return 'ck-mid';
+        if (start === '16:00') return 'ck-evening';
+        return 'ck-morning';
+      };
       if (existing.length) {
         _ckState.entries = existing.map(e => ({
           employee_id: e.employee_id,
-          outlet:      e.outlet || 'CK',
-          shift:       e.outlet === 'WO' ? '' : (e.shift || ''),
-          start_time:  e.outlet === 'WO' ? '' : (e.start_time || ''),
-          end_time:    e.outlet === 'WO' ? '' : (e.end_time || ''),
+          outlet:      e.outlet === 'WO' ? 'WO' : 'CK',
+          shift:       e.outlet === 'WO' ? '' : _mapShift(e.start_time),
+          start_time:  e.outlet === 'WO' ? '' : (e.start_time || '09:00'),
+          end_time:    e.outlet === 'WO' ? '' : (e.end_time   || '17:00'),
         }));
       } else {
-        // Auto-fill recent workers with their default shift
+        // Auto-fill recent workers with Morning shift by default
         _ckState.entries = _ckState.ck_pool
           .filter(emp => recentIds.has(emp.employee_id))
           .map(emp => ({
             employee_id: emp.employee_id,
             outlet:      'CK',
-            shift:       emp.default_shift || '',
-            start_time:  emp.default_start || '',
-            end_time:    emp.default_end || '',
+            shift:       'ck-morning',
+            start_time:  '09:00',
+            end_time:    '17:00',
           }));
       }
     }
@@ -3272,9 +3284,10 @@ async function _ckLoadBuild() {
 function _ckPrePopulate() {
   _ckState.entries = _ckState.ck_pool.map(emp => ({
     employee_id: emp.employee_id,
-    shift: emp.default_shift || '',
-    start_time: emp.default_start || '',
-    end_time: emp.default_end || '',
+    outlet:      'CK',
+    shift:       'ck-morning',
+    start_time:  '09:00',
+    end_time:    '17:00',
   }));
   _ckRenderBuild();
 }
@@ -3372,13 +3385,12 @@ function _ckSetShift(idx, shiftId) {
 }
 
 function _ckAddEmp(eid) {
-  const emp = _ckState.ck_pool.find(e => e.employee_id === eid);
   _ckState.entries.push({
     employee_id: eid,
     outlet:      'CK',
-    shift:       emp ? (emp.default_shift  || '') : '',
-    start_time:  emp ? (emp.default_start  || '') : '',
-    end_time:    emp ? (emp.default_end    || '') : '',
+    shift:       'ck-morning',
+    start_time:  '09:00',
+    end_time:    '17:00',
   });
   _ckRenderBuild();
 }
