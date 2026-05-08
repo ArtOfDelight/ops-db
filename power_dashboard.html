@@ -3241,9 +3241,10 @@ async function _ckLoadBuild() {
       if (existing.length) {
         _ckState.entries = existing.map(e => ({
           employee_id: e.employee_id,
-          shift: e.shift || '',
-          start_time: e.start_time || '',
-          end_time: e.end_time || '',
+          outlet:      e.outlet || 'CK',
+          shift:       e.outlet === 'WO' ? '' : (e.shift || ''),
+          start_time:  e.outlet === 'WO' ? '' : (e.start_time || ''),
+          end_time:    e.outlet === 'WO' ? '' : (e.end_time || ''),
         }));
       } else {
         // Auto-fill recent workers with their default shift
@@ -3251,9 +3252,10 @@ async function _ckLoadBuild() {
           .filter(emp => recentIds.has(emp.employee_id))
           .map(emp => ({
             employee_id: emp.employee_id,
-            shift: emp.default_shift || '',
-            start_time: emp.default_start || '',
-            end_time: emp.default_end || '',
+            outlet:      'CK',
+            shift:       emp.default_shift || '',
+            start_time:  emp.default_start || '',
+            end_time:    emp.default_end || '',
           }));
       }
     }
@@ -3289,21 +3291,21 @@ function _ckRenderBuild() {
   const available = ck_pool.filter(e => !usedIds.has(e.employee_id));
 
   const scheduledRows = entries.map((row, idx) => {
-    const emp = empById[row.employee_id];
+    const emp  = empById[row.employee_id];
     const name = emp ? emp.name : row.employee_id;
-    const timeLabel = row.start_time && row.end_time
-      ? `<span style="font-size:11px;color:var(--ink-3);margin-left:6px">${row.start_time}–${row.end_time}</span>` : '';
+    const isWO = row.outlet === 'WO';
+    const shiftCell = isWO
+      ? `<span style="font-size:12px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px">Weekly Off</span>`
+      : `<select onchange="_ckSetShift(${idx},this.value)"
+           style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:240px">
+           <option value="">— Select shift —</option>
+           ${shiftOptsFor(row.shift)}
+         </select>
+         ${row.start_time && row.end_time ? `<span style="font-size:11px;color:var(--ink-3);margin-left:6px">${row.start_time}–${row.end_time}</span>` : ''}`;
     return `
-      <tr style="border-top:1px solid var(--border-2)">
-        <td style="padding:9px 14px;font-size:14px;font-weight:600;color:var(--ink)">${name}</td>
-        <td style="padding:9px 14px">
-          <select onchange="_ckSetShift(${idx},this.value)"
-            style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:240px">
-            <option value="">— Select shift —</option>
-            ${shiftOptsFor(row.shift)}
-          </select>
-          ${timeLabel}
-        </td>
+      <tr style="border-top:1px solid var(--border-2)${isWO ? ';background:#f8fbff' : ''}">
+        <td style="padding:9px 14px;font-size:14px;font-weight:600;color:${isWO ? '#1d4ed8' : 'var(--ink)'}">${name}</td>
+        <td style="padding:9px 14px">${shiftCell}</td>
         <td style="padding:9px 14px;text-align:right">
           <button onclick="_ckRemove(${idx})"
             style="padding:4px 12px;border:1.5px solid var(--red);border-radius:6px;color:var(--red);background:none;cursor:pointer;font-size:12px;font-weight:600">✕</button>
@@ -3373,6 +3375,7 @@ function _ckAddEmp(eid) {
   const emp = _ckState.ck_pool.find(e => e.employee_id === eid);
   _ckState.entries.push({
     employee_id: eid,
+    outlet:      'CK',
     shift:       emp ? (emp.default_shift  || '') : '',
     start_time:  emp ? (emp.default_start  || '') : '',
     end_time:    emp ? (emp.default_end    || '') : '',
@@ -3381,7 +3384,7 @@ function _ckAddEmp(eid) {
 }
 
 function _ckAddWO(eid) {
-  _ckState.entries.push({ employee_id: eid, shift: 'WO', start_time: '', end_time: '' });
+  _ckState.entries.push({ employee_id: eid, outlet: 'WO', shift: '', start_time: '', end_time: '' });
   _ckRenderBuild();
 }
 
@@ -3393,7 +3396,7 @@ function _ckRemove(idx) {
 async function _ckPublish() {
   const { date, entries } = _ckState;
   const toPublish = entries.filter(e => e.employee_id).map(e => ({
-    ...e, outlet: e.shift === 'WO' ? 'WO' : 'CK',
+    ...e, outlet: e.outlet || 'CK',
   }));
   if (!toPublish.length) { alert('No entries to publish.'); return; }
   const noShift = toPublish.filter(e => !e.shift && e.outlet !== 'WO');
