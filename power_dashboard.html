@@ -3400,7 +3400,7 @@ async function _ckPublish() {
   if (noShift.length && !confirm(`${noShift.length} employee(s) have no shift set. Publish anyway?`)) return;
 
   try {
-    const res = await fetch(`${API}/api/ops/roster/publish`, {
+    const res = await fetch(`${API}/api/ops/roster/ck/publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, entries: toPublish }),
