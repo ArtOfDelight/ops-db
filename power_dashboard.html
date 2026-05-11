@@ -597,6 +597,68 @@ td.c { text-align: center; }
 .state-title { font-size: 14px; font-weight: 700; }
 .state-body  { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
 .state-cmd   { font-family: var(--mono); font-size: 12px; color: var(--blue); background: var(--blue-dim); border: 1px solid rgba(37,99,235,.2); padding: 8px 18px; border-radius: var(--r); user-select: all; }
+
+/* ── HOME TAB ── */
+.home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; margin-bottom: 24px; }
+.home-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 18px 20px; cursor: pointer; transition: all .16s;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.home-card:hover { border-color: #93c5fd; box-shadow: 0 4px 18px rgba(37,99,235,.09); transform: translateY(-1px); }
+.home-card-top { display: flex; align-items: center; gap: 10px; }
+.home-card-icon { font-size: 18px; width: 36px; height: 36px; border-radius: 9px; background: var(--blue-dim); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.home-card-title { font-size: 13px; font-weight: 700; color: var(--ink); }
+.home-card-sub { font-size: 11px; color: var(--ink-3); line-height: 1.5; }
+.home-card-stat { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+/* ── CHATBOT ── */
+.chat-wrap {
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  height: 520px; overflow: hidden;
+}
+.chat-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 700; color: var(--ink); flex-shrink: 0;
+}
+.chat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; animation: pulse-green 2s ease-in-out infinite; }
+@keyframes pulse-green { 0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.4)} 50%{box-shadow:0 0 0 5px rgba(22,163,74,0)} }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chat-msg { display: flex; flex-direction: column; gap: 3px; max-width: 86%; }
+.chat-msg.user { align-self: flex-end; align-items: flex-end; }
+.chat-msg.bot  { align-self: flex-start; align-items: flex-start; }
+.chat-bubble {
+  padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+.chat-msg.user .chat-bubble { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+.chat-msg.bot  .chat-bubble { background: #f1f5f9; color: var(--ink); border-bottom-left-radius: 4px; }
+.chat-msg-label { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 0 4px; }
+.chat-typing { display: flex; gap: 4px; padding: 10px 14px; background: #f1f5f9; border-radius: 14px; border-bottom-left-radius: 4px; width: fit-content; }
+.chat-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: bounce .9s ease-in-out infinite; }
+.chat-typing span:nth-child(2) { animation-delay: .15s; }
+.chat-typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+.chat-input-row {
+  display: flex; gap: 8px; padding: 12px 14px;
+  border-top: 1px solid var(--border); flex-shrink: 0; background: #fafbfd;
+}
+.chat-input {
+  flex: 1; padding: 9px 14px; border: 1px solid var(--border-2); border-radius: 10px;
+  font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--surface);
+  outline: none; resize: none; height: 38px; max-height: 80px; overflow-y: auto;
+  transition: border-color .15s;
+}
+.chat-input:focus { border-color: var(--blue); }
+.chat-send {
+  padding: 0 16px; height: 38px; border-radius: 10px; border: 0;
+  background: var(--blue); color: #fff; font-weight: 700; font-size: 13px;
+  cursor: pointer; flex-shrink: 0; transition: opacity .2s;
+}
+.chat-send:hover { opacity: .88; }
+.chat-send:disabled { opacity: .4; cursor: default; }
 </style>
 </head>
 <body>
@@ -615,8 +677,15 @@ td.c { text-align: center; }
   </div>
 
   <div class="sb-section">
+    <div class="sb-section-label">Overview</div>
+    <button class="sb-item active" id="sbitem-home" onclick="navTo('home')">
+      <span class="sb-icon">🏠</span> Home
+    </button>
+  </div>
+
+  <div class="sb-section">
     <div class="sb-section-label">Monitoring</div>
-    <button class="sb-item active" id="sbitem-power" onclick="navTo('power')">
+    <button class="sb-item" id="sbitem-power" onclick="navTo('power')">
       <span class="sb-icon">⚡</span> Power Status
       <span class="sb-badge" id="sbOfflineBadge" style="display:none">!</span>
     </button>
@@ -658,7 +727,7 @@ td.c { text-align: center; }
 <!-- MAIN -->
 <div class="main">
   <div class="topbar">
-    <div class="page-title" id="pageTitle">⚡ Power Status</div>
+    <div class="page-title" id="pageTitle">🏠 Home</div>
     <div class="topbar-right">
       <span class="as-of-label" id="asOf"></span>
       <button class="btn-refresh" id="refreshBtn" onclick="loadAll()">
@@ -685,14 +754,15 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
+  ['home','power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
+  const titles = { home: '🏠 Home', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
+  if (page === 'home')      renderHomePage();
   if (page === 'power')     renderPowerPage();
   if (page === 'signin')    renderSigninPage();
   if (page === 'metrics')   renderMetricsPage();
@@ -3547,8 +3617,129 @@ function _ckRenderHistory_UNUSED() {
     ${rows}`;
 }
 
+/* ── HOME PAGE ── */
+const HOME_TABS = [
+  { id:'power',     icon:'⚡', title:'Power Status',       desc:'Live outlet power & platform uptime across all locations.' },
+  { id:'signin',    icon:'🕐', title:'Late Sign-In',        desc:'Employees who signed in after their scheduled shift start.' },
+  { id:'metrics',   icon:'📊', title:'Platform Metrics',    desc:'KPT and MFR scores from Swiggy & Zomato by outlet.' },
+  { id:'scorecard', icon:'👥', title:'Employee Dashboard',  desc:'Performance scorecard, incentive tiers, and attendance.' },
+  { id:'ratings',   icon:'⭐', title:'Outlet Ratings',      desc:'Aggregated customer ratings per outlet and date range.' },
+  { id:'products',  icon:'🍽️', title:'Product Rankings',    desc:'Best and worst selling items by revenue and order count.' },
+  { id:'stock',     icon:'📦', title:'Out of Stock',        desc:'Items currently marked OOS across outlets.' },
+  { id:'tracker',   icon:'🔴', title:'OOS Tracker',         desc:'Historical out-of-stock events and duration per outlet.' },
+  { id:'recon',     icon:'💰', title:'Daily Recon',         desc:'Daily cash and online payment reconciliation.' },
+  { id:'rrrecon',   icon:'🏦', title:'RR Reconciliation',   desc:'Residency Road specific revenue and payment reconciliation.' },
+  { id:'roster',    icon:'🍳', title:'CK Kitchen Roster',   desc:'Central Kitchen roster — shifts, assignments, and history.' },
+];
+
+function renderHomePage() {
+  document.getElementById('pageBody').innerHTML = `
+    <div style="margin-bottom:24px">
+      <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:4px">Good ${greeting()}, Operations</div>
+      <div style="font-size:12px;color:var(--ink-3)">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+    </div>
+
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:10px">Sections</div>
+    <div class="home-grid">
+      ${HOME_TABS.map(t => `
+        <div class="home-card" onclick="navTo('${t.id}')">
+          <div class="home-card-top">
+            <div class="home-card-icon">${t.icon}</div>
+            <div class="home-card-title">${t.title}</div>
+          </div>
+          <div class="home-card-sub">${t.desc}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:10px;margin-top:8px">Ops Assistant</div>
+    <div class="chat-wrap">
+      <div class="chat-header">
+        <div class="chat-dot"></div>
+        Zaān Ops Bot <span style="font-size:10px;font-weight:500;color:var(--ink-3);margin-left:4px">· Claude Haiku</span>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-msg bot">
+          <div class="chat-msg-label">Ops Assistant</div>
+          <div class="chat-bubble">Hi! I'm your Zaān ops assistant. Ask me anything about the dashboard — power status, ratings, metrics, roster, recon, or anything else.</div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chatInput" placeholder="Ask anything about ops…" rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+          oninput="this.style.height='38px';this.style.height=Math.min(this.scrollHeight,80)+'px'"></textarea>
+        <button class="chat-send" id="chatSend" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  `;
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+}
+
+/* ── CHATBOT ── */
+const _chatHistory = [];
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSend');
+  const text = (input.value || '').trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = '38px';
+  sendBtn.disabled = true;
+
+  appendChatMsg('user', text);
+  _chatHistory.push({ role: 'user', content: text });
+
+  const typingEl = document.createElement('div');
+  typingEl.className = 'chat-msg bot';
+  typingEl.id = 'chatTyping';
+  typingEl.innerHTML = `<div class="chat-msg-label">Ops Assistant</div><div class="chat-typing"><span></span><span></span><span></span></div>`;
+  document.getElementById('chatMessages').appendChild(typingEl);
+  scrollChat();
+
+  try {
+    const res = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: _chatHistory }),
+    });
+    const data = await res.json();
+    const reply = data.reply || data.error || 'Something went wrong.';
+    _chatHistory.push({ role: 'assistant', content: reply });
+    document.getElementById('chatTyping')?.remove();
+    appendChatMsg('bot', reply);
+  } catch(e) {
+    document.getElementById('chatTyping')?.remove();
+    appendChatMsg('bot', 'Error reaching the server. Please try again.');
+  }
+
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function appendChatMsg(role, text) {
+  const wrap = document.getElementById('chatMessages');
+  if (!wrap) return;
+  const label = role === 'user' ? 'You' : 'Ops Assistant';
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  div.innerHTML = `<div class="chat-msg-label">${label}</div><div class="chat-bubble">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  wrap.appendChild(div);
+  scrollChat();
+}
+
+function scrollChat() {
+  const wrap = document.getElementById('chatMessages');
+  if (wrap) wrap.scrollTop = wrap.scrollHeight;
+}
+
 /* ── BOOT ── */
-renderPowerPage();
+renderHomePage();
 </script>
 </body>
 </html>
