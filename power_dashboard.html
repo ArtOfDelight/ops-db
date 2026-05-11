@@ -4453,33 +4453,68 @@ function renderBriefResult(data) {
 /* ── BRIEF CHATBOT ── */
 let _bcHistory = [];  // kept to last 6 turns to limit tokens
 
-function _bcContext() {
-  // Use the already-fetched brief as context — free, no extra API calls
-  if (_briefResult?.brief) {
-    const b = _briefResult.brief;
-    // Trim to ~1400 chars to keep system prompt lean
-    return b.length > 1400 ? b.slice(0, 1400) + '\n[…truncated]' : b;
+// Map keywords → which section of the brief to extract
+const _BC_SECTION_KEYS = [
+  { keys: ['power','offline','outage','downtime'],          tag: 'Power Status' },
+  { keys: ['late','sign in','absent','attendance'],         tag: 'Late Sign-In' },
+  { keys: ['kpt','mfr','platform','metric'],                tag: 'Platform Metrics' },
+  { keys: ['employee','staff','performer','scorecard'],     tag: 'Employee Dashboard' },
+  { keys: ['rating','review','outlet score'],               tag: 'Outlet Ratings' },
+  { keys: ['product','item','selling','dish','scoop','menu','best seller'], tag: 'Product Rankings' },
+  { keys: ['stock','oos','out of stock'],                   tag: 'Out of Stock' },
+  { keys: ['recon','cash','collection','variance','deficit','surplus'], tag: 'Daily Recon' },
+  { keys: ['rr recon','rr','opening balance'],              tag: 'RR Recon' },
+  { keys: ['alert','urgent','priority'],                    tag: 'Priority Alerts' },
+];
+
+function _bcPickSections(question) {
+  // Return the 1-2 most relevant section bodies from the brief for this question
+  if (!_briefResult?.brief) return null;
+  const q   = question.toLowerCase();
+  const hits = _BC_SECTION_KEYS.filter(s => s.keys.some(k => q.includes(k)));
+  if (!hits.length) return null; // no match → backend handles it with full brief
+
+  // Parse brief into section map (title → body)
+  const map = {};
+  const lines = _briefResult.brief.split('\n');
+  let cur = '', buf = [];
+  for (const line of lines) {
+    const isH = /^[A-Z][A-Za-z0-9\s\-\/]+$/.test(line.trim()) && line.trim().length > 3 && line.trim().length < 60;
+    if (isH && buf.join('').trim()) { map[cur] = buf.join('\n').trim(); cur = line.trim(); buf = []; }
+    else if (isH) { cur = line.trim(); }
+    else buf.push(line);
   }
-  return null;
+  if (buf.join('').trim()) map[cur] = buf.join('\n').trim();
+
+  const parts = hits.slice(0,2).map(s => {
+    const body = map[s.tag] || '';
+    return body ? `${s.tag}:\n${body}` : null;
+  }).filter(Boolean);
+
+  return parts.length ? parts.join('\n\n') : null;
 }
 
-function _bcSystem() {
-  const ctx = _bcContext();
+function _bcSystem(question) {
   const today = new Date().toLocaleDateString('en-IN', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const base = `You are an ops assistant for Zaān Restaurants, a cloud kitchen chain in Bangalore. Today is ${today}. Answer concisely in 2-5 bullet points max. Use ₹ for currency. If data is unavailable say so briefly.`;
-  if (ctx) return `${base}\n\nLIVE OPS DATA (today's brief):\n${ctx}`;
-  return `${base}\n\nNo brief generated yet — answer from general ops knowledge or ask the user to generate the brief first.`;
+  const base  = `Ops assistant for Zaān Restaurants, Bangalore. Today: ${today}. Reply in ≤5 bullet points. Use ₹. Be direct.`;
+
+  const relevant = _bcPickSections(question);
+  if (relevant) return `${base}\n\nDATA:\n${relevant}`;
+  if (_briefResult?.brief) {
+    // No keyword match — send full brief but truncated hard at 900 chars
+    const b = _briefResult.brief.slice(0, 900);
+    return `${base}\n\nDATA:\n${b}`;
+  }
+  return base + '\n\nNo brief loaded yet.';
 }
 
 function bcAppend(role, text) {
   const wrap = document.getElementById('bcMsgs');
   if (!wrap) return;
-  const hint = wrap.querySelector('.bc-hint');
-  if (hint) hint.remove();
+  wrap.querySelector('.bc-hint')?.remove();
   const d = document.createElement('div');
   d.className = `bc-msg ${role}`;
-  const label = role === 'user' ? 'You' : 'Assistant';
-  d.innerHTML = `<div class="bc-label">${label}</div><div class="bc-bubble">${escHtml(text)}</div>`;
+  d.innerHTML = `<div class="bc-label">${role==='user'?'You':'Assistant'}</div><div class="bc-bubble">${escHtml(text)}</div>`;
   wrap.appendChild(d);
   wrap.scrollTop = wrap.scrollHeight;
 }
@@ -4495,9 +4530,7 @@ async function bcSend() {
   btn.disabled = true;
   bcAppend('user', text);
 
-  // Keep only last 6 turns (3 exchanges) to limit token use
   _bcHistory.push({ role: 'user', content: text });
-  if (_bcHistory.length > 6) _bcHistory = _bcHistory.slice(-6);
 
   // Typing indicator
   const typing = document.createElement('div');
@@ -4510,12 +4543,13 @@ async function bcSend() {
     const res = await fetch(`${API}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ messages: _bcHistory, system: _bcSystem() }),
+      body: JSON.stringify({ messages: _bcHistory, system: _bcSystem(text) }),
     });
     const data = await res.json();
     const reply = data.reply || data.error || 'Something went wrong.';
     _bcHistory.push({ role: 'assistant', content: reply });
-    if (_bcHistory.length > 6) _bcHistory = _bcHistory.slice(-6);
+    // Keep only last 4 turns — oldest get dropped to save tokens on follow-up questions
+    if (_bcHistory.length > 4) _bcHistory = _bcHistory.slice(-4);
     document.getElementById('bcTyping')?.remove();
     bcAppend('bot', reply);
   } catch(e) {
