@@ -675,6 +675,58 @@ td.c { text-align: center; }
 .brief-progress { width: 280px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .brief-progress-fill { height: 4px; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
 
+/* ── BRIEF CHAT ── */
+.brief-chat {
+  margin-top: 24px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.brief-chat-head {
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; color: var(--ink);
+}
+.brief-chat-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.brief-chat-msgs {
+  flex: 1; overflow-y: auto; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  max-height: 320px; min-height: 80px;
+}
+.bc-msg { display: flex; flex-direction: column; gap: 3px; }
+.bc-msg.user { align-items: flex-end; }
+.bc-msg.bot  { align-items: flex-start; }
+.bc-label { font-size: 10px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.bc-bubble {
+  max-width: 88%; padding: 9px 12px; border-radius: 10px;
+  font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+.bc-msg.user .bc-bubble { background: var(--navy); color: #e8f0ff; border-radius: 10px 10px 2px 10px; }
+.bc-msg.bot  .bc-bubble { background: #f3f5f9; color: var(--ink); border-radius: 10px 10px 10px 2px; }
+.bc-typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.bc-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: bc-blink 1.2s infinite; }
+.bc-typing span:nth-child(2) { animation-delay: .2s; }
+.bc-typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes bc-blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+.brief-chat-input {
+  display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border);
+}
+.brief-chat-input textarea {
+  flex: 1; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; font-family: var(--sans); color: var(--ink);
+  resize: none; height: 36px; line-height: 1.4; outline: none;
+  transition: border-color .15s;
+}
+.brief-chat-input textarea:focus { border-color: var(--blue); }
+.brief-chat-send {
+  width: 36px; height: 36px; border-radius: 8px; border: 0;
+  background: var(--navy); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0; transition: opacity .15s;
+}
+.brief-chat-send:hover { opacity: .82; }
+.brief-chat-send:disabled { opacity: .35; cursor: default; }
+.bc-hint { font-size: 11px; color: var(--ink-3); padding: 6px 14px 10px; }
+
 /* ── HOME TAB ── */
 .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; margin-bottom: 24px; }
 .home-card {
@@ -836,7 +888,7 @@ function navTo(page) {
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
-  if (page === 'brief')     renderDailyBriefPage();
+  if (page === 'brief')     { _bcHistory = []; renderDailyBriefPage(); }
   if (page === 'power')     renderPowerPage();
   if (page === 'signin')    renderSigninPage();
   if (page === 'metrics')   renderMetricsPage();
@@ -4221,6 +4273,21 @@ function renderDailyBriefPage() {
           </button>
         </div>
         <div id="briefBody"></div>
+        <div class="brief-chat" id="briefChat">
+          <div class="brief-chat-head">
+            <div class="brief-chat-dot"></div>
+            Ops Assistant
+            <span style="font-size:10px;font-weight:400;color:var(--ink-3);margin-left:4px">— ask anything about today's ops</span>
+          </div>
+          <div class="brief-chat-msgs" id="bcMsgs">
+            <div class="bc-hint">Generate the brief first for best answers, or ask freely — I'll fetch what I need.</div>
+          </div>
+          <div class="brief-chat-input">
+            <textarea id="bcInput" placeholder="e.g. Who was late today? Which outlet has best ratings?" rows="1"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();bcSend();}"></textarea>
+            <button class="brief-chat-send" id="bcSend" onclick="bcSend()" title="Send">➤</button>
+          </div>
+        </div>
       </div>
     </div>`;
 
@@ -4381,6 +4448,82 @@ function renderBriefResult(data) {
       <div class="inv-section-head">📌 Action List</div>
       <div class="action-list">${actionItems}</div>
     </div>` : ''}`;
+}
+
+/* ── BRIEF CHATBOT ── */
+let _bcHistory = [];  // kept to last 6 turns to limit tokens
+
+function _bcContext() {
+  // Use the already-fetched brief as context — free, no extra API calls
+  if (_briefResult?.brief) {
+    const b = _briefResult.brief;
+    // Trim to ~1400 chars to keep system prompt lean
+    return b.length > 1400 ? b.slice(0, 1400) + '\n[…truncated]' : b;
+  }
+  return null;
+}
+
+function _bcSystem() {
+  const ctx = _bcContext();
+  const today = new Date().toLocaleDateString('en-IN', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const base = `You are an ops assistant for Zaān Restaurants, a cloud kitchen chain in Bangalore. Today is ${today}. Answer concisely in 2-5 bullet points max. Use ₹ for currency. If data is unavailable say so briefly.`;
+  if (ctx) return `${base}\n\nLIVE OPS DATA (today's brief):\n${ctx}`;
+  return `${base}\n\nNo brief generated yet — answer from general ops knowledge or ask the user to generate the brief first.`;
+}
+
+function bcAppend(role, text) {
+  const wrap = document.getElementById('bcMsgs');
+  if (!wrap) return;
+  const hint = wrap.querySelector('.bc-hint');
+  if (hint) hint.remove();
+  const d = document.createElement('div');
+  d.className = `bc-msg ${role}`;
+  const label = role === 'user' ? 'You' : 'Assistant';
+  d.innerHTML = `<div class="bc-label">${label}</div><div class="bc-bubble">${escHtml(text)}</div>`;
+  wrap.appendChild(d);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function bcSend() {
+  const inp  = document.getElementById('bcInput');
+  const btn  = document.getElementById('bcSend');
+  const wrap = document.getElementById('bcMsgs');
+  const text = (inp?.value || '').trim();
+  if (!text || !wrap) return;
+
+  inp.value = '';
+  btn.disabled = true;
+  bcAppend('user', text);
+
+  // Keep only last 6 turns (3 exchanges) to limit token use
+  _bcHistory.push({ role: 'user', content: text });
+  if (_bcHistory.length > 6) _bcHistory = _bcHistory.slice(-6);
+
+  // Typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'bc-msg bot'; typing.id = 'bcTyping';
+  typing.innerHTML = '<div class="bc-label">Assistant</div><div class="bc-bubble"><div class="bc-typing"><span></span><span></span><span></span></div></div>';
+  wrap.appendChild(typing);
+  wrap.scrollTop = wrap.scrollHeight;
+
+  try {
+    const res = await fetch(`${API}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: _bcHistory, system: _bcSystem() }),
+    });
+    const data = await res.json();
+    const reply = data.reply || data.error || 'Something went wrong.';
+    _bcHistory.push({ role: 'assistant', content: reply });
+    if (_bcHistory.length > 6) _bcHistory = _bcHistory.slice(-6);
+    document.getElementById('bcTyping')?.remove();
+    bcAppend('bot', reply);
+  } catch(e) {
+    document.getElementById('bcTyping')?.remove();
+    bcAppend('bot', 'Network error. Please try again.');
+  }
+  btn.disabled = false;
+  inp?.focus();
 }
 
 function toggleAction(idx, storageKey) {
