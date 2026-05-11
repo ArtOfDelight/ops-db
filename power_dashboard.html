@@ -632,6 +632,13 @@ td.c { text-align: center; }
 .pri-medium { background: #fef3c7; color: #92400e; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .pri-low    { background: #dcfce7; color: #166534; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .brief-loading { display: flex; flex-direction: column; gap: 10px; padding: 40px 0; align-items: center; color: var(--ink-3); font-size: 13px; }
+.inv-section-head { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:10px;margin-top:4px; }
+.brief-sections { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
+@media(max-width:800px){ .brief-sections { grid-template-columns:1fr; } }
+.brief-section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px; }
+.brief-section-alert { border-color:#fca5a5; background:#fff5f5; grid-column:1/-1; }
+.brief-section-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
+.brief-section-body { font-size:13px; color:var(--ink-2); line-height:1.6; white-space:pre-wrap; }
 .brief-logs { border: 1px solid var(--border); border-radius: var(--r); padding: 10px 14px; background: #fafbfd; }
 .brief-logs summary::-webkit-details-marker { display: none; }
 .brief-logs[open] summary span:first-child { transform: rotate(90deg); display: inline-block; }
@@ -762,11 +769,8 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-products" onclick="navTo('products')">
       <span class="sb-icon">🍽️</span> Product Rankings
     </button>
-    <button class="sb-item" id="sbitem-stock" onclick="navTo('stock')">
-      <span class="sb-icon">📦</span> Out of Stock
-    </button>
-    <button class="sb-item" id="sbitem-tracker" onclick="navTo('tracker')">
-      <span class="sb-icon">🔴</span> OOS Tracker
+    <button class="sb-item" id="sbitem-inventory" onclick="navTo('inventory')">
+      <span class="sb-icon">📦</span> Inventory
     </button>
     <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
       <span class="sb-icon">💰</span> Daily Recon
@@ -812,11 +816,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { home: '🏠 Home', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -827,8 +831,7 @@ function navTo(page) {
   if (page === 'scorecard') renderScorecardPage();
   if (page === 'ratings')   renderRatingsPage();
   if (page === 'products')  renderProductsPage();
-  if (page === 'stock')     renderStockPage();
-  if (page === 'tracker')   renderTrackerPage();
+  if (page === 'inventory') renderInventoryPage();
   if (page === 'recon')     renderReconPage();
   if (page === 'rrrecon')   renderRRReconPage();
   if (page === 'roster')    renderRosterPage();
@@ -2711,153 +2714,227 @@ function scpSortBy(key) {
 }
 
 /* ── OUT OF STOCK PAGE ── */
-function renderStockPage() {
+/* ── INVENTORY PAGE (Live OOS + Tracker + Actions) ── */
+let _invTrackerDays = 7;
+let _invLiveData    = null;
+let _invTrackerData = null;
+
+function renderInventoryPage() {
   const el = document.getElementById('pageBody');
-  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading inventory data…</div>';
+  _invLiveData = null; _invTrackerData = null;
 
-  fetch(API + '/api/inventory/live')
-    .then(r => r.json())
-    .then(d => {
-      const items = d.items || [];
-      const oos   = items.filter(x => x.status === 'OUT OF STOCK');
-      const ins   = items.filter(x => x.status === 'IN STOCK');
-
-      const byOutlet = {};
-      oos.forEach(x => {
-        (byOutlet[x.outlet] = byOutlet[x.outlet] || []).push(x);
-      });
-
-      const outletCount = Object.keys(byOutlet).length;
-
-      const statRow = `
-        <div class="stat-row">
-          <div class="stat-card">
-            <div class="stat-label">Items Out of Stock</div>
-            <div class="stat-value" style="color:var(--red)">${oos.length}</div>
-            <div class="stat-sub">Right now</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Outlets Affected</div>
-            <div class="stat-value" style="color:var(--amber)">${outletCount}</div>
-            <div class="stat-sub">With at least 1 OOS item</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Back In Stock</div>
-            <div class="stat-value" style="color:var(--green)">${ins.length}</div>
-            <div class="stat-sub">Resolved today</div>
-          </div>
-        </div>`;
-
-      if (oos.length === 0) {
-        el.innerHTML = statRow + `<div class="state-box" style="margin-top:24px">
-          <div class="state-icon">✅</div>
-          <div class="state-title">All clear</div>
-          <div class="state-body">No items currently out of stock.</div>
-        </div>`;
-        return;
-      }
-
-      const fmtDur = hrs => {
-        if (hrs == null) return '—';
-        const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
-        return h === 0 ? `${m}m` : `${h}h ${m}m`;
-      };
-
-      const tables = Object.entries(byOutlet).sort((a,b) => b[1].length - a[1].length).map(([outlet, rows]) => {
-        const rowsHtml = rows.map(r => `
-          <tr>
-            <td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);font-weight:600">${r.item || '—'}</td>
-            <td style="padding:9px 13px;font-size:11px;border-bottom:1px solid var(--border);color:var(--ink-3);font-family:var(--mono)">${r.sku || '—'}</td>
-            <td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink-2)">${r.out_since || '—'}</td>
-            <td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--red);font-weight:600">${fmtDur(r.duration_hrs)}</td>
-          </tr>`).join('');
-        return `
-          <div class="card" style="margin-bottom:16px">
-            <div class="card-header" style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:13px;font-weight:700">${outlet}</span>
-              <span style="background:var(--red-dim);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${rows.length} OOS</span>
-            </div>
-            <div style="overflow-x:auto">
-              <table style="width:100%;border-collapse:collapse">
-                <thead><tr style="background:var(--bg)">
-                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Item</th>
-                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">SKU</th>
-                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Out Since</th>
-                  <th style="padding:8px 13px;font-size:10px;font-weight:700;text-align:left;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Op. Hours Lost</th>
-                </tr></thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-          </div>`;
-      }).join('');
-
-      el.innerHTML = statRow + `<div style="margin-top:8px;font-size:11px;color:var(--ink-3);margin-bottom:16px">Last updated: ${d.generated_at}</div>` + tables;
-    })
-    .catch(() => { el.innerHTML = errBox(''); });
+  Promise.all([
+    fetch(API + '/api/inventory/live').then(r => r.json()),
+    fetch(`${API}/api/inventory/tracker?days=${_invTrackerDays}`).then(r => r.json()),
+  ]).then(([live, tracker]) => {
+    _invLiveData    = live;
+    _invTrackerData = tracker;
+    _renderInventory();
+  }).catch(() => { el.innerHTML = errBox(''); });
 }
 
-/* ── OOS TRACKER PAGE ── */
-let _trackerDays = 7;
+function _invSetDays(n) {
+  _invTrackerDays = n;
+  fetch(`${API}/api/inventory/tracker?days=${n}`).then(r => r.json()).then(d => {
+    _invTrackerData = d;
+    _renderInventory();
+  });
+}
 
-function renderTrackerPage() {
+function _renderInventory() {
   const el = document.getElementById('pageBody');
-  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  const live    = _invLiveData    || {};
+  const tracker = _invTrackerData || {};
 
-  fetch(`${API}/api/inventory/tracker?days=${_trackerDays}`)
-    .then(r => r.json())
-    .then(d => {
-      const events = d.events || [];
+  const items   = live.items   || [];
+  const events  = tracker.events || [];
+  const oos     = items.filter(x => (x.status||'').toUpperCase().includes('OUT'));
+  const inStock = items.filter(x => (x.status||'').toUpperCase().includes('IN'));
 
-      const dayBar = `
-        <div style="display:flex;gap:1px;margin-bottom:16px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
-          ${[1,3,7,14,28].map(n => `<button class="ptab ${_trackerDays===n?'active':''}" onclick="_trackerSetDays(${n})">${n}d</button>`).join('')}
+  const byOutlet = {};
+  oos.forEach(x => { (byOutlet[x.outlet] = byOutlet[x.outlet] || []).push(x); });
+
+  // Repeat offenders from tracker
+  const repeatByOutlet = {};
+  events.forEach(e => { repeatByOutlet[e.outlet] = (repeatByOutlet[e.outlet] || 0) + 1; });
+  const worstOutlet = Object.entries(repeatByOutlet).sort((a,b) => b[1]-a[1])[0];
+
+  const fmtDur = hrs => {
+    if (hrs == null || hrs === '') return '—';
+    const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
+    return h === 0 ? `${m}m` : `${h}h ${m > 0 ? ' '+m+'m' : ''}`;
+  };
+
+  // ── Stat cards ──
+  const statsHtml = `
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">Live OOS Items</div>
+        <div class="stat-value" style="color:${oos.length>0?'var(--red)':'var(--green)'}">${oos.length}</div>
+        <div class="stat-sub">Right now</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Outlets Affected</div>
+        <div class="stat-value" style="color:${Object.keys(byOutlet).length>0?'var(--amber)':'var(--green)'}">${Object.keys(byOutlet).length}</div>
+        <div class="stat-sub">At least 1 OOS item</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Events (${_invTrackerDays}d)</div>
+        <div class="stat-value" style="color:var(--ink)">${events.length}</div>
+        <div class="stat-sub">Critical stock-outs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Worst Outlet (${_invTrackerDays}d)</div>
+        <div class="stat-value" style="color:var(--amber);font-size:18px">${worstOutlet ? worstOutlet[0] : '—'}</div>
+        <div class="stat-sub">${worstOutlet ? worstOutlet[1]+' events' : 'No events'}</div>
+      </div>
+    </div>`;
+
+  // ── Action items ──
+  const actions = [];
+  // Critical: OOS > 4 hours
+  oos.filter(x => (x.duration_hrs||0) > 4)
+     .sort((a,b) => (b.duration_hrs||0) - (a.duration_hrs||0))
+     .forEach(x => actions.push({ priority:'High', outlet: x.outlet, item: x.item, detail: `Out for ${fmtDur(x.duration_hrs)} — restock immediately` }));
+  // Medium: OOS < 4 hrs
+  oos.filter(x => (x.duration_hrs||0) <= 4)
+     .sort((a,b) => (b.duration_hrs||0) - (a.duration_hrs||0))
+     .forEach(x => actions.push({ priority:'Medium', outlet: x.outlet, item: x.item, detail: `Out since ${x.out_since||'—'} — monitor and restock` }));
+  // Repeat offenders from tracker (not currently OOS)
+  Object.entries(repeatByOutlet).sort((a,b) => b[1]-a[1]).slice(0,5).forEach(([outlet, count]) => {
+    if (count >= 3) actions.push({ priority:'Medium', outlet, item: '—', detail: `${count} critical stock-outs in last ${_invTrackerDays}d — review procurement` });
+  });
+
+  const storageKey = 'invActions_' + new Date().toISOString().slice(0,10);
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch {}
+
+  const actionsHtml = actions.length ? `
+    <div class="inv-section-head">📌 Actions Required</div>
+    <div class="action-list" style="margin-bottom:24px">
+      ${actions.map((a,i) => {
+        const done = !!checked['inv_'+i];
+        return `<div class="action-item${done?' action-done':''}" id="inv-action-${i}" onclick="toggleInvAction(${i},'${storageKey}')">
+          <div class="action-check${done?' action-check-done':''}">${done?'✓':''}</div>
+          <div class="action-content">
+            <div class="action-top">
+              <span class="pri-${a.priority.toLowerCase()}">${a.priority}</span>
+              <span class="action-area">${a.outlet}</span>
+              ${a.item !== '—' ? `<span style="font-size:11px;color:var(--ink-3);font-family:var(--mono)">${a.item}</span>` : ''}
+            </div>
+            <div class="action-text">${a.detail}</div>
+          </div>
         </div>`;
+      }).join('')}
+    </div>` : `<div style="font-size:12px;color:var(--green);margin-bottom:20px;display:flex;align-items:center;gap:6px"><span>✅</span> No inventory actions required right now.</div>`;
 
-      if (events.length === 0) {
-        el.innerHTML = dayBar + `<div class="state-box">
-          <div class="state-icon">✅</div>
-          <div class="state-title">No critical stock-outs</div>
-          <div class="state-body">No critical items went out of stock in the last ${_trackerDays} day${_trackerDays>1?'s':''}.</div>
-        </div>`;
-        return;
-      }
-
-      const rows = events.map(e => `
-        <tr>
-          <td class="ts-cell">${e.timestamp}</td>
-          <td style="font-weight:700;font-size:13px">${e.outlet}</td>
-          <td style="font-size:12px">${e.item}</td>
-          <td style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">${e.sku}</td>
-        </tr>`).join('');
-
-      el.innerHTML = dayBar + `
-        <div class="section-card">
-          <div class="section-head">
-            <div class="section-head-left">
-              <div class="section-icon red">🔴</div>
+  // ── Live OOS table per outlet ──
+  const liveHtml = oos.length === 0
+    ? `<div class="state-box"><div class="state-icon">✅</div><div class="state-title">All clear</div><div class="state-body">No items currently out of stock.</div></div>`
+    : Object.entries(byOutlet).sort((a,b) => b[1].length - a[1].length).map(([outlet, rows]) => {
+        const maxDur = Math.max(...rows.map(r => r.duration_hrs||0));
+        const urgentColor = maxDur > 4 ? 'var(--red)' : maxDur > 1 ? 'var(--amber)' : 'var(--ink-3)';
+        return `
+        <div class="section-card" style="margin-bottom:14px">
+          <div class="section-head" style="padding:12px 16px">
+            <div class="section-head-left" style="gap:10px">
               <div>
-                <div class="section-title">Critical Stock-Out Events</div>
-                <div class="section-sub">${events.length} event${events.length>1?'s':''} · last ${_trackerDays} day${_trackerDays>1?'s':''} · as of ${d.generated_at}</div>
+                <div class="section-title" style="font-size:14px">${outlet}</div>
+                <div class="section-sub">${rows.length} item${rows.length>1?'s':''} out of stock · longest out: <span style="color:${urgentColor};font-weight:700">${fmtDur(maxDur)}</span></div>
               </div>
             </div>
+            <span style="background:var(--red-dim);color:var(--red);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">${rows.length} OOS</span>
           </div>
-          <table>
-            <thead><tr>
-              <th>Timestamp</th>
-              <th>Outlet</th>
-              <th>Item</th>
-              <th>SKU</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr>
+                <th>Item</th><th>SKU</th><th>Out Since</th><th>Duration</th><th>Status</th>
+              </tr></thead>
+              <tbody>
+                ${rows.sort((a,b) => (b.duration_hrs||0)-(a.duration_hrs||0)).map(r => `
+                <tr>
+                  <td style="font-weight:600;font-size:13px">${r.item||'—'}</td>
+                  <td style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.sku||'—'}</td>
+                  <td style="font-size:12px;color:var(--ink-2)">${r.out_since||'—'}</td>
+                  <td style="font-family:var(--mono);font-size:12px;font-weight:700;color:${(r.duration_hrs||0)>4?'var(--red)':(r.duration_hrs||0)>1?'var(--amber)':'var(--ink-3)'}">${fmtDur(r.duration_hrs)}</td>
+                  <td><span style="background:var(--red-dim);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">OUT</span></td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>`;
-    })
-    .catch(() => { el.innerHTML = errBox(''); });
+      }).join('');
+
+  // ── Tracker history ──
+  const dayBarHtml = `
+    <div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content;margin-bottom:14px">
+      ${[1,3,7,14,28].map(n => `<button class="ptab ${_invTrackerDays===n?'active':''}" onclick="_invSetDays(${n})">${n}d</button>`).join('')}
+    </div>`;
+
+  // Group tracker events by outlet for summary
+  const trackerByOutlet = {};
+  events.forEach(e => { (trackerByOutlet[e.outlet] = trackerByOutlet[e.outlet] || []).push(e); });
+  const trackerSummaryRows = Object.entries(trackerByOutlet).sort((a,b) => b[1].length - a[1].length).map(([outlet, evts]) => {
+    const items = [...new Set(evts.map(e => e.item))];
+    return `<tr>
+      <td style="font-weight:700;font-size:13px">${outlet}</td>
+      <td style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--red);text-align:center">${evts.length}</td>
+      <td style="font-size:12px;color:var(--ink-2)">${items.slice(0,4).join(', ')}${items.length>4?` +${items.length-4} more`:''}</td>
+    </tr>`;
+  }).join('');
+
+  const eventRows = events.map(e => `
+    <tr>
+      <td class="ts-cell">${e.timestamp||'—'}</td>
+      <td style="font-weight:700;font-size:13px">${e.outlet}</td>
+      <td style="font-size:12px">${e.item}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">${e.sku||'—'}</td>
+    </tr>`).join('');
+
+  const trackerHtml = events.length === 0
+    ? `<div class="state-box"><div class="state-icon">✅</div><div class="state-title">No critical stock-outs</div><div class="state-body">None in the last ${_invTrackerDays} day${_invTrackerDays>1?'s':''}.</div></div>`
+    : `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div class="section-card">
+          <div class="section-head"><div class="section-head-left"><div class="section-title">By Outlet</div></div></div>
+          <table>
+            <thead><tr><th>Outlet</th><th style="text-align:center">Events</th><th>Items</th></tr></thead>
+            <tbody>${trackerSummaryRows}</tbody>
+          </table>
+        </div>
+        <div class="section-card">
+          <div class="section-head"><div class="section-head-left"><div class="section-title">Timeline</div><div class="section-sub">${events.length} events · last ${_invTrackerDays}d · ${tracker.generated_at||''}</div></div></div>
+          <div style="overflow-x:auto;max-height:260px;overflow-y:auto">
+            <table>
+              <thead><tr><th>Time</th><th>Outlet</th><th>Item</th><th>SKU</th></tr></thead>
+              <tbody>${eventRows}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+
+  el.innerHTML = statsHtml + `
+    <div style="font-size:11px;color:var(--ink-3);margin-bottom:18px">Live as of ${live.generated_at||'—'}</div>
+    ${actionsHtml}
+    <div class="inv-section-head">📦 Live Out of Stock</div>
+    ${liveHtml}
+    <div class="inv-section-head" style="margin-top:24px">📈 Stock-Out History</div>
+    ${dayBarHtml}
+    ${trackerHtml}
+  `;
 }
 
-function _trackerSetDays(n) {
-  _trackerDays = n;
-  renderTrackerPage();
+function toggleInvAction(idx, storageKey) {
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch {}
+  const k = 'inv_'+idx;
+  checked[k] = !checked[k];
+  localStorage.setItem(storageKey, JSON.stringify(checked));
+  const item = document.getElementById(`inv-action-${idx}`);
+  const chk  = item && item.querySelector('.action-check');
+  if (item) item.classList.toggle('action-done', !!checked[k]);
+  if (chk)  { chk.classList.toggle('action-check-done', !!checked[k]); chk.textContent = checked[k] ? '✓' : ''; }
 }
 
 /* ── DAILY RECON PAGE ── */
@@ -3968,13 +4045,15 @@ function renderDailyBriefPage() {
   const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('pageBody').innerHTML = `
     <div class="brief-wrap">
-      <div style="margin-bottom:20px">
-        <div style="font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:4px">Daily Ops Brief</div>
-        <div style="font-size:12px;color:var(--ink-3)">${today}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:3px">Daily Ops Brief</div>
+          <div style="font-size:12px;color:var(--ink-3)">${today}</div>
+        </div>
+        <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
+          <span id="briefGenIcon">📋</span> Generate
+        </button>
       </div>
-      <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
-        <span id="briefGenIcon">📋</span> Generate Today's Brief
-      </button>
       <div id="briefBody"></div>
     </div>`;
 
@@ -4074,12 +4153,62 @@ function renderBriefResult(data) {
     </div>`;
   }).join('');
 
+  // Parse brief text into named sections
+  const SECTION_ICONS = {
+    'power': '⚡', 'late sign': '🕐', 'platform': '📊', 'employee': '👥',
+    'outlet ratings': '⭐', 'product': '🍽️', 'out of stock': '📦',
+    'oos tracker': '🔴', 'daily recon': '💰', 'rr recon': '🏦',
+    'ck roster': '🍳', 'priority alerts': '🚨', 'notable': '📈',
+  };
+  function secIcon(title) {
+    const t = title.toLowerCase();
+    for (const [k,v] of Object.entries(SECTION_ICONS)) if (t.includes(k)) return v;
+    return '•';
+  }
+  function secColor(title) {
+    const t = title.toLowerCase();
+    if (t.includes('priority') || t.includes('alert')) return 'var(--red)';
+    if (t.includes('notable') || t.includes('change')) return 'var(--blue)';
+    return 'var(--ink)';
+  }
+
+  // Split on lines that look like "Section Name —" or "Section Name\n"
+  const sectionBlocks = [];
+  const lines = brief.split('\n');
+  let curTitle = '', curLines = [];
+  for (const line of lines) {
+    const isHeader = /^([\u{1F000}-\u{1FFFF}]?\s*)?[A-Z][A-Za-z\s\-—]+$/.test(line.trim()) && line.trim().length > 3 && line.trim().length < 60;
+    if (isHeader && curLines.join('').trim()) {
+      sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
+      curTitle = line.trim(); curLines = [];
+    } else if (isHeader && !curLines.join('').trim()) {
+      curTitle = line.trim();
+    } else {
+      curLines.push(line);
+    }
+  }
+  if (curLines.join('').trim()) sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
+
+  const sectionCards = sectionBlocks.map(s => {
+    if (!s.body) return '';
+    const icon = secIcon(s.title);
+    const col  = secColor(s.title);
+    const isPriority = s.title.toLowerCase().includes('priority') || s.title.toLowerCase().includes('alert');
+    return `
+    <div class="brief-section-card${isPriority?' brief-section-alert':''}">
+      ${s.title ? `<div class="brief-section-title" style="color:${col}">${icon} ${escHtml(s.title)}</div>` : ''}
+      <div class="brief-section-body">${escHtml(s.body)}</div>
+    </div>`;
+  }).join('');
+
+  const sectionsHtml = sectionCards || `<div class="brief-output" style="white-space:pre-wrap">${escHtml(brief)}</div>`;
+
   body.innerHTML = `
     ${logsHtml}
-    <div class="brief-output" style="white-space:pre-wrap;font-family:var(--sans)">${escHtml(brief)}</div>
+    <div class="brief-sections">${sectionsHtml}</div>
     ${actions.length ? `
     <div style="margin-top:24px">
-      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px">📌 Action List for Ops Manager</div>
+      <div class="inv-section-head">📌 Action List</div>
       <div class="action-list">${actionItems}</div>
     </div>` : ''}`;
 }
