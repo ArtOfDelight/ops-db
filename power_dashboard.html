@@ -3370,10 +3370,14 @@ function _showToast(msg) {
 const CK_GREEN = '#15803d';
 let _ckState = {
   date: '',
-  ck_pool: [],          // all active CK employees
-  recent_ids: new Set(),// employee IDs who worked CK in past 2 weeks
+  ck_pool: [],           // all active CK employees
+  recent_ids: new Set(), // employee IDs who worked CK in past 2 weeks
   shifts: [],
-  entries: [],          // [{employee_id, shift, start_time, end_time}]
+  entries: [],           // CK + WO entries
+  outlet_pools: {},      // { KOR: [...], SKN: [...], ... }
+  outlet_entries: {},    // { KOR: [...], SKN: [...], ... }
+  outlet_shifts: [],
+  outlet_labels: {},
   loaded: false,
 };
 
@@ -3394,7 +3398,7 @@ async function _ckLoadBuild() {
       <input type="date" id="ckDatePicker"
         style="padding:8px 12px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)"
         value="${_ckState.date.split('/').reverse().join('-')}"
-        onchange="const [y,m,d]=this.value.split('-');_ckState.date=d+'/'+m+'/'+y;_ckState.entries=[];_ckState.loaded=false;_ckLoadBuild();">
+        onchange="const [y,m,d]=this.value.split('-');_ckState.date=d+'/'+m+'/'+y;_ckState.entries=[];_ckState.outlet_entries={};_ckState.loaded=false;_ckLoadBuild();">
       <span id="ckDayLabel" style="font-size:14px;font-weight:700;color:var(--ink)"></span>
       <div style="margin-left:auto;display:flex;gap:8px">
         <button onclick="_ckPrePopulate()"
@@ -3445,36 +3449,60 @@ async function _ckLoadBuild() {
       ...allCK.filter(e => !recentIds.has(e.employee_id)).sort((a,b)=>a.name.localeCompare(b.name)),
     ];
 
+    // Build outlet pools (excluding CK — those are handled separately)
+    const OUTLET_LABELS = { SKN:'Sahakar Nagar', RR:'Residency Road', KOR:'Koramangala', JAY:'Jayanagar', WF:'Whitefield', KLN:'Kalayanagar', BLN:'Bellandur', IND:'Indiranagar', ARK:'Arkavathi' };
+    _ckState.outlet_pools = {};
+    Object.entries(pools).forEach(([code, emps]) => {
+      if (code !== 'CK' && code !== 'OTHER' && emps.length) _ckState.outlet_pools[code] = emps;
+    });
+
+    // Outlet shifts (standard dine-in)
+    _ckState.outlet_shifts = [
+      { shift_id: 'morning',  shift_name: 'Morning',  start_time: '09:00', end_time: '17:00' },
+      { shift_id: 'mid',      shift_name: 'Mid Day',   start_time: '13:00', end_time: '21:00' },
+      { shift_id: 'closing',  shift_name: 'Closing',   start_time: '17:00', end_time: '01:00' },
+    ];
+    _ckState.outlet_labels = OUTLET_LABELS;
+
     if (!_ckState.loaded) {
       _ckState.loaded = true;
-      const existing = (existRes.entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
-      // Map start_time to canonical CK shift ID
+      const allExisting = existRes.entries || [];
+
+      // CK entries
+      const existCK = allExisting.filter(e => e.outlet === 'CK' || e.outlet === 'WO');
       const _mapShift = (start) => {
         if (start === '09:00') return 'ck-morning';
         if (start === '13:00') return 'ck-mid';
         if (start === '16:00') return 'ck-evening';
         return 'ck-morning';
       };
-      if (existing.length) {
-        _ckState.entries = existing.map(e => ({
-          employee_id: e.employee_id,
-          outlet:      e.outlet === 'WO' ? 'WO' : 'CK',
-          shift:       e.outlet === 'WO' ? '' : _mapShift(e.start_time),
-          start_time:  e.outlet === 'WO' ? '' : (e.start_time || '09:00'),
-          end_time:    e.outlet === 'WO' ? '' : (e.end_time   || '17:00'),
+      if (existCK.length) {
+        _ckState.entries = existCK.map(e => ({
+          employee_id: e.employee_id, outlet: e.outlet === 'WO' ? 'WO' : 'CK',
+          shift: e.outlet === 'WO' ? '' : _mapShift(e.start_time),
+          start_time: e.outlet === 'WO' ? '' : (e.start_time || '09:00'),
+          end_time:   e.outlet === 'WO' ? '' : (e.end_time   || '17:00'),
         }));
       } else {
-        // Auto-fill recent workers with Morning shift by default
-        _ckState.entries = _ckState.ck_pool
-          .filter(emp => recentIds.has(emp.employee_id))
-          .map(emp => ({
-            employee_id: emp.employee_id,
-            outlet:      'CK',
-            shift:       'ck-morning',
-            start_time:  '09:00',
-            end_time:    '17:00',
-          }));
+        _ckState.entries = _ckState.ck_pool.filter(emp => recentIds.has(emp.employee_id))
+          .map(emp => ({ employee_id: emp.employee_id, outlet: 'CK', shift: 'ck-morning', start_time: '09:00', end_time: '17:00' }));
       }
+
+      // Outlet entries
+      _ckState.outlet_entries = {};
+      Object.keys(_ckState.outlet_pools).forEach(code => {
+        const existing = allExisting.filter(e => e.outlet === code);
+        const _mapOutletShift = (start) => {
+          if (start === '09:00') return 'morning';
+          if (start === '13:00') return 'mid';
+          if (start === '17:00') return 'closing';
+          return 'morning';
+        };
+        _ckState.outlet_entries[code] = existing.map(e => ({
+          employee_id: e.employee_id, outlet: code,
+          shift: _mapOutletShift(e.start_time), start_time: e.start_time || '09:00', end_time: e.end_time || '17:00',
+        }));
+      });
     }
 
     const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -3553,10 +3581,10 @@ function _ckRenderBuild() {
   }).join('');
 
   document.getElementById('ckBuildBody').innerHTML = `
-    <!-- Scheduled -->
-    <div style="margin-bottom:24px">
+    <!-- CK Section -->
+    <div style="margin-bottom:28px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">
-        Kitchen Staff — ${entries.length} Scheduled
+        🍳 CK Kitchen — ${entries.length} Scheduled
       </div>
       ${entries.length ? `
         <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
@@ -3567,18 +3595,100 @@ function _ckRenderBuild() {
         </div>` :
         `<div style="font-size:13px;color:var(--ink-3);padding:4px">No staff added yet. Use "Auto-fill All" or add from the pool below.</div>`
       }
+      ${available.length ? `
+      <div style="margin-top:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Available Pool (${available.length})</div>
+        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">${poolRows}</div>
+      </div>` : ''}
     </div>
+    <!-- Outlet Sections -->
+    ${_renderOutletSections()}`;
+}
 
-    <!-- Available pool -->
-    ${available.length ? `
-    <div>
+function _renderOutletSections() {
+  const { outlet_pools, outlet_entries, outlet_shifts, outlet_labels } = _ckState;
+  if (!outlet_pools || !Object.keys(outlet_pools).length) return '';
+  return Object.entries(outlet_pools).map(([code, pool]) => {
+    const entries  = outlet_entries[code] || [];
+    const usedIds  = new Set(entries.map(r => r.employee_id));
+    const available = pool.filter(e => !usedIds.has(e.employee_id));
+    const label    = outlet_labels[code] || code;
+    const shiftOpts = (sel) => outlet_shifts.map(s =>
+      `<option value="${s.shift_id}" ${sel===s.shift_id?'selected':''}>${s.shift_name} · ${s.start_time}–${s.end_time}</option>`).join('');
+
+    const schedRows = entries.map((row, idx) => {
+      const emp  = pool.find(e => e.employee_id === row.employee_id);
+      const name = emp ? emp.name : row.employee_id;
+      const isWO = row.outlet === 'WO';
+      const shiftCell = isWO
+        ? `<span style="font-size:12px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px">Weekly Off</span>`
+        : `<select onchange="_outletSetShift('${code}',${idx},this.value)"
+             style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:210px">
+             <option value="">— Select shift —</option>
+             ${shiftOpts(row.shift)}
+           </select>`;
+      return `<tr style="border-top:1px solid var(--border-2)${isWO?';background:#f8fbff':''}">
+        <td style="padding:9px 14px;font-size:14px;font-weight:600">${name}</td>
+        <td style="padding:9px 14px">${shiftCell}</td>
+        <td style="padding:9px 14px;text-align:right">
+          <button onclick="_outletRemove('${code}',${idx})"
+            style="padding:4px 12px;border:1.5px solid var(--red);border-radius:6px;color:var(--red);background:none;cursor:pointer;font-size:12px;font-weight:600">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const poolRows2 = available.map(emp => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--border-2)">
+        <span style="font-size:13px;color:var(--ink);font-weight:600">${emp.name}</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="_outletAddWO('${code}','${emp.employee_id}')"
+            style="padding:4px 12px;border:1.5px solid #2196f3;border-radius:6px;color:#2196f3;background:none;cursor:pointer;font-size:12px;font-weight:600">WO</button>
+          <button onclick="_outletAdd('${code}','${emp.employee_id}')"
+            style="padding:4px 14px;border:1.5px solid var(--green);border-radius:6px;color:var(--green);background:none;cursor:pointer;font-size:12px;font-weight:600">+ Add</button>
+        </div>
+      </div>`).join('');
+
+    return `
+    <div style="margin-bottom:28px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">
-        Available (${available.length})
+        🏪 ${label} (${code}) — ${entries.filter(e=>e.outlet!=='WO').length} on shift
       </div>
-      <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
-        ${poolRows}
-      </div>
-    </div>` : ''}`;
+      ${entries.length ? `
+        <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+          <table style="width:100%;border-collapse:collapse">${schedRows}</table>
+        </div>` : `<div style="font-size:13px;color:var(--ink-3);padding:4px">No staff scheduled. Add from pool below.</div>`}
+      ${available.length ? `
+        <div style="margin-top:10px">
+          <div style="font-size:11px;color:var(--ink-3);margin-bottom:6px">Available (${available.length})</div>
+          <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">${poolRows2}</div>
+        </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function _outletSetShift(code, idx, shiftId) {
+  const sh = (_ckState.outlet_shifts || []).find(s => s.shift_id === shiftId) || {};
+  _ckState.outlet_entries[code][idx].shift      = shiftId;
+  _ckState.outlet_entries[code][idx].start_time = sh.start_time || '';
+  _ckState.outlet_entries[code][idx].end_time   = sh.end_time   || '';
+  _ckRenderBuild();
+}
+
+function _outletAdd(code, eid) {
+  if (!_ckState.outlet_entries[code]) _ckState.outlet_entries[code] = [];
+  _ckState.outlet_entries[code].push({ employee_id: eid, outlet: code, shift: 'morning', start_time: '09:00', end_time: '17:00' });
+  _ckRenderBuild();
+}
+
+function _outletAddWO(code, eid) {
+  if (!_ckState.outlet_entries[code]) _ckState.outlet_entries[code] = [];
+  _ckState.outlet_entries[code].push({ employee_id: eid, outlet: 'WO', shift: '', start_time: '', end_time: '' });
+  _ckRenderBuild();
+}
+
+function _outletRemove(code, idx) {
+  _ckState.outlet_entries[code].splice(idx, 1);
+  _ckRenderBuild();
 }
 
 function _ckSetShift(idx, shiftId) {
@@ -3611,16 +3721,19 @@ function _ckRemove(idx) {
 }
 
 async function _ckPublish() {
-  const { date, entries } = _ckState;
-  const toPublish = entries.filter(e => e.employee_id).map(e => ({
-    ...e, outlet: e.outlet || 'CK',
-  }));
+  const { date, entries, outlet_entries } = _ckState;
+
+  // Combine CK + all outlet entries
+  const ckEntries = entries.filter(e => e.employee_id).map(e => ({ ...e, outlet: e.outlet || 'CK' }));
+  const outletAll = Object.values(outlet_entries || {}).flat().filter(e => e.employee_id);
+  const toPublish = [...ckEntries, ...outletAll];
+
   if (!toPublish.length) { alert('No entries to publish.'); return; }
   const noShift = toPublish.filter(e => !e.shift && e.outlet !== 'WO');
   if (noShift.length && !confirm(`${noShift.length} employee(s) have no shift set. Publish anyway?`)) return;
 
   try {
-    const res = await fetch(`${API}/api/ops/roster/ck/publish`, {
+    const res = await fetch(`${API}/api/ops/roster/publish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date, entries: toPublish }),
