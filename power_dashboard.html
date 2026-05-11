@@ -655,7 +655,10 @@ td.c { text-align: center; }
 .brief-section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px; }
 .brief-section-alert { border-color:#fca5a5; background:#fff5f5; grid-column:1/-1; }
 .brief-section-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
-.brief-section-body { font-size:13px; color:var(--ink-2); line-height:1.6; white-space:pre-wrap; }
+.brief-section-body { font-size:13px; color:var(--ink-2); line-height:1.6; }
+.brief-bullets { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 5px; }
+.brief-bullets li { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.brief-para { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.6; }
 .action-list { display: flex; flex-direction: column; gap: 6px; }
 .action-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: background .15s; user-select: none; }
 .action-item:hover { background: #f8fafd; }
@@ -4337,6 +4340,26 @@ function renderBriefResult(data) {
   }
   if (curLines.join('').trim()) sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
 
+  function bodyToHtml(bodyText) {
+    const lines = bodyText.split('\n').map(l => l.trim()).filter(Boolean);
+    const bullets = lines.filter(l => l.startsWith('- ') || l.startsWith('• '));
+    if (bullets.length > 0) {
+      // Render all as bullet list; non-bullet lines become their own bullet
+      return '<ul class="brief-bullets">' +
+        lines.map(l => {
+          const text = l.startsWith('- ') ? l.slice(2) : l.startsWith('• ') ? l.slice(2) : l;
+          return `<li>${escHtml(text)}</li>`;
+        }).join('') +
+        '</ul>';
+    }
+    // Fallback: split on '. ' to make bullets from prose
+    const sentences = bodyText.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean);
+    if (sentences.length > 1) {
+      return '<ul class="brief-bullets">' + sentences.map(s => `<li>${escHtml(s)}</li>`).join('') + '</ul>';
+    }
+    return `<p class="brief-para">${escHtml(bodyText)}</p>`;
+  }
+
   const sectionCards = sectionBlocks.map(s => {
     if (!s.body) return '';
     const icon = secIcon(s.title);
@@ -4345,7 +4368,7 @@ function renderBriefResult(data) {
     return `
     <div class="brief-section-card${isPriority?' brief-section-alert':''}">
       ${s.title ? `<div class="brief-section-title" style="color:${col}">${icon} ${escHtml(s.title)}</div>` : ''}
-      <div class="brief-section-body">${escHtml(s.body)}</div>
+      <div class="brief-section-body">${bodyToHtml(s.body)}</div>
     </div>`;
   }).join('');
 
