@@ -728,14 +728,7 @@ td.c { text-align: center; }
 
   <div class="sb-section">
     <div class="sb-section-label">Overview</div>
-    <button class="sb-item active" id="sbitem-home" onclick="navTo('home')">
-      <span class="sb-icon">🏠</span> Home
-    </button>
-  </div>
-
-  <div class="sb-section">
-    <div class="sb-section-label">Reports</div>
-    <button class="sb-item" id="sbitem-brief" onclick="navTo('brief')">
+    <button class="sb-item active" id="sbitem-brief" onclick="navTo('brief')">
       <span class="sb-icon">📋</span> Daily Brief
     </button>
   </div>
@@ -811,7 +804,7 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['home','brief','power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
@@ -820,7 +813,6 @@ function navTo(page) {
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
   if (page === 'brief')     renderDailyBriefPage();
-  if (page === 'home')      renderHomePage();
   if (page === 'power')     renderPowerPage();
   if (page === 'signin')    renderSigninPage();
   if (page === 'metrics')   renderMetricsPage();
@@ -4181,7 +4173,7 @@ async function gatherBriefContext() {
   return Object.values(ctx).join('\n\n');
 }
 
-navTo('home');
+navTo('brief');
 </script>
 </body>
 </html>
