@@ -3620,17 +3620,18 @@ function _ckRenderHistory_UNUSED() {
 /* ── HOME PAGE ── */
 const HOME_TABS = [
   { id:'power',     icon:'⚡', title:'Power Status',       desc:'Live outlet power & platform uptime.' },
-  { id:'signin',    icon:'🕐', title:'Late Sign-In',        desc:'Employees who signed in after shift start.' },
+  { id:'signin',    icon:'🕐', title:'Late Sign-In',        desc:'Yesterday\'s late & absent employees.' },
   { id:'metrics',   icon:'📊', title:'Platform Metrics',    desc:'KPT and MFR scores from Swiggy & Zomato.' },
   { id:'scorecard', icon:'👥', title:'Employee Dashboard',  desc:'Performance scorecard, incentives & attendance.' },
   { id:'ratings',   icon:'⭐', title:'Outlet Ratings',      desc:'Aggregated customer ratings per outlet.' },
   { id:'products',  icon:'🍽️', title:'Product Rankings',    desc:'Best and worst selling items.' },
   { id:'stock',     icon:'📦', title:'Out of Stock',        desc:'Items currently marked OOS across outlets.' },
-  { id:'tracker',   icon:'🔴', title:'OOS Tracker',         desc:'Historical OOS events and duration.' },
-  { id:'recon',     icon:'💰', title:'Daily Recon',         desc:'Daily cash and online payment reconciliation.' },
-  { id:'rrrecon',   icon:'🏦', title:'RR Reconciliation',   desc:'Residency Road revenue & payment recon.' },
+  { id:'recon',     icon:'💰', title:'Daily Recon',         desc:'Last 2 days cash & online recon.' },
   { id:'roster',    icon:'🍳', title:'CK Kitchen Roster',   desc:'Central Kitchen shifts and assignments.' },
 ];
+
+// Holds live data for the chatbot system prompt
+let _homeContext = {};
 
 function renderHomePage() {
   document.getElementById('pageBody').innerHTML = `
@@ -3662,7 +3663,7 @@ function renderHomePage() {
       <div class="chat-messages" id="chatMessages">
         <div class="chat-msg bot">
           <div class="chat-msg-label">Ops Assistant</div>
-          <div class="chat-bubble">Hi! I'm your Zaān ops assistant. Ask me anything about the dashboard — power status, ratings, metrics, roster, recon, or anything else.</div>
+          <div class="chat-bubble">Hi! I'm your Zaān ops assistant. I have live data from all sections loaded — ask me anything about power status, late sign-ins, metrics, recon, OOS, ratings, or the roster.</div>
         </div>
       </div>
       <div class="chat-input-row">
@@ -3685,72 +3686,161 @@ function setStat(id, text, color) {
   const el = document.getElementById('hstat-' + id);
   if (!el) return;
   el.textContent = text;
-  if (color) el.style.color = color;
+  el.style.color = color || 'var(--ink-3)';
+}
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
 }
 
 async function loadHomeSummaries() {
-  // Power: count offline outlets
-  fetch(`${API}/api/power/live`).then(r=>r.json()).then(d=>{
+  _homeContext = {};
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const twoDaysAgo = new Date(today); twoDaysAgo.setDate(today.getDate() - 2);
+
+  // ── Power ──
+  try {
+    const d = await fetch(`${API}/api/power/live`).then(r=>r.json());
     const outlets = d.outlets || [];
-    const offline = outlets.filter(o =>
-      o.swiggy_aod?.color === 'red' || o.swiggy_fc?.color === 'red' || o.zomato?.color === 'red'
-    ).length;
-    const total = outlets.length;
-    if (offline > 0) setStat('power', `${offline} of ${total} outlets have platform issues`, 'var(--red)');
-    else setStat('power', `All ${total} outlets online`, 'var(--green)');
-  }).catch(()=>setStat('power','—'));
+    const offline = outlets.filter(o => o.swiggy_aod?.color==='red' || o.swiggy_fc?.color==='red' || o.zomato?.color==='red');
+    if (offline.length > 0) setStat('power', `${offline.length} of ${outlets.length} outlets have platform issues`, 'var(--red)');
+    else setStat('power', `All ${outlets.length} outlets online`, 'var(--green)');
+    _homeContext.power = `Power status: ${offline.length} of ${outlets.length} outlets have issues. ${offline.length ? 'Affected: ' + offline.map(o=>`${o.outlet}(swiggy_aod:${o.swiggy_aod?.label} swiggy_fc:${o.swiggy_fc?.label} zomato:${o.zomato?.label})`).join(', ') : 'All online.'}`;
+  } catch { setStat('power','—'); }
 
-  // Sign-in: late count today
-  fetch(`${API}/api/late-signin`).then(r=>r.json()).then(d=>{
-    const count = (d.late_employees||d.entries||[]).length;
-    if (count > 0) setStat('signin', `${count} late sign-in${count>1?'s':''} today`, 'var(--amber)');
-    else setStat('signin', 'No late sign-ins today', 'var(--green)');
-  }).catch(()=>setStat('signin','—'));
+  // ── Late Sign-In (yesterday) ──
+  try {
+    const yStr = isoDate(yesterday);
+    const d = await fetch(
+      `${LS_API}/api/admin/attendance-late-report?start_date=${yStr}&end_date=${yStr}`,
+      { headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {} }
+    ).then(r=>r.json());
+    const records = (d.records||[]).filter(r => !/^wo$/i.test(r.outlet||'') && r.type !== 'missed_signout');
+    const late    = records.filter(r => r.type === 'late');
+    const absent  = records.filter(r => r.type === 'missed_signin');
+    const parts = [];
+    if (late.length)   parts.push(`${late.length} late`);
+    if (absent.length) parts.push(`${absent.length} no sign-in`);
+    if (parts.length) {
+      setStat('signin', `Yesterday: ${parts.join(', ')}`, 'var(--amber)');
+    } else {
+      setStat('signin', 'Yesterday: all on time', 'var(--green)');
+    }
+    const lateNames  = late.map(r  => `${r.employee_name}(${r.outlet})`).join(', ');
+    const absentNames= absent.map(r=> `${r.employee_name}(${r.outlet})`).join(', ');
+    _homeContext.signin = `Yesterday attendance (${yStr}): ${late.length} late${lateNames?' — '+lateNames:''}, ${absent.length} missed sign-in${absentNames?' — '+absentNames:''}.`;
+  } catch { setStat('signin', '—'); _homeContext.signin = 'Late sign-in data unavailable (login required).'; }
 
-  // Metrics: avg KPT across outlets
-  fetch(`${API}/api/metrics/kpt_mfr?window=1`).then(r=>r.json()).then(d=>{
+  // ── Platform Metrics ──
+  try {
+    const d = await fetch(`${API}/api/metrics/kpt_mfr?window=1`).then(r=>r.json());
+    const outlets = d.outlets || [];
+    const avg = (arr) => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : '—';
+    const swKpts = outlets.map(o=>o.swiggy_kpt).filter(v=>v!=null);
+    const swMfrs = outlets.map(o=>o.swiggy_mfr).filter(v=>v!=null);
+    const zmKpts = outlets.map(o=>o.zomato_kpt).filter(v=>v!=null);
+    const zmMfrs = outlets.map(o=>o.zomato_mfr).filter(v=>v!=null);
+    const lines = [
+      `Swiggy KPT avg ${avg(swKpts)} min · MFR avg ${avg(swMfrs)}%`,
+      `Zomato KPT avg ${avg(zmKpts)} min · MFR avg ${avg(zmMfrs)}%`,
+    ];
+    setStat('metrics', lines.join('  |  '));
+    const perOutlet = outlets.map(o=>`${o.outlet}: SW KPT=${o.swiggy_kpt??'—'} MFR=${o.swiggy_mfr??'—'} | ZM KPT=${o.zomato_kpt??'—'} MFR=${o.zomato_mfr??'—'}`).join('\n');
+    _homeContext.metrics = `Platform metrics (period: ${d.swiggy_period||'latest'}):\n${perOutlet}\nAvg: Swiggy KPT=${avg(swKpts)} MFR=${avg(swMfrs)}% | Zomato KPT=${avg(zmKpts)} MFR=${avg(zmMfrs)}%`;
+  } catch { setStat('metrics','—'); }
+
+  // ── Employee Dashboard — bottom 5 ──
+  try {
+    const d = await fetch(`${LS_API}/api/admin/employee-scorecard`, {
+      headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {}
+    }).then(r=>r.json());
+    const sc = (d.scorecards || d.employees || []);
+    const sorted = [...sc].sort((a,b) => (a.total_orders||0) - (b.total_orders||0));
+    const bottom5 = sorted.slice(0, 5);
+    if (bottom5.length) {
+      setStat('scorecard', `Bottom 5: ${bottom5.map(e=>e.name?.split(' ')[0]||e.employee_id).join(', ')}`, 'var(--amber)');
+    } else {
+      setStat('scorecard', `${sc.length} employees tracked`);
+    }
+    _homeContext.scorecard = `Employee scorecard (${sc.length} employees). Bottom 5 by orders: ${bottom5.map(e=>`${e.name}(${e.employee_id}) ${e.total_orders} orders`).join(', ')}.`;
+  } catch { setStat('scorecard','—'); }
+
+  // ── Ratings ──
+  try {
+    const d = await fetch(`${API}/api/admin/outlet-ratings-summary`).then(r=>r.json());
     const outlets = d.outlets||[];
-    const kpts = outlets.map(o=>o.swiggy_kpt||o.zomato_kpt).filter(v=>v!=null);
-    const avg = kpts.length ? (kpts.reduce((a,b)=>a+b,0)/kpts.length).toFixed(1) : null;
-    setStat('metrics', avg ? `Avg KPT ${avg} min across ${outlets.length} outlets` : `${outlets.length} outlets tracked`);
-  }).catch(()=>setStat('metrics','—'));
-
-  // Ratings: fetch outlet ratings summary
-  fetch(`${API}/api/outlet-ratings-summary`).then(r=>r.json()).then(d=>{
-    const outlets = d.outlets||[];
-    const avg = outlets.length ? (outlets.reduce((s,o)=>s+(parseFloat(o.avg_rating)||0),0)/outlets.length).toFixed(2) : null;
+    const avgs = outlets.map(o=>parseFloat(o.avg_rating||o.rating||0)).filter(v=>v>0);
+    const avg = avgs.length ? (avgs.reduce((a,b)=>a+b,0)/avgs.length).toFixed(2) : null;
     setStat('ratings', avg ? `Avg rating ${avg} across ${outlets.length} outlets` : `${outlets.length} outlets`);
-  }).catch(()=>setStat('ratings','—'));
+    _homeContext.ratings = `Outlet ratings: avg ${avg} across ${outlets.length} outlets. Per outlet: ${outlets.map(o=>`${o.outlet||o.name} ${o.avg_rating||o.rating}`).join(', ')}.`;
+  } catch { setStat('ratings','—'); }
 
-  // OOS: items currently out of stock
-  fetch(`${API}/api/out-of-stock`).then(r=>r.json()).then(d=>{
-    const items = d.items||d.oos_items||[];
-    if (items.length>0) setStat('stock', `${items.length} item${items.length>1?'s':''} out of stock`, 'var(--red)');
-    else setStat('stock', 'All items in stock', 'var(--green)');
-  }).catch(()=>setStat('stock','—'));
+  // ── OOS — same outlet+product ──
+  try {
+    const d = await fetch(`${API}/api/inventory/live`).then(r=>r.json());
+    const items = (d.items||[]).filter(i=>(i.status||'').toUpperCase().includes('OUT'));
+    // group by outlet+item
+    const groups = {};
+    items.forEach(i => {
+      const key = `${i.outlet}|${i.item||i.sku}`;
+      groups[key] = (groups[key]||0) + 1;
+    });
+    const unique = Object.keys(groups);
+    if (unique.length > 0) {
+      setStat('stock', `${unique.length} OOS item${unique.length>1?'s':''}: ${unique.slice(0,3).map(k=>k.split('|')[1]).join(', ')}${unique.length>3?'…':''}`, 'var(--red)');
+    } else {
+      setStat('stock', 'All items in stock', 'var(--green)');
+    }
+    _homeContext.stock = `Out of stock (${unique.length} items): ${unique.map(k=>{ const [o,it]=k.split('|'); return `${it} @ ${o}`; }).join(', ')}.`;
+  } catch { setStat('stock','—'); }
 
-  // Scorecard: employee count
-  fetch(`${API}/api/admin/employee-scorecard`).then(r=>r.json()).then(d=>{
-    const count = (d.employees||d.scorecard||[]).length;
-    setStat('scorecard', count ? `${count} employees tracked` : '—');
-  }).catch(()=>setStat('scorecard','—'));
+  // ── Daily Recon — last 2 days ──
+  try {
+    const d = await fetch(`${API}/api/ops/daily-recon`).then(r=>r.json());
+    const rows = (d.rows||[]);
+    const sorted = [...rows].sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    const last2 = sorted.slice(0, 2);
+    if (last2.length) {
+      const summaries = last2.map(r => {
+        const diff = parseFloat(r.diff)||0;
+        const color = diff < -500 ? 'var(--red)' : diff > 500 ? 'var(--amber)' : 'var(--green)';
+        return `${r.date} ${r.outlet||''}: diff ₹${diff.toFixed(0)}`;
+      });
+      setStat('recon', summaries.join('  ·  '), last2.some(r=>(parseFloat(r.diff)||0)<-500)?'var(--red)':'var(--ink-3)');
+      _homeContext.recon = `Daily recon last 2 days:\n${last2.map(r=>`${r.date} ${r.outlet}: cash=${r.cash} bharatpe=${r.bharatpe} swiggy=${r.swiggy} zomato=${r.zomato} total=${r.total} rista=${r.rista} diff=${r.diff} closing_balance=${r.closing_balance}`).join('\n')}`;
+    } else {
+      setStat('recon', 'No recon data');
+    }
+  } catch { setStat('recon','—'); }
 
-  // Roster: CK roster count today
-  const today = new Date().toLocaleDateString('en-GB').replace(/\//g,'/');
-  fetch(`${API}/api/ops/roster/ck`).then(r=>r.json()).then(d=>{
-    const entries = (d.entries||[]).filter(e=>e.outlet==='CK');
-    setStat('roster', entries.length ? `${entries.length} CK staff on roster` : 'No CK roster today');
-  }).catch(()=>setStat('roster','—'));
+  // ── CK Roster ──
+  try {
+    const d = await fetch(`${API}/api/ops/roster/ck`).then(r=>r.json());
+    const ck = (d.entries||[]).filter(e=>e.outlet==='CK');
+    setStat('roster', ck.length ? `${ck.length} CK staff on roster` : 'No CK roster today');
+    _homeContext.roster = `CK Kitchen Roster: ${ck.length} staff. ${ck.map(e=>`${e.name||e.employee_id}(${e.shift||''})`).join(', ')}.`;
+  } catch { setStat('roster','—'); }
 
-  // Static summaries for tabs without quick APIs
-  setStat('products','Top & bottom items by revenue');
-  setStat('tracker','OOS duration history by outlet');
-  setStat('recon','Daily cash & online recon');
-  setStat('rrrecon','RR-specific payment recon');
+  // ── Products ──
+  setStat('products', 'Top & bottom items by revenue');
 }
 
 /* ── CHATBOT ── */
 const _chatHistory = [];
+
+function buildChatSystemPrompt() {
+  const ctx = Object.values(_homeContext).filter(Boolean).join('\n\n');
+  return (
+    'You are an ops assistant for Zaān Restaurants, a cloud kitchen chain in Bangalore. ' +
+    'You have access to the following LIVE data fetched right now from the dashboard. ' +
+    'Answer questions using this data directly — do not ask the user to look it up themselves.\n\n' +
+    'LIVE DATA:\n' + (ctx || 'Data still loading.') + '\n\n' +
+    'Dashboard tabs: Power Status, Late Sign-In, Platform Metrics (KPT/MFR), Employee Dashboard, ' +
+    'Outlet Ratings, Product Rankings, Out of Stock, Daily Recon, CK Kitchen Roster. ' +
+    'Be concise and factual. Use ₹ for currency. Dates are in IST.'
+  );
+}
 
 async function sendChat() {
   const input = document.getElementById('chatInput');
@@ -3776,7 +3866,7 @@ async function sendChat() {
     const res = await fetch(`${API}/api/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ messages: _chatHistory }),
+      body: JSON.stringify({ messages: _chatHistory, system: buildChatSystemPrompt() }),
     });
     const data = await res.json();
     const reply = data.reply || data.error || 'Something went wrong.';
