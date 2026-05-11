@@ -632,6 +632,19 @@ td.c { text-align: center; }
 .pri-medium { background: #fef3c7; color: #92400e; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .pri-low    { background: #dcfce7; color: #166534; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .brief-loading { display: flex; flex-direction: column; gap: 10px; padding: 40px 0; align-items: center; color: var(--ink-3); font-size: 13px; }
+.action-list { display: flex; flex-direction: column; gap: 6px; }
+.action-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: background .15s; user-select: none; }
+.action-item:hover { background: #f8fafd; }
+.action-done { opacity: .55; }
+.action-done .action-text { text-decoration: line-through; color: var(--ink-3); }
+.action-check { width: 18px; height: 18px; min-width: 18px; border: 2px solid var(--border-2); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; transition: all .15s; margin-top: 1px; }
+.action-check-done { background: var(--green); border-color: var(--green); }
+.action-content { flex: 1; min-width: 0; }
+.action-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.action-area { font-size: 12px; font-weight: 700; color: var(--ink); }
+.action-due { font-size: 11px; color: var(--ink-3); margin-left: auto; white-space: nowrap; }
+.action-text { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.action-owner { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
 .brief-progress { width: 280px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .brief-progress-fill { height: 4px; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
 
@@ -3861,10 +3874,12 @@ async function loadHomeSummaries() {
 
   // ── CK Roster ──
   try {
-    const d = await fetch(`${API}/api/ops/roster/ck`).then(r=>r.json());
-    const ck = (d.entries||[]).filter(e=>e.outlet==='CK');
+    const todayDMY = [String(today.getDate()).padStart(2,'0'),String(today.getMonth()+1).padStart(2,'0'),today.getFullYear()].join('/');
+    const d = await fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(todayDMY)}`).then(r=>r.json());
+    const ck = (d.entries||[]).filter(e=>(e.outlet||'').toUpperCase()==='CK');
+    const wo = (d.entries||[]).filter(e=>(e.outlet||'').toUpperCase()==='WO');
     setStat('roster', ck.length ? `${ck.length} CK staff on roster` : 'No CK roster today');
-    _homeContext.roster = `CK Kitchen Roster: ${ck.length} staff. ${ck.map(e=>`${e.name||e.employee_id}(${e.shift||''})`).join(', ')}.`;
+    _homeContext.roster = `CK Kitchen Roster today: ${ck.length} staff on shift: ${ck.map(e=>e.name||e.employee_id).join(', ')||'none'}. ${wo.length} on week-off: ${wo.map(e=>e.name||e.employee_id).join(', ')||'none'}.`;
   } catch { setStat('roster','—'); }
 
   // ── Products ──
@@ -3981,20 +3996,21 @@ async function generateBrief() {
 
   body.innerHTML = `
     <div class="brief-loading">
-      <div id="briefProgressMsg" style="font-size:12px;color:var(--ink-3)">Gathering data from all sections…</div>
+      <div id="briefProgressMsg" style="font-size:12px;color:var(--ink-3)">Gathering live data from all sections…</div>
       <div class="brief-progress"><div class="brief-progress-fill" id="briefProgressFill" style="width:0%"></div></div>
     </div>`;
 
-  try {
-    const ctx = await gatherBriefContext();
-    briefProgress(80, 'Generating brief with Claude…');
+  briefProgress(10, 'Sending to server…');
 
+  try {
     const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    briefProgress(30, 'Server gathering live data…');
     const res = await fetch(`${API}/api/daily-brief`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ context: ctx, date: today }),
+      body: JSON.stringify({ date: today }),
     });
+    briefProgress(90, 'Generating brief with Claude…');
     const data = await res.json();
     briefProgress(100, 'Done');
     _briefResult = data;
@@ -4012,27 +4028,49 @@ function renderBriefResult(data) {
   const brief = data.brief || '';
   const actions = data.actions || [];
 
-  const actionRows = actions.map(a => `
-    <tr>
-      <td><span class="pri-${(a.priority||'low').toLowerCase()}">${a.priority||'Low'}</span></td>
-      <td style="font-weight:600">${a.area||''}</td>
-      <td>${a.action||''}</td>
-      <td style="color:var(--ink-3)">${a.owner||'Ops Manager'}</td>
-      <td style="color:var(--ink-3);white-space:nowrap">${a.due||'Today'}</td>
-    </tr>`).join('');
+  // Load checked state from localStorage
+  const storageKey = 'briefChecked_' + new Date().toISOString().slice(0,10);
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch{}
+
+  const actionItems = actions.map((a, i) => {
+    const isDone = !!checked[i];
+    const pri = (a.priority||'low').toLowerCase();
+    return `
+    <div class="action-item${isDone?' action-done':''}" id="action-item-${i}" onclick="toggleAction(${i},'${storageKey}')">
+      <div class="action-check${isDone?' action-check-done':''}">
+        ${isDone ? '✓' : ''}
+      </div>
+      <div class="action-content">
+        <div class="action-top">
+          <span class="pri-${pri}">${a.priority||'Low'}</span>
+          <span class="action-area">${escHtml(a.area||'')}</span>
+          <span class="action-due">${escHtml(a.due||'Today')}</span>
+        </div>
+        <div class="action-text">${escHtml(a.action||'')}</div>
+        <div class="action-owner">${escHtml(a.owner||'Ops Manager')}</div>
+      </div>
+    </div>`;
+  }).join('');
 
   body.innerHTML = `
     <div class="brief-output" style="white-space:pre-wrap;font-family:var(--sans)">${escHtml(brief)}</div>
     ${actions.length ? `
     <div style="margin-top:24px">
       <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px">📌 Action List for Ops Manager</div>
-      <div class="section-card">
-        <table class="action-table">
-          <thead><tr><th>Priority</th><th>Area</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead>
-          <tbody>${actionRows}</tbody>
-        </table>
-      </div>
+      <div class="action-list">${actionItems}</div>
     </div>` : ''}`;
+}
+
+function toggleAction(idx, storageKey) {
+  let checked = {};
+  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch{}
+  checked[idx] = !checked[idx];
+  localStorage.setItem(storageKey, JSON.stringify(checked));
+  const item = document.getElementById(`action-item-${idx}`);
+  const chk  = item && item.querySelector('.action-check');
+  if (item) item.classList.toggle('action-done', !!checked[idx]);
+  if (chk)  { chk.classList.toggle('action-check-done', !!checked[idx]); chk.textContent = checked[idx] ? '✓' : ''; }
 }
 
 function escHtml(s) {
