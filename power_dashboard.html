@@ -599,7 +599,39 @@ td.c { text-align: center; }
 .state-cmd   { font-family: var(--mono); font-size: 12px; color: var(--blue); background: var(--blue-dim); border: 1px solid rgba(37,99,235,.2); padding: 8px 18px; border-radius: var(--r); user-select: all; }
 
 /* ── DAILY BRIEF ── */
-.brief-wrap { max-width: 860px; }
+.brief-shell { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; max-width: 1100px; }
+@media(max-width:900px){ .brief-shell { grid-template-columns: 1fr; } }
+.brief-sidebar {
+  position: sticky; top: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 14px 0; overflow: hidden;
+}
+.brief-sidebar-head {
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--ink-3); padding: 0 14px 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.brief-sidebar-summary { font-size: 10px; font-weight: 700; font-family: var(--mono); }
+.brief-log-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 14px; border-bottom: 1px solid #f3f5f9;
+  transition: background .12s;
+}
+.brief-log-row:last-child { border-bottom: 0; }
+.brief-log-row:hover { background: #f8fafd; }
+.brief-log-icon { font-size: 10px; width: 14px; flex-shrink: 0; margin-top: 1px; }
+.brief-log-info { flex: 1; min-width: 0; }
+.brief-log-section { font-size: 11px; font-weight: 600; font-family: var(--mono); display: block; }
+.brief-log-detail { font-size: 10px; color: var(--ink-3); line-height: 1.4; display: block; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brief-log-pending { color: var(--ink-3); }
+.brief-log-ok { color: var(--green); }
+.brief-log-err { color: var(--red); }
+
+.brief-main { min-width: 0; }
+.brief-topbar {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+}
 .brief-generate-btn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 11px 24px; background: var(--navy); color: #fff;
@@ -613,40 +645,17 @@ td.c { text-align: center; }
   padding: 28px 32px; margin-top: 20px; white-space: pre-wrap; font-size: 13px;
   line-height: 1.75; color: var(--ink); font-family: var(--sans);
 }
-.brief-output h2 { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
-.brief-output .brief-date { font-size: 11px; color: var(--ink-3); margin-bottom: 20px; font-family: var(--mono); }
-.brief-section { margin-top: 18px; }
-.brief-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); margin-bottom: 8px; }
-.brief-section-body { font-size: 13px; color: var(--ink); line-height: 1.7; }
-.brief-alerts {
-  background: var(--red-dim); border: 1px solid rgba(220,38,38,.2);
-  border-radius: var(--r); padding: 14px 18px; margin-bottom: 20px;
-}
-.brief-alerts-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--red); margin-bottom: 6px; }
-.brief-alerts-body { font-size: 13px; color: #7f1d1d; line-height: 1.65; }
-.action-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-.action-table th { padding: 9px 14px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); text-align: left; background: #f8fafd; border-bottom: 1px solid var(--border); }
-.action-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
-.action-table tr:last-child td { border-bottom: 0; }
 .pri-high   { background: #fee2e2; color: #991b1b; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .pri-medium { background: #fef3c7; color: #92400e; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .pri-low    { background: #dcfce7; color: #166534; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
 .brief-loading { display: flex; flex-direction: column; gap: 10px; padding: 40px 0; align-items: center; color: var(--ink-3); font-size: 13px; }
 .inv-section-head { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin-bottom:10px;margin-top:4px; }
 .brief-sections { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
-@media(max-width:800px){ .brief-sections { grid-template-columns:1fr; } }
+@media(max-width:700px){ .brief-sections { grid-template-columns:1fr; } }
 .brief-section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px; }
 .brief-section-alert { border-color:#fca5a5; background:#fff5f5; grid-column:1/-1; }
 .brief-section-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; margin-bottom:8px; }
 .brief-section-body { font-size:13px; color:var(--ink-2); line-height:1.6; white-space:pre-wrap; }
-.brief-logs { border: 1px solid var(--border); border-radius: var(--r); padding: 10px 14px; background: #fafbfd; }
-.brief-logs summary::-webkit-details-marker { display: none; }
-.brief-logs[open] summary span:first-child { transform: rotate(90deg); display: inline-block; }
-.brief-log-list { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
-.brief-log-row { display: flex; align-items: baseline; gap: 8px; font-size: 11px; font-family: var(--mono); }
-.brief-log-icon { font-size: 10px; width: 12px; flex-shrink: 0; }
-.brief-log-section { width: 130px; flex-shrink: 0; font-weight: 600; }
-.brief-log-detail { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .action-list { display: flex; flex-direction: column; gap: 6px; }
 .action-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: background .15s; user-select: none; }
 .action-item:hover { background: #f8fafd; }
@@ -4154,20 +4163,62 @@ function scrollChat() {
 
 let _briefResult = null;
 
+const BRIEF_SECTIONS = [
+  'Power Status','Late Sign-ins','Platform Metrics','KPT / MFR',
+  'Employee Scorecard','Outlet Ratings','Out of Stock','OOS Tracker',
+  'Daily Recon','RR Recon',
+];
+
+function _renderBriefSidebar(logs) {
+  // logs may be empty (pre-generation) or partial
+  const rows = BRIEF_SECTIONS.map(sec => {
+    const log = logs.find(l => l.section === sec);
+    let icon = '·', cls = 'brief-log-pending', detail = '—';
+    if (log) {
+      if (log.status === 'ok') { icon = '✓'; cls = 'brief-log-ok'; detail = log.detail || 'ok'; }
+      else { icon = '✗'; cls = 'brief-log-err'; detail = log.detail || 'error'; }
+    }
+    return `<div class="brief-log-row">
+      <span class="brief-log-icon ${cls}">${icon}</span>
+      <span class="brief-log-info">
+        <span class="brief-log-section ${cls}">${escHtml(sec)}</span>
+        <span class="brief-log-detail">${escHtml(detail)}</span>
+      </span>
+    </div>`;
+  }).join('');
+
+  const ok  = logs.filter(l=>l.status==='ok').length;
+  const err = logs.filter(l=>l.status!=='ok').length;
+  const summaryColor = err ? 'var(--red)' : (ok ? 'var(--green)' : 'var(--ink-3)');
+  const summaryText  = logs.length ? `${ok}/${logs.length}${err?' · '+err+' err':''}` : 'pending';
+
+  return `
+    <div class="brief-sidebar">
+      <div class="brief-sidebar-head">
+        Data Sources
+        <span class="brief-sidebar-summary" style="color:${summaryColor}">${summaryText}</span>
+      </div>
+      ${rows}
+    </div>`;
+}
+
 function renderDailyBriefPage() {
   const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('pageBody').innerHTML = `
-    <div class="brief-wrap">
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:3px">Daily Ops Brief</div>
-          <div style="font-size:12px;color:var(--ink-3)">${today}</div>
+    <div class="brief-shell">
+      <div id="briefSidebar">${_renderBriefSidebar(_briefResult?.logs || [])}</div>
+      <div class="brief-main">
+        <div class="brief-topbar">
+          <div>
+            <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:3px">Daily Ops Brief</div>
+            <div style="font-size:12px;color:var(--ink-3)">${today}</div>
+          </div>
+          <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
+            <span id="briefGenIcon">📋</span> Generate
+          </button>
         </div>
-        <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
-          <span id="briefGenIcon">📋</span> Generate
-        </button>
+        <div id="briefBody"></div>
       </div>
-      <div id="briefBody"></div>
     </div>`;
 
   if (_briefResult) renderBriefResult(_briefResult);
@@ -4221,25 +4272,9 @@ function renderBriefResult(data) {
   const actions = data.actions || [];
   const logs = data.logs || [];
 
-  const logRows = logs.map(l => {
-    const ok = l.status === 'ok';
-    return `<div class="brief-log-row">
-      <span class="brief-log-icon">${ok ? '✓' : '✗'}</span>
-      <span class="brief-log-section" style="color:${ok?'var(--green)':'var(--red)'}">${escHtml(l.section)}</span>
-      <span class="brief-log-detail">${escHtml(l.detail||'')}</span>
-    </div>`;
-  }).join('');
-
-  const logsHtml = logs.length ? `
-    <details class="brief-logs" style="margin-bottom:20px">
-      <summary style="cursor:pointer;font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;list-style:none;display:flex;align-items:center;gap:6px">
-        <span>▸</span> Data Sources
-        <span style="font-weight:400;color:${logs.filter(l=>l.status!=='ok').length?'var(--red)':'var(--green)'}">
-          ${logs.filter(l=>l.status==='ok').length}/${logs.length} loaded${logs.filter(l=>l.status!=='ok').length?' · '+logs.filter(l=>l.status!=='ok').length+' failed':''}
-        </span>
-      </summary>
-      <div class="brief-log-list">${logRows}</div>
-    </details>` : '';
+  // Update the always-visible sidebar
+  const sidebar = document.getElementById('briefSidebar');
+  if (sidebar) sidebar.innerHTML = _renderBriefSidebar(logs);
 
   // Load checked state from localStorage
   const storageKey = 'briefChecked_' + new Date().toISOString().slice(0,10);
@@ -4290,7 +4325,7 @@ function renderBriefResult(data) {
   const lines = brief.split('\n');
   let curTitle = '', curLines = [];
   for (const line of lines) {
-    const isHeader = /^([\u{1F000}-\u{1FFFF}]?\s*)?[A-Z][A-Za-z\s\-—]+$/.test(line.trim()) && line.trim().length > 3 && line.trim().length < 60;
+    const isHeader = /^[A-Z][A-Za-z0-9\s\-\/]+$/.test(line.trim()) && line.trim().length > 3 && line.trim().length < 60;
     if (isHeader && curLines.join('').trim()) {
       sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
       curTitle = line.trim(); curLines = [];
@@ -4317,7 +4352,6 @@ function renderBriefResult(data) {
   const sectionsHtml = sectionCards || `<div class="brief-output" style="white-space:pre-wrap">${escHtml(brief)}</div>`;
 
   body.innerHTML = `
-    ${logsHtml}
     <div class="brief-sections">${sectionsHtml}</div>
     ${actions.length ? `
     <div style="margin-top:24px">
