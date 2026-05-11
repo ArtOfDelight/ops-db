@@ -598,6 +598,43 @@ td.c { text-align: center; }
 .state-body  { font-size: 12px; color: var(--ink-3); line-height: 1.6; }
 .state-cmd   { font-family: var(--mono); font-size: 12px; color: var(--blue); background: var(--blue-dim); border: 1px solid rgba(37,99,235,.2); padding: 8px 18px; border-radius: var(--r); user-select: all; }
 
+/* ── DAILY BRIEF ── */
+.brief-wrap { max-width: 860px; }
+.brief-generate-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 24px; background: var(--navy); color: #fff;
+  border: 0; border-radius: var(--r-lg); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: opacity .2s; font-family: var(--sans);
+}
+.brief-generate-btn:hover { opacity: .88; }
+.brief-generate-btn:disabled { opacity: .45; cursor: default; }
+.brief-output {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 28px 32px; margin-top: 20px; white-space: pre-wrap; font-size: 13px;
+  line-height: 1.75; color: var(--ink); font-family: var(--sans);
+}
+.brief-output h2 { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.brief-output .brief-date { font-size: 11px; color: var(--ink-3); margin-bottom: 20px; font-family: var(--mono); }
+.brief-section { margin-top: 18px; }
+.brief-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); margin-bottom: 8px; }
+.brief-section-body { font-size: 13px; color: var(--ink); line-height: 1.7; }
+.brief-alerts {
+  background: var(--red-dim); border: 1px solid rgba(220,38,38,.2);
+  border-radius: var(--r); padding: 14px 18px; margin-bottom: 20px;
+}
+.brief-alerts-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--red); margin-bottom: 6px; }
+.brief-alerts-body { font-size: 13px; color: #7f1d1d; line-height: 1.65; }
+.action-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+.action-table th { padding: 9px 14px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); text-align: left; background: #f8fafd; border-bottom: 1px solid var(--border); }
+.action-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.action-table tr:last-child td { border-bottom: 0; }
+.pri-high   { background: #fee2e2; color: #991b1b; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
+.pri-medium { background: #fef3c7; color: #92400e; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
+.pri-low    { background: #dcfce7; color: #166534; font-size: 9px; font-weight: 800; text-transform: uppercase; padding: 2px 7px; border-radius: 8px; white-space: nowrap; font-family: var(--mono); }
+.brief-loading { display: flex; flex-direction: column; gap: 10px; padding: 40px 0; align-items: center; color: var(--ink-3); font-size: 13px; }
+.brief-progress { width: 280px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.brief-progress-fill { height: 4px; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
+
 /* ── HOME TAB ── */
 .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; margin-bottom: 24px; }
 .home-card {
@@ -684,6 +721,13 @@ td.c { text-align: center; }
   </div>
 
   <div class="sb-section">
+    <div class="sb-section-label">Reports</div>
+    <button class="sb-item" id="sbitem-brief" onclick="navTo('brief')">
+      <span class="sb-icon">📋</span> Daily Brief
+    </button>
+  </div>
+
+  <div class="sb-section">
     <div class="sb-section-label">Monitoring</div>
     <button class="sb-item" id="sbitem-power" onclick="navTo('power')">
       <span class="sb-icon">⚡</span> Power Status
@@ -754,14 +798,15 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['home','power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
+  ['home','brief','power','signin','metrics','scorecard','ratings','products','stock','tracker','recon','rrrecon','roster'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { home: '🏠 Home', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
+  const titles = { home: '🏠 Home', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', stock: '📦 Out of Stock', tracker: '🔴 OOS Tracker', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
+  if (page === 'brief')     renderDailyBriefPage();
   if (page === 'home')      renderHomePage();
   if (page === 'power')     renderPowerPage();
   if (page === 'signin')    renderSigninPage();
@@ -3898,8 +3943,205 @@ function scrollChat() {
   if (wrap) wrap.scrollTop = wrap.scrollHeight;
 }
 
-/* ── BOOT ── */
-renderHomePage();
+/* ════════════════════════════════════════════
+   DAILY BRIEF
+   ════════════════════════════════════════════ */
+
+let _briefResult = null;
+
+function renderDailyBriefPage() {
+  const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('pageBody').innerHTML = `
+    <div class="brief-wrap">
+      <div style="margin-bottom:20px">
+        <div style="font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:4px">Daily Ops Brief</div>
+        <div style="font-size:12px;color:var(--ink-3)">${today}</div>
+      </div>
+      <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
+        <span id="briefGenIcon">📋</span> Generate Today's Brief
+      </button>
+      <div id="briefBody"></div>
+    </div>`;
+
+  if (_briefResult) renderBriefResult(_briefResult);
+}
+
+function briefProgress(pct, msg) {
+  const el = document.getElementById('briefProgressFill');
+  const ml = document.getElementById('briefProgressMsg');
+  if (el) el.style.width = pct + '%';
+  if (ml) ml.textContent = msg;
+}
+
+async function generateBrief() {
+  const btn = document.getElementById('briefGenBtn');
+  const body = document.getElementById('briefBody');
+  btn.disabled = true;
+  document.getElementById('briefGenIcon').textContent = '⏳';
+
+  body.innerHTML = `
+    <div class="brief-loading">
+      <div id="briefProgressMsg" style="font-size:12px;color:var(--ink-3)">Gathering data from all sections…</div>
+      <div class="brief-progress"><div class="brief-progress-fill" id="briefProgressFill" style="width:0%"></div></div>
+    </div>`;
+
+  try {
+    const ctx = await gatherBriefContext();
+    briefProgress(80, 'Generating brief with Claude…');
+
+    const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    const res = await fetch(`${API}/api/daily-brief`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ context: ctx, date: today }),
+    });
+    const data = await res.json();
+    briefProgress(100, 'Done');
+    _briefResult = data;
+    renderBriefResult(data);
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--red);padding:20px 0;font-size:13px">Failed to generate brief: ${e.message}</div>`;
+  }
+  btn.disabled = false;
+  document.getElementById('briefGenIcon').textContent = '📋';
+}
+
+function renderBriefResult(data) {
+  const body = document.getElementById('briefBody');
+  if (!body) return;
+  const brief = data.brief || '';
+  const actions = data.actions || [];
+
+  const actionRows = actions.map(a => `
+    <tr>
+      <td><span class="pri-${(a.priority||'low').toLowerCase()}">${a.priority||'Low'}</span></td>
+      <td style="font-weight:600">${a.area||''}</td>
+      <td>${a.action||''}</td>
+      <td style="color:var(--ink-3)">${a.owner||'Ops Manager'}</td>
+      <td style="color:var(--ink-3);white-space:nowrap">${a.due||'Today'}</td>
+    </tr>`).join('');
+
+  body.innerHTML = `
+    <div class="brief-output" style="white-space:pre-wrap;font-family:var(--sans)">${escHtml(brief)}</div>
+    ${actions.length ? `
+    <div style="margin-top:24px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px">📌 Action List for Ops Manager</div>
+      <div class="section-card">
+        <table class="action-table">
+          <thead><tr><th>Priority</th><th>Area</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead>
+          <tbody>${actionRows}</tbody>
+        </table>
+      </div>
+    </div>` : ''}`;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function gatherBriefContext() {
+  const ctx = {};
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate()-7);
+  const yStr  = isoDate(yesterday);
+  const w7Str = isoDate(sevenDaysAgo);
+  const tStr  = isoDate(today);
+
+  briefProgress(5, 'Power status…');
+  try {
+    const [live, summary] = await Promise.all([
+      fetch(`${API}/api/power/live`).then(r=>r.json()),
+      fetch(`${API}/api/power/summary`).then(r=>r.json()),
+    ]);
+    const outlets = live.outlets||[];
+    const offline = outlets.filter(o=>o.swiggy_aod?.color==='red'||o.swiggy_fc?.color==='red'||o.zomato?.color==='red');
+    const sumData = summary.outlets||{};
+    const worst7 = Object.entries(sumData).sort((a,b)=>b[1].last_7_days_mins-a[1].last_7_days_mins)[0];
+    const total28 = Object.values(sumData).reduce((s,o)=>s+o.last_28_days_mins,0);
+    ctx.power = `POWER STATUS\nOffline now (${offline.length}): ${offline.map(o=>`${o.outlet} (${[o.swiggy_aod?.color==='red'?'Swiggy AOD':'',o.swiggy_fc?.color==='red'?'Swiggy FC':'',o.zomato?.color==='red'?'Zomato':''].filter(Boolean).join('+')})`).join(', ')||'None'}\n7-day worst: ${worst7?`${worst7[0]} at ${worst7[1].last_7_days_fmt}`:'—'}\n28-day total op-hours lost: ${Math.floor(total28/60)}h ${total28%60}m`;
+  } catch(e) { ctx.power = 'Power data unavailable.'; }
+
+  briefProgress(18, 'Late sign-ins…');
+  try {
+    const [yd, w7] = await Promise.all([
+      fetch(`${LS_API}/api/admin/attendance-late-report?start_date=${yStr}&end_date=${yStr}`, {headers:_lsToken?{Authorization:`Bearer ${_lsToken}`}:{}}).then(r=>r.json()),
+      fetch(`${LS_API}/api/admin/attendance-late-report?start_date=${w7Str}&end_date=${yStr}`, {headers:_lsToken?{Authorization:`Bearer ${_lsToken}`}:{}}).then(r=>r.json()),
+    ]);
+    const filt = recs => (recs||[]).filter(r=>!/^wo$/i.test(r.outlet||'')&&r.type!=='missed_signout');
+    const ydR = filt(yd.records); const w7R = filt(w7.records);
+    const byEmp = {}; w7R.forEach(r=>{ const k=r.employee_id; if(!byEmp[k]) byEmp[k]={name:r.employee_name,outlet:r.outlet,late:0,missed:0}; if(r.type==='late') byEmp[k].late++; else byEmp[k].missed++; });
+    const top5 = Object.values(byEmp).sort((a,b)=>(b.late+b.missed)-(a.late+a.missed)).slice(0,5);
+    ctx.signin = `LATE SIGN-IN\nYesterday (${yStr}): ${ydR.filter(r=>r.type==='late').length} late, ${ydR.filter(r=>r.type==='missed_signin').length} missed — ${ydR.map(r=>`${r.employee_name}(${r.outlet},${r.type})`).join(', ')||'none'}\n7-day (${w7Str} to ${yStr}): ${w7R.filter(r=>r.type==='late').length} late, ${w7R.filter(r=>r.type==='missed_signin').length} missed across ${Object.keys(byEmp).length} employees\nTop offenders 7d: ${top5.map(e=>`${e.name}(${e.outlet}, ${e.late}L+${e.missed}M)`).join(', ')}`;
+  } catch { ctx.signin = 'Late sign-in data unavailable (admin login required).'; }
+
+  briefProgress(32, 'Platform metrics…');
+  try {
+    const d = await fetch(`${API}/api/metrics/kpt_mfr?window=7`).then(r=>r.json());
+    const outlets = d.outlets||[];
+    const avg = arr => arr.filter(v=>v!=null).length ? (arr.filter(v=>v!=null).reduce((a,b)=>a+b,0)/arr.filter(v=>v!=null).length).toFixed(1) : '—';
+    ctx.metrics = `PLATFORM METRICS (7-day, ${d.swiggy_period||'latest'})\n`+outlets.map(o=>`${o.outlet}: Swiggy KPT=${o.swiggy_kpt??'—'} MFR=${o.swiggy_mfr??'—'}% | Zomato KPT=${o.zomato_kpt??'—'} MFR=${o.zomato_mfr??'—'}%`).join('\n')+`\nAvg: Swiggy KPT=${avg(outlets.map(o=>o.swiggy_kpt))} MFR=${avg(outlets.map(o=>o.swiggy_mfr))}% | Zomato KPT=${avg(outlets.map(o=>o.zomato_kpt))} MFR=${avg(outlets.map(o=>o.zomato_mfr))}%`;
+  } catch { ctx.metrics = 'Platform metrics unavailable.'; }
+
+  briefProgress(44, 'Employee scorecard…');
+  try {
+    const d = await fetch(`${LS_API}/api/admin/employee-scorecard?week_start=${w7Str}&week_end=${yStr}`, {headers:_lsToken?{Authorization:`Bearer ${_lsToken}`}:{}}).then(r=>r.json());
+    const sc = (d.scorecards||d.employees||[]).sort((a,b)=>(b.total_orders||0)-(a.total_orders||0));
+    ctx.scorecard = `EMPLOYEE DASHBOARD (7-day)\nTop 5: ${sc.slice(0,5).map(e=>`${e.name} ${e.total_orders} orders / ${e.high_rated||0} high-rated`).join(', ')}\nBottom 5: ${sc.slice(-5).map(e=>`${e.name} ${e.total_orders} orders`).join(', ')}`;
+  } catch { ctx.scorecard = 'Employee scorecard unavailable.'; }
+
+  briefProgress(54, 'Outlet ratings…');
+  try {
+    const d = await fetch(`${API}/api/admin/outlet-ratings-summary?date_from=${w7Str}&date_to=${tStr}`).then(r=>r.json());
+    const outlets = (d.outlets||[]).sort((a,b)=>(parseFloat(b.avg_rating||b.rating)||0)-(parseFloat(a.avg_rating||a.rating)||0));
+    ctx.ratings = `OUTLET RATINGS (7-day)\nBest: ${outlets.slice(0,3).map(o=>`${o.outlet||o.name} ${o.avg_rating||o.rating}%`).join(', ')}\nWorst: ${outlets.slice(-3).map(o=>`${o.outlet||o.name} ${o.avg_rating||o.rating}%`).join(', ')}\nAll: ${outlets.map(o=>`${o.outlet||o.name}=${o.avg_rating||o.rating}%`).join(', ')}`;
+  } catch { ctx.ratings = 'Ratings unavailable.'; }
+
+  briefProgress(62, 'Out of stock…');
+  try {
+    const d = await fetch(`${API}/api/inventory/live`).then(r=>r.json());
+    const oos = (d.items||[]).filter(i=>(i.status||'').toUpperCase().includes('OUT'));
+    const byOutlet = {}; oos.forEach(i=>{ byOutlet[i.outlet]=(byOutlet[i.outlet]||[]); byOutlet[i.outlet].push(i.item||i.sku); });
+    ctx.stock = `OUT OF STOCK NOW\nTotal: ${oos.length} items across ${Object.keys(byOutlet).length} outlets\n`+Object.entries(byOutlet).sort((a,b)=>b[1].length-a[1].length).map(([o,items])=>`${o} (${items.length}): ${items.slice(0,5).join(', ')}${items.length>5?'…':''}`).join('\n');
+  } catch { ctx.stock = 'OOS data unavailable.'; }
+
+  briefProgress(70, 'OOS tracker…');
+  try {
+    const d = await fetch(`${API}/api/inventory/tracker?days=7`).then(r=>r.json());
+    const evts = d.events||[]; const byOutlet={};
+    evts.forEach(e=>{ byOutlet[e.outlet]=(byOutlet[e.outlet]||0)+1; });
+    const sorted = Object.entries(byOutlet).sort((a,b)=>b[1]-a[1]);
+    ctx.tracker = `OOS TRACKER (7-day)\nTotal events: ${evts.length}\nWorst outlets: ${sorted.slice(0,5).map(([o,c])=>`${o}(${c})`).join(', ')}`;
+  } catch { ctx.tracker = 'OOS tracker unavailable.'; }
+
+  briefProgress(78, 'Daily recon…');
+  try {
+    const d = await fetch(`${API}/api/ops/daily-recon`).then(r=>r.json());
+    const rows = (d.rows||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,14);
+    const totalDiff = rows.reduce((s,r)=>s+(parseFloat(r.diff)||0),0);
+    const gaps = rows.filter(r=>(parseFloat(r.diff)||0)<-200).sort((a,b)=>(parseFloat(a.diff)||0)-(parseFloat(b.diff)||0));
+    ctx.recon = `DAILY RECON (last 7 days)\nNet variance: ₹${totalDiff.toFixed(0)} (${totalDiff<0?'deficit':'surplus'})\nBiggest gaps: ${gaps.slice(0,4).map(r=>`${r.outlet} ${r.date} ₹${parseFloat(r.diff||0).toFixed(0)}`).join(', ')||'None'}\nAll rows: ${rows.map(r=>`${r.outlet} ${r.date}: cash=${r.cash} swiggy=${r.swiggy} zomato=${r.zomato} diff=${r.diff}`).join(' | ')}`;
+  } catch { ctx.recon = 'Recon data unavailable.'; }
+
+  briefProgress(86, 'RR recon…');
+  try {
+    const d = await fetch(`${API}/api/ops/rr-recon`).then(r=>r.json());
+    const rows = (d.rows||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,7);
+    const flags = rows.filter(r=>Math.abs(parseFloat(r.difference||0))>10);
+    ctx.rrrecon = `RR RECON (last 7 days)\nFlags (|diff|>₹10): ${flags.map(r=>`${r.date} diff=₹${parseFloat(r.difference||0).toFixed(0)}`).join(', ')||'None'}`;
+  } catch { ctx.rrrecon = 'RR recon unavailable.'; }
+
+  briefProgress(92, 'CK Roster…');
+  try {
+    const d = await fetch(`${API}/api/ops/roster/ck`).then(r=>r.json());
+    const ck = (d.entries||[]).filter(e=>e.outlet==='CK');
+    const wo = (d.entries||[]).filter(e=>e.outlet==='WO');
+    ctx.roster = `CK ROSTER TODAY\n${ck.length} staff on shift: ${ck.map(e=>e.name||e.employee_id).join(', ')}\n${wo.length} on week-off: ${wo.map(e=>e.name||e.employee_id).join(', ')||'None'}`;
+  } catch { ctx.roster = 'CK roster unavailable.'; }
+
+  briefProgress(97, 'Compiling…');
+  return Object.values(ctx).join('\n\n');
+}
 </script>
 </body>
 </html>
