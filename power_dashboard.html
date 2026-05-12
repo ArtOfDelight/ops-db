@@ -3043,7 +3043,7 @@ function _localDateStr(offsetDays = 0) {
 function _reconRows() {
   if (!_reconData) return [];
   const todayStr  = _localDateStr(0);
-  const cutoffStr = _localDateStr(-_reconWindow);
+  const cutoffStr = _localDateStr(-(_reconWindow - 1));
 
   if (_reconWindow === 1) {
     // Find latest date for the selected outlet (or globally if All)
@@ -3091,7 +3091,7 @@ function _renderRecon() {
   };
 
   const tabBar = `<div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
-    ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Yesterday':n===7?'7 Days':'28 Days'}</button>`).join('')}
+    ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Latest':n===7?'7 Days':'28 Days'}</button>`).join('')}
   </div>`;
 
   const SHORT = {'Sahakar Nagar':'SKN','Residency Road':'RR','Koramangala':'KOR','Jayanagar':'JAY','Whitefield':'WF','Kalyan Nagar':'KLN','Bellandur':'BLN','Indiranagar':'IND','Arekere':'ARK'};
@@ -3163,7 +3163,7 @@ function _renderRecon() {
         <td class="r" style="font-weight:700" id="rtotal-${rid}">${fmt(r.total)}</td>
         <td class="r" style="color:var(--ink-3)">${fmt(r.rista)}</td>
         ${diffCell(r.diff, rid)}
-        <td class="r" style="color:var(--ink-2);font-weight:600" id="rclosing-${rid}">${r.closing_balance > 0 ? fmt(r.closing_balance) : '—'}</td>
+        <td class="r" style="color:var(--ink-2);font-weight:600" id="rclosing-${rid}">${r.closing_balance != null && r.closing_balance !== '' ? fmt(r.closing_balance) : '—'}</td>
       </tr>`;
     });
   });
@@ -3253,6 +3253,7 @@ function _saveCash(rid) {
     inp.style.borderColor = 'var(--green)';
     setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 1500);
     const fmtN = n => n === 0 ? '—' : '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+    const fmtBal = n => '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits:0});
     const tEl = document.getElementById('rtotal-' + rid);
     if (tEl) tEl.textContent = fmtN(d.total);
     const dEl = document.getElementById('rdiff-' + rid);
@@ -3261,7 +3262,7 @@ function _saveCash(rid) {
       else { dEl.textContent = (d.diff < 0 ? '-' : '+') + fmtN(Math.abs(d.diff)); dEl.style.color = d.diff < 0 ? 'var(--red)' : 'var(--green)'; }
     }
     const clEl = document.getElementById('rclosing-' + rid);
-    if (clEl && d.closing_balance !== undefined) clEl.textContent = d.closing_balance > 0 ? fmtN(d.closing_balance) : '—';
+    if (clEl && d.closing_balance !== undefined) clEl.textContent = d.closing_balance != null ? fmtBal(d.closing_balance) : '—';
     _showToast('Cash saved ✓');
   })
   .catch(e => {
