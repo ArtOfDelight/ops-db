@@ -3261,13 +3261,16 @@ function _saveCash(idx) {
     }
     const clEl = document.getElementById('rclosing-' + idx);
     if (clEl && d.closing_balance !== undefined) clEl.textContent = d.closing_balance > 0 ? fmtN(d.closing_balance) : '—';
+    _showToast('Cash saved ✓');
   })
   .catch(e => {
+    console.error('_saveCash error:', e);
     inp.value = r.cash || 0;
     inp.style.opacity = '1';
     inp.disabled = false;
     inp.style.borderColor = 'var(--red)';
     setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 2000);
+    _showToast('❌ Cash save failed: ' + (e?.message || 'unknown error'));
   });
 }
 
