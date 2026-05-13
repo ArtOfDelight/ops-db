@@ -941,6 +941,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
       <span class="sb-icon">🚨</span> Complaints Review
     </button>
+    <button class="sb-item" id="sbitem-mango" onclick="navTo('mango')">
+      <span class="sb-icon">🥭</span> Mango Tracker
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -976,11 +979,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -996,6 +999,7 @@ function navTo(page) {
   if (page === 'rrrecon')    renderRRReconPage();
   if (page === 'roster')     renderRosterPage();
   if (page === 'complaints') renderComplaintsPage();
+  if (page === 'mango')      renderMangoPage();
 }
 
 
@@ -5186,6 +5190,417 @@ function cmpFmtN(v) {
 function cmpEsc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+navTo('brief');
+
+/* ═══════════════════════════════════════════
+   MANGO INVENTORY TRACKER
+   ═══════════════════════════════════════════ */
+
+function renderMangoPage() {
+  document.getElementById('pageBody').innerHTML = `
+<style>
+.mg-controls{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;background:#161b22;border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:18px 20px;margin-bottom:20px}
+.mg-cl{display:flex;flex-direction:column;gap:5px}
+.mg-clabel{font-size:11px;font-weight:600;letter-spacing:1.1px;text-transform:uppercase;color:#7d8590}
+.mg-controls input[type=date],.mg-controls select,.mg-controls input[type=text]{background:#1c2330;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:8px 12px;font-size:13px;color:#e6edf3;outline:none;font-family:inherit;min-width:130px;color-scheme:dark}
+.mg-controls input[type=date]:focus,.mg-controls select:focus,.mg-controls input[type=text]:focus{border-color:rgba(245,166,35,0.5)}
+.mg-sep{width:1px;background:rgba(255,255,255,0.07);align-self:stretch;margin:0 4px}
+.mg-btn{padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s;font-family:inherit}
+.mg-btn:active{transform:scale(.97)}.mg-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.mg-btn-amber{background:#f5a623;color:#0d1117;box-shadow:0 0 16px rgba(245,166,35,.2)}
+.mg-btn-amber:hover:not(:disabled){box-shadow:0 0 24px rgba(245,166,35,.35)}
+.mg-btn-ghost{background:#1c2330;color:#e6edf3;border:1px solid rgba(255,255,255,0.07)}
+.mg-btn-ghost:hover:not(:disabled){border-color:rgba(245,166,35,.3)}
+.mg-btn-outline{background:transparent;color:#f5a623;border:1px solid rgba(245,166,35,.3)}
+.mg-btn-outline:hover:not(:disabled){background:rgba(245,166,35,.07);border-color:#f5a623}
+.mg-status{font-size:13px;color:#7d8590;margin-bottom:16px;min-height:20px}
+.mg-status.running{color:#f5a623}.mg-status.ok{color:#39d353}.mg-status.error{color:#f85149}
+.mg-sum-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.mg-sum-card{background:#161b22;border:1px solid rgba(255,255,255,0.07);border-radius:11px;padding:14px 16px}
+.mg-sum-card.has-data{border-color:rgba(57,211,83,.2)}
+.mg-sum-label{font-size:11px;font-weight:600;color:#7d8590;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg-sum-val{font-size:26px;font-weight:700;color:#7d8590;transition:color .3s}
+.mg-sum-val.active{color:#39d353}
+.mg-sum-sub{font-size:11px;color:#7d8590;margin-top:2px}
+.mg-tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.mg-tab{padding:7px 15px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:#7d8590;background:transparent;border:1px solid transparent;transition:all .15s;user-select:none}
+.mg-tab:hover{color:#e6edf3;background:#161b22}
+.mg-tab.active{color:#f5a623;background:rgba(245,166,35,.07);border-color:rgba(245,166,35,.25)}
+.mg-tab-cnt{display:inline-flex;align-items:center;justify-content:center;background:#1c2330;color:#7d8590;border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;margin-left:5px;min-width:20px}
+.mg-tab.active .mg-tab-cnt{background:rgba(245,166,35,.2);color:#f5a623}
+.mg-panel{display:none}.mg-panel.active{display:block;animation:fadeUp .2s ease}
+.mg-table-wrap{background:#161b22;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden}
+.mg-table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid rgba(255,255,255,0.07);background:#1c2330}
+.mg-table-title{font-size:13px;font-weight:600;color:#e6edf3}
+.mg-table-meta{font-size:12px;color:#7d8590}
+.mg-tbl-scroll{overflow-x:auto}.mg-tbl-scroll::-webkit-scrollbar{height:4px}.mg-tbl-scroll::-webkit-scrollbar-thumb{background:#21262d;border-radius:2px}
+.mg-tbl{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+.mg-tbl thead th{background:#1c2330;padding:9px 13px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#7d8590;border-bottom:1px solid rgba(255,255,255,0.07);cursor:pointer;user-select:none;position:sticky;top:0;z-index:2}
+.mg-tbl thead th:hover{color:#e6edf3}
+.mg-tbl thead th.sa::after{content:' ↑';color:#f5a623}.mg-tbl thead th.sd::after{content:' ↓';color:#f5a623}
+.mg-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.07)}.mg-tbl tbody tr:last-child{border-bottom:none}
+.mg-tbl tbody tr:hover{background:rgba(255,255,255,.025)}
+.mg-tbl tbody td{padding:9px 13px;color:#e6edf3}
+.mg-td-num{font-family:'JetBrains Mono',monospace;font-size:12px;text-align:right}
+.mg-td-outlet{font-weight:500}
+.mg-bdg{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+.mg-bdg-dine{background:rgba(33,102,172,.2);color:#90caf9}
+.mg-bdg-cloud{background:rgba(245,166,35,.12);color:#ffd54f}
+.mg-diff-pos{color:#39d353;font-weight:600}.mg-diff-neg{color:#f85149;font-weight:600}.mg-diff-zero{color:#7d8590}
+.mg-empty{padding:50px 20px;text-align:center;color:#7d8590}
+.mg-empty-icon{font-size:32px;margin-bottom:10px;opacity:.3;display:block}
+/* run modal */
+#mgRunModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center}
+#mgRunModal.open{display:flex}
+.mg-modal-box{background:#161b22;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:28px;width:360px;max-width:90vw}
+.mg-modal-title{font-size:19px;font-weight:700;margin-bottom:5px;color:#e6edf3}
+.mg-modal-sub{font-size:13px;color:#7d8590;margin-bottom:18px}
+.mg-modal-btns{display:flex;flex-direction:column;gap:9px}
+.mg-modal-row{display:flex;gap:8px}
+.mg-modal-row input{flex:1;background:#1c2330;border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:8px 12px;font-size:13px;color:#e6edf3;outline:none;font-family:inherit;color-scheme:dark}
+#mgRunStatus{margin-top:12px;font-size:12px;color:#7d8590;min-height:16px}
+</style>
+
+<div class="mg-controls">
+  <div class="mg-cl">
+    <span class="mg-clabel">Date</span>
+    <input type="date" id="mgDate" onchange="mgLoad()">
+  </div>
+  <div class="mg-sep"></div>
+  <div class="mg-cl">
+    <span class="mg-clabel">Outlet Type</span>
+    <select id="mgType" onchange="mgApplyFilters()">
+      <option value="">All Types</option>
+      <option value="Dine In">Dine In</option>
+      <option value="Cloud">Cloud</option>
+    </select>
+  </div>
+  <div class="mg-cl">
+    <span class="mg-clabel">Outlet</span>
+    <select id="mgOutlet" onchange="mgApplyFilters()">
+      <option value="">All Outlets</option>
+    </select>
+  </div>
+  <div class="mg-sep"></div>
+  <div class="mg-cl">
+    <span class="mg-clabel">Search</span>
+    <input type="text" id="mgSearch" placeholder="Outlet name…" oninput="mgApplyFilters()">
+  </div>
+  <div class="mg-sep"></div>
+  <div class="mg-cl">
+    <span class="mg-clabel">Difference</span>
+    <select id="mgDiff" onchange="mgApplyFilters()">
+      <option value="">All</option>
+      <option value="neg">Negative only</option>
+      <option value="pos">Positive only</option>
+      <option value="zero">Zero only</option>
+    </select>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button class="mg-btn mg-btn-ghost" onclick="mgClearFilters()">Clear Filters</button>
+    <button class="mg-btn mg-btn-ghost" onclick="mgLoad()" id="mgBtnRefresh">↺ Refresh</button>
+    <button class="mg-btn mg-btn-amber" onclick="mgOpenRunModal()">▶ Run Tracker</button>
+  </div>
+</div>
+
+<div class="mg-status" id="mgStatus">Select a date to load data.</div>
+
+<div class="mg-sum-row" id="mgSumRow">
+  <div class="mg-sum-card" id="mgSum0"><div class="mg-sum-label">Badami Mango</div><div class="mg-sum-val" id="mgSumVal0">—</div><div class="mg-sum-sub">rows</div></div>
+  <div class="mg-sum-card" id="mgSum1"><div class="mg-sum-label">Cut Badami</div><div class="mg-sum-val" id="mgSumVal1">—</div><div class="mg-sum-sub">rows</div></div>
+  <div class="mg-sum-card" id="mgSum2"><div class="mg-sum-label">Raspuri Mango</div><div class="mg-sum-val" id="mgSumVal2">—</div><div class="mg-sum-sub">rows</div></div>
+  <div class="mg-sum-card" id="mgSum3"><div class="mg-sum-label">Cut Raspuri</div><div class="mg-sum-val" id="mgSumVal3">—</div><div class="mg-sum-sub">rows</div></div>
+</div>
+
+<div class="mg-tabs" id="mgTabs"></div>
+<div id="mgPanels"></div>
+
+<!-- Run Modal -->
+<div id="mgRunModal">
+  <div class="mg-modal-box">
+    <div class="mg-modal-title">Run Tracker</div>
+    <div class="mg-modal-sub">Fetch inventory data from Rista API and write to sheets.</div>
+    <div class="mg-modal-btns">
+      <button class="mg-btn mg-btn-amber" style="width:100%" onclick="mgTriggerRun('yesterday')">🌙 Run Yesterday</button>
+      <button class="mg-btn mg-btn-ghost" style="width:100%" onclick="mgTriggerRun('today')">☀️ Run Today</button>
+      <div class="mg-modal-row">
+        <input type="date" id="mgRunDate">
+        <button class="mg-btn mg-btn-outline" onclick="mgTriggerRun('specific')">Run Date</button>
+      </div>
+    </div>
+    <div id="mgRunStatus"></div>
+    <button onclick="mgCloseRunModal()" style="margin-top:14px;background:none;border:none;color:#7d8590;cursor:pointer;font-size:13px;font-family:inherit">✕ Close</button>
+  </div>
+</div>
+`;
+
+  // Init date to yesterday
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const yd = d.toISOString().slice(0, 10);
+  document.getElementById('mgDate').value = yd;
+  document.getElementById('mgRunDate').value = yd;
+  mgLoad();
+}
+
+// ── Mango state ──
+let _mgData = {};
+let _mgActiveTab = 0;
+let _mgSortState = {};
+const _MG_SKUS = [
+  { key: 'Badami Mango',      label: 'Badami Mango' },
+  { key: 'Cut Badami Mango',  label: 'Cut Badami' },
+  { key: 'Raspuri Mango',     label: 'Raspuri Mango' },
+  { key: 'Raspuri Cut Mango', label: 'Cut Raspuri' },
+];
+const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Closing Stock','Calculated Closing Stock','Difference'];
+
+async function mgLoad() {
+  const date = document.getElementById('mgDate')?.value;
+  if (!date) { mgSetStatus('Pick a date.', ''); return; }
+  mgSetStatus('<span style="display:inline-block;width:12px;height:12px;border:2px solid #f5a623;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px"></span> Loading…', 'running');
+  const btn = document.getElementById('mgBtnRefresh');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/api/mango/data?date=${date}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    _mgData = await res.json();
+    mgBuildOutletFilter();
+    mgRenderSummary();
+    mgRenderTabs();
+    mgRenderPanels();
+    mgSetStatus(`Loaded data for ${date}`, 'ok');
+  } catch(e) {
+    mgSetStatus('Error: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function mgSetStatus(msg, type) {
+  const el = document.getElementById('mgStatus');
+  if (!el) return;
+  el.innerHTML = msg;
+  el.className = 'mg-status ' + (type || '');
+}
+
+function mgBuildOutletFilter() {
+  const outlets = new Set();
+  _MG_SKUS.forEach(sku => {
+    const d = _mgData[sku.key];
+    if (!d) return;
+    d.rows.forEach(r => { if (r[1]) outlets.add(r[1]); });
+  });
+  const sel = document.getElementById('mgOutlet');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Outlets</option>';
+  Array.from(outlets).sort().forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o;
+    if (o === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function mgRenderSummary() {
+  _MG_SKUS.forEach((sku, i) => {
+    const d = _mgData[sku.key];
+    const count = d ? d.rows.length : 0;
+    const card = document.getElementById('mgSum' + i);
+    const val  = document.getElementById('mgSumVal' + i);
+    if (!card || !val) return;
+    val.textContent = count > 0 ? count : '—';
+    val.className   = 'mg-sum-val' + (count > 0 ? ' active' : '');
+    card.className  = 'mg-sum-card' + (count > 0 ? ' has-data' : '');
+  });
+}
+
+function mgFilterRows(rows, headers) {
+  const typeF   = document.getElementById('mgType')?.value || '';
+  const outletF = document.getElementById('mgOutlet')?.value || '';
+  const search  = (document.getElementById('mgSearch')?.value || '').toLowerCase().trim();
+  const diffF   = document.getElementById('mgDiff')?.value || '';
+  const typeIdx   = headers.indexOf('Type');
+  const outletIdx = headers.indexOf('Outlet');
+  const diffIdx   = headers.indexOf('Difference');
+  return rows.filter(row => {
+    if (typeF   && typeIdx   >= 0 && row[typeIdx]   !== typeF)   return false;
+    if (outletF && outletIdx >= 0 && row[outletIdx] !== outletF) return false;
+    if (search  && outletIdx >= 0 && String(row[outletIdx]).toLowerCase().indexOf(search) === -1) return false;
+    if (diffF   && diffIdx   >= 0) {
+      const dv = parseFloat(row[diffIdx]) || 0;
+      if (diffF === 'neg'  && dv >= -0.005) return false;
+      if (diffF === 'pos'  && dv <=  0.005) return false;
+      if (diffF === 'zero' && Math.abs(dv) > 0.005) return false;
+    }
+    return true;
+  });
+}
+
+function mgSortRows(rows, headers, tabIdx) {
+  const st = _mgSortState[tabIdx];
+  if (!st) return rows;
+  return rows.slice().sort((a, b) => {
+    let av = a[st.col], bv = b[st.col];
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) { av = an; bv = bn; }
+    if (av < bv) return st.dir === 'asc' ? -1 : 1;
+    if (av > bv) return st.dir === 'asc' ?  1 : -1;
+    return 0;
+  });
+}
+
+function mgRenderTabs() {
+  const wrap = document.getElementById('mgTabs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _MG_SKUS.forEach((sku, i) => {
+    const d = _mgData[sku.key];
+    const count = d ? mgFilterRows(d.rows, d.headers).length : 0;
+    const tab = document.createElement('div');
+    tab.className = 'mg-tab' + (i === _mgActiveTab ? ' active' : '');
+    tab.innerHTML = `${sku.label}<span class="mg-tab-cnt">${count}</span>`;
+    tab.onclick = () => { _mgActiveTab = i; mgRenderTabs(); mgRenderPanels(); };
+    wrap.appendChild(tab);
+  });
+}
+
+function mgRenderPanels() {
+  const wrap = document.getElementById('mgPanels');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _MG_SKUS.forEach((sku, i) => {
+    const panel = document.createElement('div');
+    panel.className = 'mg-panel' + (i === _mgActiveTab ? ' active' : '');
+    const d = _mgData[sku.key];
+    if (!d || !d.headers.length) {
+      panel.innerHTML = `<div class="mg-table-wrap"><div class="mg-empty"><span class="mg-empty-icon">🥭</span>No data for this date.</div></div>`;
+    } else {
+      const filtered = mgFilterRows(d.rows, d.headers);
+      const sorted   = mgSortRows(filtered, d.headers, i);
+      panel.innerHTML = mgBuildTable(d.headers, sorted, sku.label, i);
+    }
+    wrap.appendChild(panel);
+  });
+  document.querySelectorAll('th[data-mg-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const ti = parseInt(th.dataset.mgTab), col = parseInt(th.dataset.mgCol);
+      const cur = _mgSortState[ti] || {};
+      _mgSortState[ti] = { col, dir: cur.col === col ? (cur.dir === 'asc' ? 'desc' : 'asc') : 'asc' };
+      mgRenderPanels();
+    });
+  });
+}
+
+function mgBuildTable(headers, rows, title, tabIdx) {
+  const st = _mgSortState[tabIdx] || {};
+  let thead = '<thead><tr>';
+  headers.forEach((h, i) => {
+    if (h === 'Date') return;
+    const cls = st.col === i ? (st.dir === 'asc' ? 'sa' : 'sd') : '';
+    thead += `<th class="${cls}" data-mg-col="${i}" data-mg-tab="${tabIdx}">${h}</th>`;
+  });
+  thead += '</tr></thead>';
+  let tbody = '<tbody>';
+  if (rows.length === 0) {
+    tbody += `<tr><td colspan="${headers.length - 1}" style="text-align:center;padding:36px;color:#7d8590">No rows match the current filters.</td></tr>`;
+  } else {
+    rows.forEach(row => {
+      tbody += '<tr>';
+      headers.forEach((h, i) => {
+        if (h === 'Date') return;
+        const val = row[i];
+        if (h === 'Outlet') {
+          tbody += `<td class="mg-td-outlet">${mgEsc(val)}</td>`;
+        } else if (h === 'Type') {
+          const bc = val === 'Dine In' ? 'mg-bdg-dine' : 'mg-bdg-cloud';
+          tbody += `<td><span class="mg-bdg ${bc}">${mgEsc(val)}</span></td>`;
+        } else if (h === 'Difference') {
+          const num = parseFloat(val) || 0;
+          const cls = Math.abs(num) <= 0.005 ? 'mg-diff-zero' : num < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
+          const sign = num > 0.005 ? '+' : '';
+          tbody += `<td class="mg-td-num ${cls}">${sign}${mgFmt(num)}</td>`;
+        } else if (_MG_NUM_COLS.includes(h)) {
+          tbody += `<td class="mg-td-num">${mgFmt(parseFloat(val) || 0)}</td>`;
+        } else {
+          tbody += `<td>${mgEsc(val)}</td>`;
+        }
+      });
+      tbody += '</tr>';
+    });
+  }
+  tbody += '</tbody>';
+  return `<div class="mg-table-wrap">
+    <div class="mg-table-toolbar">
+      <span class="mg-table-title">${title}</span>
+      <span class="mg-table-meta">${rows.length} outlet${rows.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="mg-tbl-scroll"><table class="mg-tbl">${thead}${tbody}</table></div>
+  </div>`;
+}
+
+function mgApplyFilters() { mgRenderTabs(); mgRenderPanels(); }
+function mgClearFilters() {
+  ['mgType','mgOutlet','mgDiff'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  const s = document.getElementById('mgSearch'); if(s) s.value='';
+  mgApplyFilters();
+}
+
+function mgOpenRunModal()  { const m = document.getElementById('mgRunModal'); if(m){ m.classList.add('open'); document.getElementById('mgRunStatus').textContent=''; } }
+function mgCloseRunModal() { const m = document.getElementById('mgRunModal'); if(m) m.classList.remove('open'); }
+
+async function mgTriggerRun(mode) {
+  let date = '';
+  if (mode === 'specific') {
+    date = document.getElementById('mgRunDate')?.value || '';
+    if (!date) { document.getElementById('mgRunStatus').textContent = 'Pick a date first.'; return; }
+  }
+  const rs = document.getElementById('mgRunStatus');
+  rs.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid #f5a623;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px"></span> Running…';
+  document.querySelectorAll('#mgRunModal .mg-btn').forEach(b => b.disabled = true);
+  try {
+    const res = await fetch(`${API}/api/mango/run`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ mode, date }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const body = await res.json();
+    rs.style.color = '#f5a623';
+    rs.textContent = `⏳ Running for ${body.date}… (this may take 1–2 min)`;
+    // Poll status
+    const poll = setInterval(async () => {
+      try {
+        const sr = await fetch(`${API}/api/mango/run-status`);
+        const st = await sr.json();
+        if (!st.running) {
+          clearInterval(poll);
+          if (st.last_result === 'ok') {
+            rs.style.color = '#39d353';
+            rs.textContent = `✓ Done! Data written for ${st.last_date}.`;
+            document.getElementById('mgDate').value = st.last_date;
+            setTimeout(() => { mgLoad(); mgCloseRunModal(); }, 800);
+          } else {
+            rs.style.color = '#f85149';
+            rs.textContent = 'Error: ' + (st.last_error || 'Unknown error');
+          }
+        }
+      } catch(_) {}
+    }, 3000);
+  } catch(e) {
+    rs.style.color = '#f85149';
+    rs.textContent = 'Error: ' + e.message;
+  } finally {
+    document.querySelectorAll('#mgRunModal .mg-btn').forEach(b => b.disabled = false);
+  }
+}
+
+function mgEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mgFmt(n) { return Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 navTo('brief');
 </script>
