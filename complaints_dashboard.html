@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complaints Review — Zaān Ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:        #0a1628;
+  --navy-2:      #0e1f38;
+  --navy-3:      #162944;
+  --navy-border: rgba(255,255,255,.07);
+  --navy-text:   #5a7fa8;
+  --navy-text-2: #8aabcf;
+
+  --bg:          #f5f7fb;
+  --surface:     #ffffff;
+  --border:      #e3e8f2;
+  --border-2:    #d0d8ea;
+
+  --ink:         #0b1829;
+  --ink-2:       #3a4f68;
+  --ink-3:       #7a92ab;
+
+  --blue:        #2563eb;
+  --blue-dim:    rgba(37,99,235,.1);
+  --blue-glow:   rgba(37,99,235,.18);
+
+  --red:         #dc2626;
+  --red-dim:     rgba(220,38,38,.09);
+  --amber:       #d97706;
+  --amber-dim:   rgba(217,119,6,.09);
+  --green:       #16a34a;
+  --green-dim:   rgba(22,163,74,.09);
+  --purple:      #7c3aed;
+  --purple-dim:  rgba(124,58,237,.1);
+
+  --swiggy:     #fc8019;
+  --swiggy-dim: rgba(252,128,25,.1);
+  --zomato:     #e23744;
+  --zomato-dim: rgba(226,55,68,.1);
+
+  --sidebar-w:  224px;
+  --topbar-h:   52px;
+
+  --sans: 'Instrument Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --r:    8px;
+  --r-lg: 12px;
+  --sh:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(0,0,0,.08);
+  --sh-lg:0 12px 40px rgba(0,0,0,.14);
+}
+
+html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+/* ── LAYOUT ── */
+.shell   { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: var(--sidebar-w); background: var(--navy); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+.main    { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.topbar  { height: var(--topbar-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 12px; flex-shrink: 0; }
+.body    { flex: 1; overflow-y: auto; padding: 24px 28px 48px; }
+
+/* ── SIDEBAR ── */
+.sb-brand { padding: 20px 18px 18px; border-bottom: 1px solid var(--navy-border); }
+.sb-logo  { display: flex; align-items: center; gap: 10px; }
+.sb-logo-mark { width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;font-family:var(--mono);flex-shrink:0; }
+.sb-brand-name { font-size:13px;font-weight:700;color:#fff;letter-spacing:-.01em; }
+.sb-brand-sub  { font-size:9px;color:var(--navy-text);text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-top:1px; }
+.sb-section { padding:18px 10px 4px; }
+.sb-section-label { font-size:9px;font-weight:700;color:#1e3a5a;text-transform:uppercase;letter-spacing:.14em;padding:0 8px;margin-bottom:3px; }
+.sb-item { display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:500;color:var(--navy-text);background:transparent;border:0;width:100%;text-align:left;transition:background .14s,color .14s;position:relative;text-decoration:none; }
+.sb-item:hover { background:rgba(255,255,255,.05);color:var(--navy-text-2); }
+.sb-item.active { background:rgba(37,99,235,.14);color:#93c5fd;font-weight:600; }
+.sb-item.active::before { content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:0 2px 2px 0;background:#3b82f6; }
+.sb-icon { font-size:14px;width:16px;text-align:center;flex-shrink:0; }
+
+/* ── TOPBAR ── */
+.topbar-title { font-size:14px;font-weight:600;color:var(--ink); }
+.topbar-sub   { font-size:11px;color:var(--ink-3); }
+.topbar-gap   { flex:1; }
+.date-input   { font-family:var(--sans);font-size:12px;font-weight:500;border:1px solid var(--border-2);border-radius:var(--r);padding:7px 12px;background:var(--surface);color:var(--ink);cursor:pointer;outline:none; }
+.date-input:focus { border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-glow); }
+
+/* ── BUTTONS ── */
+.btn { font-family:var(--sans);font-size:12px;font-weight:600;border:0;border-radius:var(--r);padding:7px 14px;cursor:pointer;transition:opacity .15s,box-shadow .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap; }
+.btn:hover { opacity:.88; }
+.btn:disabled { opacity:.45;cursor:not-allowed; }
+.btn-primary { background:var(--blue);color:#fff;box-shadow:0 1px 4px rgba(37,99,235,.3); }
+.btn-ghost   { background:transparent;color:var(--ink-2);border:1px solid var(--border-2); }
+.btn-sm      { font-size:11px;padding:5px 10px; }
+.btn-refund  { background:var(--green);color:#fff;box-shadow:0 1px 4px rgba(22,163,74,.3); }
+.btn-status  { background:var(--surface);color:var(--ink-3);border:1px solid var(--border-2);font-size:10px;padding:4px 8px;border-radius:6px; }
+.btn-status:hover { border-color:var(--blue);color:var(--blue); }
+
+/* ── FILTER TABS ── */
+.filter-tabs { display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:3px; }
+.filter-tab  { font-family:var(--sans);font-size:11px;font-weight:500;padding:5px 12px;border-radius:6px;border:0;cursor:pointer;background:transparent;color:var(--ink-3);transition:all .14s; }
+.filter-tab.active { background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--sh); }
+
+/* ── STATS ROW ── */
+.stats-row { display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap; }
+.stat-pill  { background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh);min-width:110px; }
+.stat-pill-label { font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em; }
+.stat-pill-val   { font-size:18px;font-weight:700;color:var(--ink);font-family:var(--mono);line-height:1; }
+
+/* ── CONTROLS BAR ── */
+.controls-bar { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px; }
+
+/* ── COMPLAINT CARD ── */
+.complaints-list { display:flex;flex-direction:column;gap:10px; }
+
+.complaint-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);overflow:hidden;transition:box-shadow .15s; }
+.complaint-card:hover { box-shadow:var(--sh-md); }
+.complaint-card.is-refunded { border-left:3px solid var(--green); }
+.complaint-card.not-genuine { border-left:3px solid var(--ink-3);opacity:.75; }
+
+/* ── CARD HEADER ── */
+.card-header { display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:#fafbfc;flex-wrap:wrap; }
+.card-header-left { display:flex;align-items:center;gap:8px;flex:1;min-width:0;flex-wrap:wrap; }
+.platform-badge { font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0; }
+.platform-swiggy { background:var(--swiggy-dim);color:var(--swiggy); }
+.platform-zomato { background:var(--zomato-dim);color:var(--zomato); }
+.card-outlet  { font-size:12px;font-weight:600;color:var(--ink); }
+.card-issue   { font-size:11px;color:var(--ink-2); }
+.card-time    { font-size:11px;color:var(--ink-3);font-family:var(--mono);flex-shrink:0;margin-left:auto; }
+
+/* ── STATUS BADGES ── */
+.status-badge { display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0; }
+.status-open     { background:var(--amber-dim);color:var(--amber); }
+.status-resolved { background:var(--green-dim);color:var(--green); }
+.status-refunded { background:var(--green-dim);color:var(--green); }
+.status-closed   { background:var(--blue-dim);color:var(--blue); }
+.status-unknown  { background:var(--border);color:var(--ink-3); }
+.status-checking { background:var(--blue-dim);color:var(--blue); animation:pulse 1s infinite; }
+.status-error    { background:var(--red-dim);color:var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+.skip-badge { background:var(--red-dim);border:1px solid rgba(220,38,38,.15);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:600;color:var(--red); }
+.genuine-no-badge { background:var(--border);color:var(--ink-3);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:600; }
+.staff-badge { background:var(--amber-dim);color:var(--amber);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:600; }
+
+/* ── CARD BODY ── */
+.card-body    { display:flex; }
+.card-details { flex:1;padding:12px 14px;min-width:0; }
+.card-actions { width:220px;padding:12px 14px;border-left:1px solid var(--border);flex-shrink:0;background:#fafbfc;display:flex;flex-direction:column;gap:10px; }
+
+/* ── DETAIL GRID ── */
+.detail-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 16px;margin-bottom:10px; }
+.detail-label { font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1px; }
+.detail-val   { font-size:12px;color:var(--ink);font-weight:500; }
+.detail-val.mono { font-family:var(--mono);font-size:11px; }
+.detail-val.big  { font-size:14px;font-weight:700;font-family:var(--mono); }
+
+.customer-comment { background:var(--amber-dim);border:1px solid rgba(217,119,6,.2);border-radius:var(--r);padding:8px 10px;font-size:12px;color:var(--ink-2);line-height:1.5;margin-bottom:10px; }
+.ccomment-label { font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px; }
+.items-list { font-size:11px;color:var(--ink-2);line-height:1.6;margin-bottom:8px; }
+
+/* ── IMAGES ── */
+.images-row { display:flex;gap:6px;flex-wrap:wrap;margin-top:8px; }
+.thumb { width:60px;height:60px;border-radius:6px;object-fit:cover;border:1px solid var(--border);cursor:pointer;transition:transform .15s,box-shadow .15s; }
+.thumb:hover { transform:scale(1.08);box-shadow:var(--sh-md); }
+
+/* ── REFUND DONE PANEL ── */
+.refund-done-panel { background:var(--green-dim);border:1px solid rgba(22,163,74,.2);border-radius:var(--r);padding:10px 12px; }
+.refund-done-title { font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;display:flex;align-items:center;gap:5px; }
+.refund-done-row   { font-size:11px;color:var(--ink-2);display:flex;justify-content:space-between;margin-bottom:2px; }
+.refund-done-row b { color:var(--ink);font-weight:600; }
+
+/* ── TOGGLES ── */
+.toggle-row { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.toggle-label { font-size:12px;font-weight:500;color:var(--ink-2); }
+.toggle-switch { position:relative;display:inline-block;width:34px;height:18px;flex-shrink:0; }
+.toggle-switch input { opacity:0;width:0;height:0; }
+.toggle-track { position:absolute;inset:0;border-radius:20px;background:var(--border-2);cursor:pointer;transition:background .2s; }
+.toggle-track::before { content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s; }
+.toggle-switch input:checked + .toggle-track { background:var(--green); }
+.toggle-switch input:checked + .toggle-track::before { transform:translateX(16px); }
+.toggle-switch input.amber:checked + .toggle-track { background:var(--amber); }
+.toggle-switch input.red:checked + .toggle-track { background:var(--red); }
+
+/* ── REFUND AMOUNT ── */
+.refund-row { display:flex;align-items:center;gap:6px; }
+.refund-row label { font-size:12px;font-weight:600;color:var(--ink-3);flex-shrink:0; }
+.refund-input { flex:1;font-family:var(--mono);font-size:13px;font-weight:600;border:1px solid var(--border-2);border-radius:var(--r);padding:5px 9px;color:var(--ink);background:var(--surface);outline:none;min-width:0; }
+.refund-input:focus { border-color:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.15); }
+
+/* ── NOTES ── */
+.notes-textarea { width:100%;font-family:var(--sans);font-size:11px;border:1px solid var(--border-2);border-radius:var(--r);padding:6px 8px;color:var(--ink-2);background:var(--surface);outline:none;resize:none;line-height:1.4; }
+.notes-textarea:focus { border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-glow); }
+
+/* ── LIVE STATUS ROW ── */
+.live-status-row { display:flex;align-items:center;justify-content:space-between;gap:6px; }
+.live-status-label { font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em; }
+
+/* ── SECTION DIVIDER ── */
+.actions-divider { border:none;border-top:1px solid var(--border);margin:2px 0; }
+.actions-section-label { font-size:9px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px; }
+
+/* ── LIGHTBOX ── */
+#lightbox { display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.88);align-items:center;justify-content:center; }
+#lightbox.open { display:flex; }
+#lightbox img { max-width:90vw;max-height:90vh;border-radius:var(--r-lg);box-shadow:var(--sh-lg); }
+#lightbox-close { position:absolute;top:18px;right:22px;font-size:26px;color:#fff;cursor:pointer;opacity:.7;background:none;border:none;line-height:1; }
+#lightbox-close:hover { opacity:1; }
+
+/* ── EMPTY / LOADING ── */
+.empty-state { text-align:center;padding:60px 24px;color:var(--ink-3); }
+.empty-icon  { font-size:36px;margin-bottom:12px; }
+.empty-title { font-size:14px;font-weight:600;color:var(--ink-2);margin-bottom:6px; }
+.empty-sub   { font-size:12px; }
+
+.spinner { display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite; }
+.spinner-dark { border-color:var(--border);border-top-color:var(--blue); }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── TOAST ── */
+#toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:12px;font-weight:500;padding:10px 18px;border-radius:var(--r-lg);box-shadow:var(--sh-lg);z-index:2000;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap; }
+#toast.show { opacity:1; }
+#toast.ok   { background:var(--green); }
+#toast.err  { background:var(--red); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border-2);border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <div class="sb-logo-mark">Z</div>
+        <div>
+          <div class="sb-brand-name">Zaān Restaurants</div>
+          <div class="sb-brand-sub">Operations Centre</div>
+        </div>
+      </div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-label">Navigation</div>
+      <a href="power_dashboard.html" class="sb-item">
+        <span class="sb-icon">📊</span> Operations Brief
+      </a>
+      <a href="complaints_dashboard.html" class="sb-item active">
+        <span class="sb-icon">🚨</span> Complaints Review
+      </a>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Complaints Review</div>
+        <div class="topbar-sub" id="topbar-sub">Genuine / staff-mistake review · issue refunds · live status</div>
+      </div>
+      <div class="topbar-gap"></div>
+      <input type="date" id="date-picker" class="date-input">
+      <button class="btn btn-primary" id="load-btn" onclick="loadComplaints()">
+        <span class="spinner" id="load-spinner" style="display:none"></span>
+        <span id="load-btn-text">Load</span>
+      </button>
+    </div>
+
+    <!-- BODY -->
+    <div class="body">
+
+      <!-- STATS -->
+      <div class="stats-row" id="stats-row" style="display:none">
+        <div class="stat-pill">
+          <div><div class="stat-pill-label">Total</div><div class="stat-pill-val" id="stat-total">0</div></div>
+        </div>
+        <div class="stat-pill">
+          <div><div class="stat-pill-label">Pending</div><div class="stat-pill-val" id="stat-pending">0</div></div>
+        </div>
+        <div class="stat-pill">
+          <div><div class="stat-pill-label">Refunded</div><div class="stat-pill-val" id="stat-refunded">0</div></div>
+        </div>
+        <div class="stat-pill">
+          <div><div class="stat-pill-label">Not Genuine</div><div class="stat-pill-val" id="stat-not-genuine">0</div></div>
+        </div>
+        <div class="stat-pill">
+          <div><div class="stat-pill-label">Staff Mistake</div><div class="stat-pill-val" id="stat-staff">0</div></div>
+        </div>
+        <div class="stat-pill">
+          <div><div class="stat-pill-label">Exposure</div><div class="stat-pill-val" id="stat-amount">₹0</div></div>
+        </div>
+      </div>
+
+      <!-- FILTERS -->
+      <div class="controls-bar" id="filter-bar" style="display:none">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-fp="all"     onclick="setFilter('platform','all',this)">All</button>
+          <button class="filter-tab"        data-fp="swiggy"  onclick="setFilter('platform','swiggy',this)">Swiggy</button>
+          <button class="filter-tab"        data-fp="zomato"  onclick="setFilter('platform','zomato',this)">Zomato</button>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-fs="pending" onclick="setFilter('status','pending',this)">Pending</button>
+          <button class="filter-tab"        data-fs="done"    onclick="setFilter('status','done',this)">Refunded</button>
+          <button class="filter-tab"        data-fs="all"     onclick="setFilter('status','all',this)">All</button>
+        </div>
+        <span id="filter-count" style="font-size:11px;color:var(--ink-3)"></span>
+      </div>
+
+      <!-- COMPLAINT LIST -->
+      <div id="complaints-container">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">Select a date to load complaints</div>
+          <div class="empty-sub">Pick a date above and click Load</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:8000';
+
+let allComplaints = [];
+let filters = { platform: 'all', status: 'pending' };
+let reviewDebounce = {};  // complaint_id -> timeout
+let liveStatuses = {};    // complaint_id -> { status, detail, loading }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const dp = document.getElementById('date-picker');
+  const yd = new Date(); yd.setDate(yd.getDate() - 1);
+  dp.value = yd.toISOString().slice(0, 10);
+  dp.addEventListener('keydown', e => { if (e.key === 'Enter') loadComplaints(); });
+});
+
+// ─── LOAD ─────────────────────────────────────────────────────────────────────
+async function loadComplaints() {
+  const date = document.getElementById('date-picker').value;
+  if (!date) { showToast('Pick a date first', 'err'); return; }
+
+  setLoadingState(true);
+  liveStatuses = {};
+
+  try {
+    const res = await apiFetch(`/admin/auto-refund/skipped?date=${date}`);
+    if (!res.success) throw new Error('API returned success=false');
+    allComplaints = res.records || [];
+    renderStats();
+    renderList();
+    document.getElementById('stats-row').style.display = 'flex';
+    document.getElementById('filter-bar').style.display = 'flex';
+    document.getElementById('topbar-sub').textContent =
+      `${allComplaints.length} complaints · ${date}`;
+  } catch (e) {
+    console.error(e);
+    showToast('Failed: ' + e.message, 'err');
+    document.getElementById('complaints-container').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Failed to load complaints</div>
+        <div class="empty-sub">${escHtml(e.message)}</div>
+      </div>`;
+  } finally {
+    setLoadingState(false);
+  }
+}
+
+function setLoadingState(on) {
+  document.getElementById('load-spinner').style.display = on ? 'inline-block' : 'none';
+  document.getElementById('load-btn-text').textContent = on ? 'Loading…' : 'Load';
+  document.getElementById('load-btn').disabled = on;
+}
+
+// ─── FILTER ───────────────────────────────────────────────────────────────────
+function setFilter(key, val, el) {
+  filters[key] = val;
+  const attr = key === 'platform' ? 'data-fp' : 'data-fs';
+  document.querySelectorAll(`[${attr}]`).forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+function filteredComplaints() {
+  return allComplaints.filter(c => {
+    if (filters.platform !== 'all' && c.platform !== filters.platform) return false;
+    if (filters.status === 'pending' && c.refunded) return false;
+    if (filters.status === 'done'    && !c.refunded) return false;
+    return true;
+  });
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+function renderStats() {
+  document.getElementById('stat-total').textContent    = allComplaints.length;
+  document.getElementById('stat-pending').textContent  = allComplaints.filter(c => !c.refunded).length;
+  document.getElementById('stat-refunded').textContent = allComplaints.filter(c => c.refunded).length;
+  document.getElementById('stat-not-genuine').textContent = allComplaints.filter(c => c.review_genuine === false).length;
+  document.getElementById('stat-staff').textContent    = allComplaints.filter(c => c.review_staff_mistake === true).length;
+  const exp = allComplaints.filter(c => !c.refunded).reduce((s, c) => s + (parseFloat(c.refund_amount)||0), 0);
+  document.getElementById('stat-amount').textContent   = '₹' + exp.toFixed(0);
+}
+
+// ─── RENDER LIST ─────────────────────────────────────────────────────────────
+function renderList() {
+  const list = filteredComplaints();
+  const container = document.getElementById('complaints-container');
+  document.getElementById('filter-count').textContent =
+    `${list.length} complaint${list.length !== 1 ? 's' : ''}`;
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">No complaints match this filter</div>
+        <div class="empty-sub">Try a different filter or date</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '<div class="complaints-list" id="clist"></div>';
+  const ul = document.getElementById('clist');
+  list.forEach(c => ul.appendChild(buildCard(c)));
+}
+
+// ─── BUILD CARD ───────────────────────────────────────────────────────────────
+function buildCard(c) {
+  const el = document.createElement('div');
+  el.className = 'complaint-card' +
+    (c.refunded ? ' is-refunded' : '') +
+    (c.review_genuine === false ? ' not-genuine' : '');
+  el.id = `card-${c.complaint_id}`;
+
+  const platform  = c.platform || 'unknown';
+  const badgeCls  = platform === 'swiggy' ? 'platform-swiggy' : 'platform-zomato';
+  const badgeTxt  = platform.charAt(0).toUpperCase() + platform.slice(1);
+  const ts        = formatTime(c.timestamp);
+  const issue     = c.complaint_item || c.issue || '—';
+  const orderBill = c.order_bill_total ? `₹${fmtNum(c.order_bill_total)}` : '—';
+  const discount  = c.order_discount   ? `₹${fmtNum(c.order_discount)}`   : '—';
+  const custOrds  = c.customer_orders     != null ? c.customer_orders     : '—';
+  const custCmps  = c.customer_complaints != null ? c.customer_complaints : '—';
+
+  // header badges
+  const skipBadge   = c.skip_reason ? `<span class="skip-badge">⚠ ${escHtml(c.skip_reason)}</span>` : '';
+  const genuineBadge = c.review_genuine === false
+    ? `<span class="genuine-no-badge">Not genuine</span>` : '';
+  const staffBadge   = c.review_staff_mistake
+    ? `<span class="staff-badge">Staff mistake</span>` : '';
+
+  // live status badge
+  const ls = liveStatuses[c.complaint_id];
+  const lsBadge = ls ? liveStatusBadge(ls) : '';
+
+  // images
+  const imgHtml = (c.images||[]).length ? `
+    <div class="images-row">
+      ${(c.images||[]).map(u => `<img class="thumb" src="${escHtml(u)}" alt="" onclick="openLightbox('${escHtml(u)}')">`).join('')}
+    </div>` : '';
+
+  // items
+  const itemsHtml = c.items_in_order
+    ? `<div class="items-list"><span style="font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">Items in order:</span> ${escHtml(c.items_in_order)}</div>` : '';
+
+  // action panel
+  const actionPanel = c.refunded ? buildRefundedPanel(c) : buildPendingPanel(c);
+
+  el.innerHTML = `
+    <div class="card-header">
+      <div class="card-header-left">
+        <span class="platform-badge ${badgeCls}">${badgeTxt}</span>
+        <span class="card-outlet">${escHtml(c.outlet||'')}</span>
+        <span class="card-issue">${escHtml(issue)}</span>
+        ${skipBadge}${genuineBadge}${staffBadge}
+        ${lsBadge ? `<span id="ls-badge-${c.complaint_id}">${lsBadge}</span>` : `<span id="ls-badge-${c.complaint_id}"></span>`}
+      </div>
+      <span class="card-time">${ts}</span>
+    </div>
+    <div class="card-body">
+      <div class="card-details">
+        <div class="detail-grid">
+          <div>
+            <div class="detail-label">Customer</div>
+            <div class="detail-val">${escHtml(c.customer_name||'—')}</div>
+          </div>
+          <div>
+            <div class="detail-label">Type</div>
+            <div class="detail-val">${escHtml(c.customer_type||'—')}</div>
+          </div>
+          <div>
+            <div class="detail-label">Orders / Complaints</div>
+            <div class="detail-val mono">${custOrds} / ${custCmps}</div>
+          </div>
+          <div>
+            <div class="detail-label">Lifetime Value</div>
+            <div class="detail-val mono">${c.customer_total_amount ? '₹'+fmtNum(c.customer_total_amount) : '—'}</div>
+          </div>
+          <div>
+            <div class="detail-label">Order Bill</div>
+            <div class="detail-val mono big">${orderBill}</div>
+          </div>
+          <div>
+            <div class="detail-label">Discount</div>
+            <div class="detail-val mono">${discount}</div>
+          </div>
+          ${c.order_id ? `<div><div class="detail-label">Order ID</div><div class="detail-val mono" style="font-size:10px">${escHtml(c.order_id)}</div></div>` : ''}
+          <div>
+            <div class="detail-label">Complaint ID</div>
+            <div class="detail-val mono" style="font-size:10px">${escHtml(c.complaint_id)}</div>
+          </div>
+          <div>
+            <div class="detail-label">Refund Suggested</div>
+            <div class="detail-val mono big">₹${fmtNum(c.refund_amount)}</div>
+          </div>
+        </div>
+        ${c.customer_comment ? `
+        <div class="customer-comment">
+          <div class="ccomment-label">Customer Comment</div>
+          ${escHtml(c.customer_comment)}
+        </div>` : ''}
+        ${itemsHtml}
+        ${imgHtml}
+      </div>
+      <div class="card-actions" id="actions-${c.complaint_id}">
+        ${actionPanel}
+      </div>
+    </div>`;
+
+  return el;
+}
+
+// ─── PENDING PANEL ────────────────────────────────────────────────────────────
+function buildPendingPanel(c) {
+  const genuine = c.review_genuine !== false; // default true
+  const staffMistake = c.review_staff_mistake === true;
+  const notes = escHtml(c.review_notes || '');
+  const amt   = parseFloat(c.refund_amount || 0).toFixed(2);
+
+  return `
+    <div class="actions-section-label">Review</div>
+    <div class="toggle-row">
+      <span class="toggle-label">Genuine complaint</span>
+      <label class="toggle-switch">
+        <input type="checkbox" ${genuine ? 'checked' : ''}
+          onchange="onToggle('${c.complaint_id}','${c.platform}','genuine',this.checked)">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Staff mistake</span>
+      <label class="toggle-switch">
+        <input type="checkbox" class="amber" ${staffMistake ? 'checked' : ''}
+          onchange="onToggle('${c.complaint_id}','${c.platform}','staff_mistake',this.checked)">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+    <textarea class="notes-textarea" rows="2" placeholder="Notes…"
+      onchange="onNotes('${c.complaint_id}','${c.platform}',this.value)">${notes}</textarea>
+
+    <hr class="actions-divider">
+    <div class="actions-section-label">Refund</div>
+    <div class="refund-row">
+      <label>₹</label>
+      <input class="refund-input" type="number" min="0" step="0.01" value="${amt}"
+        id="ri-${c.complaint_id}">
+    </div>
+    <button class="btn btn-refund btn-sm" onclick="issueRefund('${c.complaint_id}')">Issue Refund</button>
+
+    <hr class="actions-divider">
+    <div class="live-status-row">
+      <span class="live-status-label">Platform Status</span>
+      <button class="btn-status" id="ls-btn-${c.complaint_id}"
+        onclick="checkLiveStatus('${c.complaint_id}','${c.platform}')">Check ↗</button>
+    </div>
+    <div id="ls-detail-${c.complaint_id}" style="font-size:10px;color:var(--ink-3);min-height:14px"></div>`;
+}
+
+// ─── REFUNDED PANEL ───────────────────────────────────────────────────────────
+function buildRefundedPanel(c) {
+  const genuine    = c.review_genuine !== false;
+  const staffMistake = c.review_staff_mistake === true;
+  const notes = escHtml(c.review_notes || '');
+
+  return `
+    <div class="refund-done-panel">
+      <div class="refund-done-title">✅ Refund Issued</div>
+      ${c.refunded_amount ? `<div class="refund-done-row"><span>Amount</span><b>₹${fmtNum(c.refunded_amount)}</b></div>` : ''}
+      ${c.refunded_by ? `<div class="refund-done-row"><span>By</span><b>${escHtml(c.refunded_by)}</b></div>` : ''}
+      ${c.refunded_at ? `<div class="refund-done-row"><span>At</span><b style="font-size:10px">${escHtml(c.refunded_at)}</b></div>` : ''}
+    </div>
+    <hr class="actions-divider">
+    <div class="actions-section-label">Review</div>
+    <div class="toggle-row">
+      <span class="toggle-label">Genuine complaint</span>
+      <label class="toggle-switch">
+        <input type="checkbox" ${genuine ? 'checked' : ''}
+          onchange="onToggle('${c.complaint_id}','${c.platform}','genuine',this.checked)">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Staff mistake</span>
+      <label class="toggle-switch">
+        <input type="checkbox" class="amber" ${staffMistake ? 'checked' : ''}
+          onchange="onToggle('${c.complaint_id}','${c.platform}','staff_mistake',this.checked)">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+    <textarea class="notes-textarea" rows="2" placeholder="Notes…"
+      onchange="onNotes('${c.complaint_id}','${c.platform}',this.value)">${notes}</textarea>
+
+    <hr class="actions-divider">
+    <div class="live-status-row">
+      <span class="live-status-label">Platform Status</span>
+      <button class="btn-status" id="ls-btn-${c.complaint_id}"
+        onclick="checkLiveStatus('${c.complaint_id}','${c.platform}')">Check ↗</button>
+    </div>
+    <div id="ls-detail-${c.complaint_id}" style="font-size:10px;color:var(--ink-3);min-height:14px"></div>`;
+}
+
+// ─── TOGGLE HANDLERS ─────────────────────────────────────────────────────────
+function onToggle(id, platform, field, val) {
+  // update local data
+  const c = allComplaints.find(x => x.complaint_id == id);
+  if (!c) return;
+  if (field === 'genuine')       c.review_genuine = val;
+  if (field === 'staff_mistake') c.review_staff_mistake = val;
+
+  // update card class
+  const card = document.getElementById(`card-${id}`);
+  if (card) {
+    card.classList.toggle('not-genuine', c.review_genuine === false);
+    // rebuild header badges
+    updateHeaderBadges(id, c);
+  }
+
+  renderStats();
+  saveReview(id, platform, { [field]: val });
+}
+
+function onNotes(id, platform, val) {
+  const c = allComplaints.find(x => x.complaint_id == id);
+  if (c) c.review_notes = val;
+  saveReview(id, platform, { notes: val });
+}
+
+function updateHeaderBadges(id, c) {
+  const left = document.querySelector(`#card-${id} .card-header-left`);
+  if (!left) return;
+  // remove old review badges
+  left.querySelectorAll('.genuine-no-badge,.staff-badge').forEach(e => e.remove());
+  if (c.review_genuine === false) {
+    const b = document.createElement('span');
+    b.className = 'genuine-no-badge'; b.textContent = 'Not genuine';
+    left.appendChild(b);
+  }
+  if (c.review_staff_mistake) {
+    const b = document.createElement('span');
+    b.className = 'staff-badge'; b.textContent = 'Staff mistake';
+    left.appendChild(b);
+  }
+}
+
+// ─── SAVE REVIEW (debounced) ──────────────────────────────────────────────────
+function saveReview(id, platform, patch) {
+  clearTimeout(reviewDebounce[id]);
+  reviewDebounce[id] = setTimeout(() => _saveReview(id, platform, patch), 600);
+}
+
+async function _saveReview(id, platform, patch) {
+  try {
+    const c = allComplaints.find(x => x.complaint_id == id);
+    const body = {
+      complaint_id: id,
+      platform,
+      genuine: c?.review_genuine ?? null,
+      staff_mistake: c?.review_staff_mistake ?? null,
+      notes: c?.review_notes ?? null,
+      ...patch,
+    };
+    await apiFetch('/admin/complaints/review', { method:'POST', body: JSON.stringify(body) });
+  } catch (e) {
+    console.warn('save review failed:', e.message);
+  }
+}
+
+// ─── ISSUE REFUND ────────────────────────────────────────────────────────────
+async function issueRefund(id) {
+  const c = allComplaints.find(x => x.complaint_id == id);
+  if (!c) return;
+
+  const inputEl = document.getElementById(`ri-${id}`);
+  const amount  = parseFloat(inputEl?.value || c.refund_amount || 0);
+  if (amount <= 0) { showToast('Enter refund amount > 0', 'err'); return; }
+
+  const btn = document.querySelector(`#actions-${id} .btn-refund`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Issuing…'; }
+
+  try {
+    const data = await apiFetch('/admin/auto-refund/issue', {
+      method: 'POST',
+      body: JSON.stringify({
+        complaint_id: c.complaint_id,
+        platform:     c.platform,
+        refund_amount: amount,
+        res_id:        c.res_id || null,
+      }),
+    });
+    if (!data.success) throw new Error(data.message || 'API returned failure');
+
+    // update local record
+    c.refunded        = true;
+    c.refunded_amount = amount;
+    c.refunded_at     = new Date().toLocaleString('en-IN');
+    c.refunded_by     = 'you';
+
+    showToast(`Refund ₹${amount.toFixed(0)} issued ✓`, 'ok');
+    renderStats();
+
+    // rebuild action panel
+    const ap = document.getElementById(`actions-${id}`);
+    if (ap) ap.innerHTML = buildRefundedPanel(c);
+
+    // update card class
+    const card = document.getElementById(`card-${id}`);
+    if (card) card.classList.add('is-refunded');
+
+    // hide from pending list after a moment
+    if (filters.status === 'pending') {
+      if (card) { card.style.opacity = '.35'; card.style.pointerEvents = 'none'; }
+      setTimeout(() => renderList(), 1400);
+    }
+  } catch (e) {
+    showToast('Refund failed: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Issue Refund'; }
+  }
+}
+
+// ─── LIVE STATUS ──────────────────────────────────────────────────────────────
+async function checkLiveStatus(id, platform) {
+  const btn = document.getElementById(`ls-btn-${id}`);
+  const detail = document.getElementById(`ls-detail-${id}`);
+  const badge  = document.getElementById(`ls-badge-${id}`);
+
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  if (badge) badge.innerHTML = `<span class="status-badge status-checking">Checking…</span>`;
+  if (detail) detail.textContent = '';
+
+  try {
+    const data = await apiFetch(`/admin/complaints/live-status?complaint_id=${encodeURIComponent(id)}&platform=${platform}`);
+    const status = (data.status || 'unknown').toLowerCase();
+    const label  = data.detail || status;
+
+    liveStatuses[id] = { status, detail: label };
+
+    if (badge) badge.innerHTML = liveStatusBadge({ status, detail: label });
+    if (detail) detail.textContent = label;
+    if (btn) { btn.textContent = 'Recheck ↗'; btn.disabled = false; }
+  } catch (e) {
+    if (badge) badge.innerHTML = `<span class="status-badge status-error">Error</span>`;
+    if (detail) detail.textContent = e.message;
+    if (btn) { btn.textContent = 'Retry ↗'; btn.disabled = false; }
+  }
+}
+
+function liveStatusBadge({ status, detail }) {
+  let cls = 'status-unknown';
+  let icon = '○';
+  const s = (status||'').toLowerCase();
+  if (s === 'open')     { cls = 'status-open';     icon = '●'; }
+  if (s === 'resolved') { cls = 'status-resolved';  icon = '✓'; }
+  if (s === 'closed')   { cls = 'status-closed';    icon = '✓'; }
+  if (s === 'refunded') { cls = 'status-refunded';  icon = '✓'; }
+  if (s === 'error')    { cls = 'status-error';     icon = '!'; }
+  return `<span class="status-badge ${cls}">${icon} ${escHtml(s)}</span>`;
+}
+
+// ─── API HELPER ───────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json', ...(opts.headers||{}) },
+    ...opts,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── LIGHTBOX ─────────────────────────────────────────────────────────────────
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let _tt;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' '+type : '');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function formatTime(ts) {
+  if (!ts) return '—';
+  try {
+    // ts is "DD/MM/YYYY HH:MM:SS"
+    const [datePart, timePart] = ts.split(' ');
+    const [dd, mm, yyyy] = datePart.split('/');
+    const d = new Date(`${yyyy}-${mm}-${dd}T${timePart||'00:00:00'}`);
+    if (isNaN(d)) return ts;
+    return d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true })
+      + ' · ' + d.toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+  } catch { return ts; }
+}
+
+function fmtNum(v) {
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return n % 1 === 0 ? n.toLocaleString('en-IN') : n.toFixed(2);
+}
+
+function escHtml(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

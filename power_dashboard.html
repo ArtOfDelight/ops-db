@@ -4404,18 +4404,25 @@ function renderBriefResult(data) {
     return 'var(--ink)';
   }
 
-  // Split on lines that look like "Section Name —" or "Section Name\n"
+  // Split on lines that look like section headers (plain, markdown ##, or **bold**)
   const sectionBlocks = [];
   const lines = brief.split('\n');
   let curTitle = '', curLines = [];
   for (const line of lines) {
-    const isHeader = /^[A-Z][A-Za-z0-9\s\-\/]+$/.test(line.trim()) && line.trim().length > 3 && line.trim().length < 60;
+    // Strip markdown: ## Heading or **Heading** or __Heading__
+    const stripped = line.trim()
+      .replace(/^#+\s*/, '')
+      .replace(/^\*\*(.*)\*\*$/, '$1')
+      .replace(/^__(.*?)__$/, '$1')
+      .trim();
+    const isHeader = /^[A-Z][A-Za-z0-9\s\-\/]+$/.test(stripped) && stripped.length > 3 && stripped.length < 60;
     if (isHeader && curLines.join('').trim()) {
       sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
-      curTitle = line.trim(); curLines = [];
+      curTitle = stripped; curLines = [];
     } else if (isHeader && !curLines.join('').trim()) {
-      curTitle = line.trim();
+      curTitle = stripped;
     } else {
+      // Strip inline bold from body lines too
       curLines.push(line);
     }
   }
