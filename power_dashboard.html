@@ -788,6 +788,99 @@ td.c { text-align: center; }
 }
 .chat-send:hover { opacity: .88; }
 .chat-send:disabled { opacity: .4; cursor: default; }
+
+/* ── COMPLAINTS ── */
+--swiggy:     #fc8019; --swiggy-dim: rgba(252,128,25,.1);
+--zomato:     #e23744; --zomato-dim: rgba(226,55,68,.1);
+.cmp-controls  { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px; }
+.cmp-date-inp  { font-family:var(--sans);font-size:12px;font-weight:500;border:1px solid var(--border-2);border-radius:var(--r);padding:7px 12px;background:var(--surface);color:var(--ink);outline:none; }
+.cmp-date-inp:focus { border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-glow); }
+.cmp-ftabs  { display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:3px; }
+.cmp-ftab   { font-family:var(--sans);font-size:11px;font-weight:500;padding:4px 11px;border-radius:6px;border:0;cursor:pointer;background:transparent;color:var(--ink-3);transition:all .14s; }
+.cmp-ftab.active { background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--sh); }
+.cmp-stats  { display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px; }
+.cmp-stat   { background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;box-shadow:var(--sh); }
+.cmp-stat-l { font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em; }
+.cmp-stat-v { font-size:18px;font-weight:700;color:var(--ink);font-family:var(--mono);line-height:1; }
+.cmp-list   { display:flex;flex-direction:column;gap:10px; }
+.cmp-card   { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);overflow:hidden;transition:box-shadow .15s; }
+.cmp-card:hover { box-shadow:var(--sh-md); }
+.cmp-card.is-refunded  { border-left:3px solid var(--green); }
+.cmp-card.not-genuine  { border-left:3px solid var(--ink-3);opacity:.72; }
+.cmp-hdr    { display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:#fafbfc;flex-wrap:wrap; }
+.cmp-hdr-l  { display:flex;align-items:center;gap:7px;flex:1;min-width:0;flex-wrap:wrap; }
+.cmp-plat   { font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0; }
+.cmp-plat.sw { background:rgba(252,128,25,.12);color:#fc8019; }
+.cmp-plat.zo { background:rgba(226,55,68,.12);color:#e23744; }
+.cmp-outlet { font-size:12px;font-weight:600;color:var(--ink); }
+.cmp-issue  { font-size:11px;color:var(--ink-2); }
+.cmp-time   { font-size:11px;color:var(--ink-3);font-family:var(--mono);flex-shrink:0;margin-left:auto; }
+.cmp-skip-badge { background:var(--red-dim);border:1px solid rgba(220,38,38,.15);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:600;color:var(--red); }
+.cmp-notgen  { background:#f1f5f9;color:var(--ink-3);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:600; }
+.cmp-staff   { background:var(--amber-dim);color:var(--amber);border-radius:20px;padding:2px 7px;font-size:10px;font-weight:600; }
+.cmp-ls-badge { display:inline-flex;align-items:center;gap:3px;border-radius:20px;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0; }
+.cmp-ls-open    { background:var(--amber-dim);color:var(--amber); }
+.cmp-ls-resolved,.cmp-ls-closed,.cmp-ls-refunded { background:var(--green-dim);color:var(--green); }
+.cmp-ls-unknown { background:#f1f5f9;color:var(--ink-3); }
+.cmp-ls-error   { background:var(--red-dim);color:var(--red); }
+.cmp-ls-checking { background:var(--blue-dim);color:var(--blue);animation:pulse-badge 1s infinite; }
+.cmp-body   { display:flex; }
+.cmp-det    { flex:1;padding:12px 14px;min-width:0; }
+.cmp-act    { width:210px;padding:12px 14px;border-left:1px solid var(--border);flex-shrink:0;background:#fafbfc;display:flex;flex-direction:column;gap:9px; }
+.cmp-grid   { display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px 14px;margin-bottom:10px; }
+.cmp-dl     { font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1px; }
+.cmp-dv     { font-size:12px;color:var(--ink);font-weight:500; }
+.cmp-dv.mono { font-family:var(--mono);font-size:11px; }
+.cmp-dv.big  { font-family:var(--mono);font-size:14px;font-weight:700; }
+.cmp-comment { background:var(--amber-dim);border:1px solid rgba(217,119,6,.2);border-radius:var(--r);padding:7px 9px;font-size:12px;color:var(--ink-2);line-height:1.5;margin-bottom:9px; }
+.cmp-comment-l { font-size:10px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px; }
+.cmp-items  { font-size:11px;color:var(--ink-2);line-height:1.6;margin-bottom:7px; }
+.cmp-imgs   { display:flex;gap:5px;flex-wrap:wrap;margin-top:7px; }
+.cmp-thumb  { width:58px;height:58px;border-radius:6px;object-fit:cover;border:1px solid var(--border);cursor:pointer;transition:transform .15s,box-shadow .15s; }
+.cmp-thumb:hover { transform:scale(1.08);box-shadow:var(--sh-md); }
+.cmp-done-panel { background:var(--green-dim);border:1px solid rgba(22,163,74,.2);border-radius:var(--r);padding:9px 11px; }
+.cmp-done-title { font-size:11px;font-weight:700;color:var(--green);margin-bottom:5px;display:flex;align-items:center;gap:4px; }
+.cmp-done-row   { font-size:11px;color:var(--ink-2);display:flex;justify-content:space-between;margin-bottom:2px; }
+.cmp-done-row b { color:var(--ink);font-weight:600; }
+.cmp-trow   { display:flex;align-items:center;justify-content:space-between;gap:6px; }
+.cmp-tlabel { font-size:12px;font-weight:500;color:var(--ink-2); }
+.cmp-sw  { position:relative;display:inline-block;width:34px;height:18px;flex-shrink:0; }
+.cmp-sw input { opacity:0;width:0;height:0; }
+.cmp-tr  { position:absolute;inset:0;border-radius:20px;background:var(--border-2);cursor:pointer;transition:background .2s; }
+.cmp-tr::before { content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s; }
+.cmp-sw input:checked + .cmp-tr { background:var(--green); }
+.cmp-sw input.am:checked + .cmp-tr { background:var(--amber); }
+.cmp-sw input:checked + .cmp-tr::before { transform:translateX(16px); }
+.cmp-notes { width:100%;font-family:var(--sans);font-size:11px;border:1px solid var(--border-2);border-radius:var(--r);padding:5px 7px;color:var(--ink-2);background:var(--surface);outline:none;resize:none;line-height:1.4; }
+.cmp-notes:focus { border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-glow); }
+.cmp-ramt-row { display:flex;align-items:center;gap:5px; }
+.cmp-ramt-row label { font-size:12px;font-weight:600;color:var(--ink-3);flex-shrink:0; }
+.cmp-ramt  { flex:1;font-family:var(--mono);font-size:13px;font-weight:600;border:1px solid var(--border-2);border-radius:var(--r);padding:5px 8px;color:var(--ink);background:var(--surface);outline:none;min-width:0; }
+.cmp-ramt:focus { border-color:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.15); }
+.cmp-btn-refund { font-family:var(--sans);font-size:11px;font-weight:600;border:0;border-radius:var(--r);padding:6px 12px;cursor:pointer;background:var(--green);color:#fff;box-shadow:0 1px 4px rgba(22,163,74,.3);width:100%;transition:opacity .15s; }
+.cmp-btn-refund:hover { opacity:.88; }
+.cmp-btn-refund:disabled { opacity:.4;cursor:not-allowed; }
+.cmp-ls-row  { display:flex;align-items:center;justify-content:space-between;gap:5px; }
+.cmp-ls-lbl  { font-size:9px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em; }
+.cmp-ls-btn  { font-family:var(--sans);font-size:10px;font-weight:600;padding:3px 8px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface);color:var(--ink-3);cursor:pointer; }
+.cmp-ls-btn:hover { border-color:var(--blue);color:var(--blue); }
+.cmp-ls-detail { font-size:10px;color:var(--ink-3);min-height:13px; }
+.cmp-divider { border:none;border-top:1px solid var(--border);margin:2px 0; }
+.cmp-alabel  { font-size:9px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:3px; }
+.cmp-empty  { text-align:center;padding:50px 20px;color:var(--ink-3); }
+.cmp-empty-i { font-size:32px;margin-bottom:10px; }
+.cmp-empty-t { font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:5px; }
+/* lightbox */
+#cmpLightbox { display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);align-items:center;justify-content:center; }
+#cmpLightbox.open { display:flex; }
+#cmpLightbox img { max-width:90vw;max-height:90vh;border-radius:var(--r-lg);box-shadow:var(--sh-lg); }
+#cmpLbClose { position:absolute;top:18px;right:22px;font-size:26px;color:#fff;cursor:pointer;opacity:.7;background:none;border:none;line-height:1; }
+#cmpLbClose:hover { opacity:1; }
+/* toast */
+#cmpToast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:12px;font-weight:500;padding:10px 18px;border-radius:var(--r-lg);box-shadow:var(--sh-lg);z-index:10000;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap; }
+#cmpToast.show { opacity:1; }
+#cmpToast.ok   { background:var(--green); }
+#cmpToast.err  { background:var(--red); }
 </style>
 </head>
 <body>
@@ -845,6 +938,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
       <span class="sb-icon">🍳</span> CK Roster
     </button>
+    <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
+      <span class="sb-icon">🚨</span> Complaints Review
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -880,25 +976,26 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
-  if (page === 'brief')     { _bcHistory = []; renderDailyBriefPage(); }
-  if (page === 'power')     renderPowerPage();
-  if (page === 'signin')    renderSigninPage();
-  if (page === 'metrics')   renderMetricsPage();
-  if (page === 'scorecard') renderScorecardPage();
-  if (page === 'ratings')   renderRatingsPage();
-  if (page === 'products')  renderProductsPage();
-  if (page === 'inventory') renderInventoryPage();
-  if (page === 'recon')     renderReconPage();
-  if (page === 'rrrecon')   renderRRReconPage();
-  if (page === 'roster')    renderRosterPage();
+  if (page === 'brief')      { _bcHistory = []; renderDailyBriefPage(); }
+  if (page === 'power')      renderPowerPage();
+  if (page === 'signin')     renderSigninPage();
+  if (page === 'metrics')    renderMetricsPage();
+  if (page === 'scorecard')  renderScorecardPage();
+  if (page === 'ratings')    renderRatingsPage();
+  if (page === 'products')   renderProductsPage();
+  if (page === 'inventory')  renderInventoryPage();
+  if (page === 'recon')      renderReconPage();
+  if (page === 'rrrecon')    renderRRReconPage();
+  if (page === 'roster')     renderRosterPage();
+  if (page === 'complaints') renderComplaintsPage();
 }
 
 
@@ -4698,6 +4795,396 @@ async function gatherBriefContext() {
 
   briefProgress(97, 'Compiling…');
   return Object.values(ctx).join('\n\n');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COMPLAINTS REVIEW
+══════════════════════════════════════════════════════════════ */
+let _cmpAll = [];
+let _cmpFilters = { platform: 'all', status: 'pending' };
+let _cmpReviewDebounce = {};
+let _cmpLiveStatuses = {};
+
+function renderComplaintsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div id="cmpStats" class="cmp-stats" style="display:none"></div>
+    <div class="cmp-controls">
+      <input type="date" id="cmpDate" class="cmp-date-inp">
+      <button class="btn-refresh" id="cmpLoadBtn" onclick="cmpLoad()" style="display:inline-flex">
+        <span id="cmpLoadIcon">↻</span> Load
+      </button>
+      <div class="cmp-ftabs" id="cmpFP" style="display:none">
+        <button class="cmp-ftab active" data-fp="all"    onclick="cmpSetFilter('platform','all',this)">All</button>
+        <button class="cmp-ftab"        data-fp="swiggy" onclick="cmpSetFilter('platform','swiggy',this)">Swiggy</button>
+        <button class="cmp-ftab"        data-fp="zomato" onclick="cmpSetFilter('platform','zomato',this)">Zomato</button>
+      </div>
+      <div class="cmp-ftabs" id="cmpFS" style="display:none">
+        <button class="cmp-ftab active" data-fs="pending" onclick="cmpSetFilter('status','pending',this)">Pending</button>
+        <button class="cmp-ftab"        data-fs="done"    onclick="cmpSetFilter('status','done',this)">Refunded</button>
+        <button class="cmp-ftab"        data-fs="all"     onclick="cmpSetFilter('status','all',this)">All</button>
+      </div>
+      <span id="cmpCount" style="font-size:11px;color:var(--ink-3)"></span>
+    </div>
+    <div id="cmpList"><div class="cmp-empty"><div class="cmp-empty-i">📋</div><div class="cmp-empty-t">Pick a date and click Load</div></div></div>
+    <div id="cmpLightbox"><button id="cmpLbClose" onclick="cmpLbClose()">✕</button><img id="cmpLbImg" src="" alt=""></div>
+    <div id="cmpToast"></div>`;
+
+  // set default date = yesterday
+  const dp = document.getElementById('cmpDate');
+  const yd = new Date(); yd.setDate(yd.getDate() - 1);
+  dp.value = yd.toISOString().slice(0, 10);
+  dp.addEventListener('keydown', e => { if (e.key === 'Enter') cmpLoad(); });
+
+  // reset state
+  _cmpAll = []; _cmpFilters = { platform:'all', status:'pending' };
+  _cmpLiveStatuses = {};
+}
+
+async function cmpLoad() {
+  const date = document.getElementById('cmpDate')?.value;
+  if (!date) { cmpToast('Pick a date first', 'err'); return; }
+  const icon = document.getElementById('cmpLoadIcon');
+  const btn  = document.getElementById('cmpLoadBtn');
+  if (icon) { icon.className = 'spin'; icon.textContent = '↻'; }
+  if (btn)  btn.disabled = true;
+  _cmpLiveStatuses = {};
+  try {
+    const d = await fetch(`${API}/admin/auto-refund/skipped?date=${date}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` }
+    }).then(r => r.json());
+    if (!d.success) throw new Error('API error');
+    _cmpAll = d.records || [];
+    cmpRenderStats();
+    cmpRenderList();
+    document.getElementById('cmpStats').style.display = 'flex';
+    document.getElementById('cmpFP').style.display = '';
+    document.getElementById('cmpFS').style.display = '';
+  } catch(e) {
+    document.getElementById('cmpList').innerHTML =
+      `<div class="cmp-empty"><div class="cmp-empty-i">⚠️</div><div class="cmp-empty-t">Failed to load</div><div style="font-size:11px;color:var(--ink-3)">${cmpEsc(e.message)}</div></div>`;
+    cmpToast('Load failed: ' + e.message, 'err');
+  } finally {
+    if (icon) { icon.className=''; icon.textContent='↻'; }
+    if (btn)  btn.disabled = false;
+  }
+}
+
+function cmpSetFilter(key, val, el) {
+  _cmpFilters[key] = val;
+  const attr = key === 'platform' ? 'data-fp' : 'data-fs';
+  document.querySelectorAll(`[${attr}]`).forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  cmpRenderList();
+}
+
+function cmpFiltered() {
+  return _cmpAll.filter(c => {
+    if (_cmpFilters.platform !== 'all' && c.platform !== _cmpFilters.platform) return false;
+    if (_cmpFilters.status === 'pending' && c.refunded) return false;
+    if (_cmpFilters.status === 'done'    && !c.refunded) return false;
+    return true;
+  });
+}
+
+function cmpRenderStats() {
+  const el = document.getElementById('cmpStats');
+  if (!el) return;
+  const total    = _cmpAll.length;
+  const pending  = _cmpAll.filter(c => !c.refunded).length;
+  const refunded = _cmpAll.filter(c => c.refunded).length;
+  const notGen   = _cmpAll.filter(c => c.review_genuine === false).length;
+  const staff    = _cmpAll.filter(c => c.review_staff_mistake === true).length;
+  const exp      = _cmpAll.filter(c => !c.refunded).reduce((s,c)=>s+(parseFloat(c.refund_amount)||0),0);
+  el.innerHTML = [
+    ['Total', total], ['Pending', pending], ['Refunded', refunded],
+    ['Not Genuine', notGen], ['Staff Mistake', staff], ['Exposure', '₹'+exp.toFixed(0)]
+  ].map(([l,v]) => `<div class="cmp-stat"><div class="cmp-stat-l">${l}</div><div class="cmp-stat-v">${v}</div></div>`).join('');
+}
+
+function cmpRenderList() {
+  const list = cmpFiltered();
+  const el   = document.getElementById('cmpList');
+  const cntEl = document.getElementById('cmpCount');
+  if (cntEl) cntEl.textContent = `${list.length} complaint${list.length!==1?'s':''}`;
+  if (!list.length) {
+    el.innerHTML = `<div class="cmp-empty"><div class="cmp-empty-i">✅</div><div class="cmp-empty-t">No complaints match this filter</div></div>`;
+    return;
+  }
+  el.innerHTML = '<div class="cmp-list" id="cmpCards"></div>';
+  const ul = document.getElementById('cmpCards');
+  list.forEach(c => ul.appendChild(cmpBuildCard(c)));
+}
+
+function cmpBuildCard(c) {
+  const el = document.createElement('div');
+  el.className = 'cmp-card' +
+    (c.refunded ? ' is-refunded' : '') +
+    (c.review_genuine === false ? ' not-genuine' : '');
+  el.id = 'cmpc-' + c.complaint_id;
+
+  const platCls  = c.platform === 'swiggy' ? 'sw' : 'zo';
+  const platTxt  = c.platform === 'swiggy' ? 'Swiggy' : 'Zomato';
+  const issue    = c.complaint_item || c.issue || '—';
+  const ts       = cmpFmtTime(c.timestamp);
+  const bill     = c.order_bill_total ? '₹'+cmpFmtN(c.order_bill_total) : '—';
+  const discount = c.order_discount   ? '₹'+cmpFmtN(c.order_discount)   : '—';
+  const custOrd  = c.customer_orders     != null ? c.customer_orders     : '—';
+  const custCmp  = c.customer_complaints != null ? c.customer_complaints : '—';
+
+  const skipBadge  = c.skip_reason ? `<span class="cmp-skip-badge">⚠ ${cmpEsc(c.skip_reason)}</span>` : '';
+  const genBadge   = c.review_genuine === false ? `<span class="cmp-notgen">Not genuine</span>` : '';
+  const staffBadge = c.review_staff_mistake ? `<span class="cmp-staff">Staff mistake</span>` : '';
+  const ls = _cmpLiveStatuses[c.complaint_id];
+  const lsBadge = ls ? cmpLsBadge(ls) : '';
+
+  const imgs = (c.images||[]);
+  const imgHtml = imgs.length ? `<div class="cmp-imgs">${imgs.map(u=>`<img class="cmp-thumb" src="${cmpEsc(u)}" alt="" onclick="cmpLbOpen('${cmpEsc(u)}')">`).join('')}</div>` : '';
+  const itemsHtml = c.items_in_order ? `<div class="cmp-items"><span style="font-size:10px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em">Items:</span> ${cmpEsc(c.items_in_order)}</div>` : '';
+
+  el.innerHTML = `
+    <div class="cmp-hdr">
+      <div class="cmp-hdr-l">
+        <span class="cmp-plat ${platCls}">${platTxt}</span>
+        <span class="cmp-outlet">${cmpEsc(c.outlet||'')}</span>
+        <span class="cmp-issue">${cmpEsc(issue)}</span>
+        ${skipBadge}${genBadge}${staffBadge}
+        <span id="cmp-ls-badge-${c.complaint_id}">${lsBadge}</span>
+      </div>
+      <span class="cmp-time">${ts}</span>
+    </div>
+    <div class="cmp-body">
+      <div class="cmp-det">
+        <div class="cmp-grid">
+          <div><div class="cmp-dl">Customer</div><div class="cmp-dv">${cmpEsc(c.customer_name||'—')}</div></div>
+          <div><div class="cmp-dl">Type</div><div class="cmp-dv">${cmpEsc(c.customer_type||'—')}</div></div>
+          <div><div class="cmp-dl">Orders / Complaints</div><div class="cmp-dv mono">${custOrd} / ${custCmp}</div></div>
+          <div><div class="cmp-dl">Lifetime Value</div><div class="cmp-dv mono">${c.customer_total_amount?'₹'+cmpFmtN(c.customer_total_amount):'—'}</div></div>
+          <div><div class="cmp-dl">Order Bill</div><div class="cmp-dv big">${bill}</div></div>
+          <div><div class="cmp-dl">Discount</div><div class="cmp-dv mono">${discount}</div></div>
+          ${c.order_id?`<div><div class="cmp-dl">Order ID</div><div class="cmp-dv mono" style="font-size:10px">${cmpEsc(c.order_id)}</div></div>`:''}
+          <div><div class="cmp-dl">Complaint ID</div><div class="cmp-dv mono" style="font-size:10px">${cmpEsc(c.complaint_id)}</div></div>
+          <div><div class="cmp-dl">Suggested Refund</div><div class="cmp-dv big">₹${cmpFmtN(c.refund_amount)}</div></div>
+        </div>
+        ${c.customer_comment?`<div class="cmp-comment"><div class="cmp-comment-l">Customer Comment</div>${cmpEsc(c.customer_comment)}</div>`:''}
+        ${itemsHtml}${imgHtml}
+      </div>
+      <div class="cmp-act" id="cmpa-${c.complaint_id}">${c.refunded ? cmpRefundedPanel(c) : cmpPendingPanel(c)}</div>
+    </div>`;
+  return el;
+}
+
+function cmpPendingPanel(c) {
+  const genuine    = c.review_genuine !== false;
+  const staffMistake = c.review_staff_mistake === true;
+  const notes = cmpEsc(c.review_notes || '');
+  const amt   = parseFloat(c.refund_amount||0).toFixed(2);
+  const id    = c.complaint_id, pl = c.platform;
+  return `
+    <div class="cmp-alabel">Review</div>
+    <div class="cmp-trow">
+      <span class="cmp-tlabel">Genuine</span>
+      <label class="cmp-sw"><input type="checkbox" ${genuine?'checked':''} onchange="cmpToggle('${id}','${pl}','genuine',this.checked)"><div class="cmp-tr"></div></label>
+    </div>
+    <div class="cmp-trow">
+      <span class="cmp-tlabel">Staff mistake</span>
+      <label class="cmp-sw"><input type="checkbox" class="am" ${staffMistake?'checked':''} onchange="cmpToggle('${id}','${pl}','staff_mistake',this.checked)"><div class="cmp-tr"></div></label>
+    </div>
+    <textarea class="cmp-notes" rows="2" placeholder="Notes…" onchange="cmpNotes('${id}','${pl}',this.value)">${notes}</textarea>
+    <hr class="cmp-divider">
+    <div class="cmp-alabel">Refund</div>
+    <div class="cmp-ramt-row"><label>₹</label><input class="cmp-ramt" type="number" min="0" step="0.01" value="${amt}" id="cmpri-${id}"></div>
+    <button class="cmp-btn-refund" onclick="cmpIssueRefund('${id}')">Issue Refund</button>
+    <hr class="cmp-divider">
+    <div class="cmp-ls-row">
+      <span class="cmp-ls-lbl">Platform Status</span>
+      <button class="cmp-ls-btn" id="cmplsbtn-${id}" onclick="cmpCheckStatus('${id}','${pl}')">Check ↗</button>
+    </div>
+    <div class="cmp-ls-detail" id="cmplsdet-${id}"></div>`;
+}
+
+function cmpRefundedPanel(c) {
+  const genuine    = c.review_genuine !== false;
+  const staffMistake = c.review_staff_mistake === true;
+  const notes = cmpEsc(c.review_notes || '');
+  const id    = c.complaint_id, pl = c.platform;
+  return `
+    <div class="cmp-done-panel">
+      <div class="cmp-done-title">✅ Refund Issued</div>
+      ${c.refunded_amount?`<div class="cmp-done-row"><span>Amount</span><b>₹${cmpFmtN(c.refunded_amount)}</b></div>`:''}
+      ${c.refunded_by   ?`<div class="cmp-done-row"><span>By</span><b>${cmpEsc(c.refunded_by)}</b></div>`:''}
+      ${c.refunded_at   ?`<div class="cmp-done-row"><span>At</span><b style="font-size:10px">${cmpEsc(c.refunded_at)}</b></div>`:''}
+    </div>
+    <hr class="cmp-divider">
+    <div class="cmp-alabel">Review</div>
+    <div class="cmp-trow">
+      <span class="cmp-tlabel">Genuine</span>
+      <label class="cmp-sw"><input type="checkbox" ${genuine?'checked':''} onchange="cmpToggle('${id}','${pl}','genuine',this.checked)"><div class="cmp-tr"></div></label>
+    </div>
+    <div class="cmp-trow">
+      <span class="cmp-tlabel">Staff mistake</span>
+      <label class="cmp-sw"><input type="checkbox" class="am" ${staffMistake?'checked':''} onchange="cmpToggle('${id}','${pl}','staff_mistake',this.checked)"><div class="cmp-tr"></div></label>
+    </div>
+    <textarea class="cmp-notes" rows="2" placeholder="Notes…" onchange="cmpNotes('${id}','${pl}',this.value)">${notes}</textarea>
+    <hr class="cmp-divider">
+    <div class="cmp-ls-row">
+      <span class="cmp-ls-lbl">Platform Status</span>
+      <button class="cmp-ls-btn" id="cmplsbtn-${id}" onclick="cmpCheckStatus('${id}','${pl}')">Check ↗</button>
+    </div>
+    <div class="cmp-ls-detail" id="cmplsdet-${id}"></div>`;
+}
+
+function cmpToggle(id, platform, field, val) {
+  const c = _cmpAll.find(x => x.complaint_id == id);
+  if (!c) return;
+  if (field === 'genuine')       c.review_genuine = val;
+  if (field === 'staff_mistake') c.review_staff_mistake = val;
+  const card = document.getElementById('cmpc-' + id);
+  if (card) {
+    card.classList.toggle('not-genuine', c.review_genuine === false);
+    const hl = card.querySelector('.cmp-hdr-l');
+    if (hl) {
+      hl.querySelectorAll('.cmp-notgen,.cmp-staff').forEach(e => e.remove());
+      if (c.review_genuine === false) { const b=document.createElement('span'); b.className='cmp-notgen'; b.textContent='Not genuine'; hl.appendChild(b); }
+      if (c.review_staff_mistake)     { const b=document.createElement('span'); b.className='cmp-staff';  b.textContent='Staff mistake'; hl.appendChild(b); }
+    }
+  }
+  cmpRenderStats();
+  cmpSaveReview(id, platform, { [field]: val });
+}
+
+function cmpNotes(id, platform, val) {
+  const c = _cmpAll.find(x => x.complaint_id == id);
+  if (c) c.review_notes = val;
+  cmpSaveReview(id, platform, { notes: val });
+}
+
+function cmpSaveReview(id, platform, patch) {
+  clearTimeout(_cmpReviewDebounce[id]);
+  _cmpReviewDebounce[id] = setTimeout(async () => {
+    try {
+      const c = _cmpAll.find(x => x.complaint_id == id);
+      await fetch(`${API}/admin/complaints/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` },
+        body: JSON.stringify({
+          complaint_id: id, platform,
+          genuine: c?.review_genuine ?? null,
+          staff_mistake: c?.review_staff_mistake ?? null,
+          notes: c?.review_notes ?? null,
+          ...patch,
+        }),
+      });
+    } catch(e) { console.warn('review save:', e.message); }
+  }, 700);
+}
+
+async function cmpIssueRefund(id) {
+  const c = _cmpAll.find(x => x.complaint_id == id);
+  if (!c) return;
+  const inp = document.getElementById(`cmpri-${id}`);
+  const amt = parseFloat(inp?.value || c.refund_amount || 0);
+  if (amt <= 0) { cmpToast('Enter refund amount > 0', 'err'); return; }
+  const btn = document.querySelector(`#cmpa-${id} .cmp-btn-refund`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Issuing…'; }
+  try {
+    const d = await fetch(`${API}/admin/auto-refund/issue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` },
+      body: JSON.stringify({ complaint_id: c.complaint_id, platform: c.platform, refund_amount: amt, res_id: c.res_id||null }),
+    }).then(r => r.json());
+    if (!d.success) throw new Error(d.message || 'API failure');
+    c.refunded = true; c.refunded_amount = amt;
+    c.refunded_at = new Date().toLocaleString('en-IN'); c.refunded_by = 'you';
+    cmpToast(`Refund ₹${amt.toFixed(0)} issued ✓`, 'ok');
+    cmpRenderStats();
+    const ap = document.getElementById(`cmpa-${id}`);
+    if (ap) ap.innerHTML = cmpRefundedPanel(c);
+    const card = document.getElementById('cmpc-' + id);
+    if (card) card.classList.add('is-refunded');
+    if (_cmpFilters.status === 'pending') {
+      if (card) { card.style.opacity = '.35'; card.style.pointerEvents = 'none'; }
+      setTimeout(() => cmpRenderList(), 1400);
+    }
+  } catch(e) {
+    cmpToast('Refund failed: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Issue Refund'; }
+  }
+}
+
+async function cmpCheckStatus(id, platform) {
+  const btn = document.getElementById(`cmplsbtn-${id}`);
+  const det = document.getElementById(`cmplsdet-${id}`);
+  const badge = document.getElementById(`cmp-ls-badge-${id}`);
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  if (badge) badge.innerHTML = `<span class="cmp-ls-badge cmp-ls-checking">Checking…</span>`;
+  if (det) det.textContent = '';
+  try {
+    const d = await fetch(`${API}/admin/complaints/live-status?complaint_id=${encodeURIComponent(id)}&platform=${platform}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` }
+    }).then(r => r.json());
+    const status = (d.status||'unknown').toLowerCase();
+    _cmpLiveStatuses[id] = { status, detail: d.detail||status };
+    if (badge) badge.innerHTML = cmpLsBadge({ status, detail: d.detail||status });
+    if (det) det.textContent = d.detail || status;
+    if (btn) { btn.textContent = 'Recheck ↗'; btn.disabled = false; }
+  } catch(e) {
+    if (badge) badge.innerHTML = `<span class="cmp-ls-badge cmp-ls-error">Error</span>`;
+    if (det) det.textContent = e.message;
+    if (btn) { btn.textContent = 'Retry ↗'; btn.disabled = false; }
+  }
+}
+
+function cmpLsBadge({ status, detail }) {
+  const s = (status||'').toLowerCase();
+  let cls = 'cmp-ls-unknown', icon = '○';
+  if (s==='open')     { cls='cmp-ls-open';     icon='●'; }
+  if (s==='resolved') { cls='cmp-ls-resolved'; icon='✓'; }
+  if (s==='closed')   { cls='cmp-ls-closed';   icon='✓'; }
+  if (s==='refunded') { cls='cmp-ls-refunded'; icon='✓'; }
+  if (s==='error')    { cls='cmp-ls-error';    icon='!'; }
+  return `<span class="cmp-ls-badge ${cls}">${icon} ${cmpEsc(s)}</span>`;
+}
+
+function cmpLbOpen(url) {
+  const lb = document.getElementById('cmpLightbox');
+  const img = document.getElementById('cmpLbImg');
+  if (!lb || !img) return;
+  img.src = url; lb.classList.add('open');
+}
+function cmpLbClose() {
+  const lb = document.getElementById('cmpLightbox');
+  if (lb) lb.classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cmpLbClose(); });
+
+let _cmpToastT;
+function cmpToast(msg, type='') {
+  const t = document.getElementById('cmpToast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' '+type : '');
+  clearTimeout(_cmpToastT);
+  _cmpToastT = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+function cmpFmtTime(ts) {
+  if (!ts) return '—';
+  try {
+    const [dp, tp] = ts.split(' ');
+    const [dd,mm,yyyy] = dp.split('/');
+    const d = new Date(`${yyyy}-${mm}-${dd}T${tp||'00:00:00'}`);
+    if (isNaN(d)) return ts;
+    return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) +
+           ' · ' + d.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+  } catch { return ts; }
+}
+function cmpFmtN(v) {
+  const n = parseFloat(v); if (isNaN(n)) return v;
+  return n%1===0 ? n.toLocaleString('en-IN') : n.toFixed(2);
+}
+function cmpEsc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 navTo('brief');
