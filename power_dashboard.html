@@ -4850,7 +4850,7 @@ async function cmpLoad() {
   if (btn)  btn.disabled = true;
   _cmpLiveStatuses = {};
   try {
-    const d = await fetch(`${API}/admin/auto-refund/skipped?date=${date}`, {
+    const d = await fetch(`${API}/api/admin/auto-refund/skipped?date=${date}`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` }
     }).then(r => r.json());
     if (!d.success) throw new Error('API error');
@@ -5064,7 +5064,7 @@ function cmpSaveReview(id, platform, patch) {
   _cmpReviewDebounce[id] = setTimeout(async () => {
     try {
       const c = _cmpAll.find(x => x.complaint_id == id);
-      await fetch(`${API}/admin/complaints/review`, {
+      await fetch(`${API}/api/admin/complaints/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` },
         body: JSON.stringify({
@@ -5088,7 +5088,7 @@ async function cmpIssueRefund(id) {
   const btn = document.querySelector(`#cmpa-${id} .cmp-btn-refund`);
   if (btn) { btn.disabled = true; btn.textContent = 'Issuing…'; }
   try {
-    const d = await fetch(`${API}/admin/auto-refund/issue`, {
+    const d = await fetch(`${API}/api/admin/auto-refund/issue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` },
       body: JSON.stringify({ complaint_id: c.complaint_id, platform: c.platform, refund_amount: amt, res_id: c.res_id||null }),
@@ -5120,7 +5120,7 @@ async function cmpCheckStatus(id, platform) {
   if (badge) badge.innerHTML = `<span class="cmp-ls-badge cmp-ls-checking">Checking…</span>`;
   if (det) det.textContent = '';
   try {
-    const d = await fetch(`${API}/admin/complaints/live-status?complaint_id=${encodeURIComponent(id)}&platform=${platform}`, {
+    const d = await fetch(`${API}/api/admin/complaints/live-status?complaint_id=${encodeURIComponent(id)}&platform=${platform}`, {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` }
     }).then(r => r.json());
     const status = (d.status||'unknown').toLowerCase();
