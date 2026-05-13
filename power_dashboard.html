@@ -4851,7 +4851,7 @@ async function cmpLoad() {
   _cmpLiveStatuses = {};
   try {
     const d = await fetch(`${API}/api/admin/auto-refund/skipped?date=${date}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` }
+      headers: {}
     }).then(r => r.json());
     if (!d.success) throw new Error('API error');
     _cmpAll = d.records || [];
@@ -5066,7 +5066,7 @@ function cmpSaveReview(id, platform, patch) {
       const c = _cmpAll.find(x => x.complaint_id == id);
       await fetch(`${API}/api/admin/complaints/review`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           complaint_id: id, platform,
           genuine: c?.review_genuine ?? null,
@@ -5090,7 +5090,7 @@ async function cmpIssueRefund(id) {
   try {
     const d = await fetch(`${API}/api/admin/auto-refund/issue`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ complaint_id: c.complaint_id, platform: c.platform, refund_amount: amt, res_id: c.res_id||null }),
     }).then(r => r.json());
     if (!d.success) throw new Error(d.message || 'API failure');
@@ -5121,7 +5121,7 @@ async function cmpCheckStatus(id, platform) {
   if (det) det.textContent = '';
   try {
     const d = await fetch(`${API}/api/admin/complaints/live-status?complaint_id=${encodeURIComponent(id)}&platform=${platform}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('ops_token')||''}` }
+      headers: {}
     }).then(r => r.json());
     const status = (d.status||'unknown').toLowerCase();
     _cmpLiveStatuses[id] = { status, detail: d.detail||status };
