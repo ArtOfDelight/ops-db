@@ -1019,18 +1019,6 @@ function navTo(page) {
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
-  // Checklist needs flush layout so inner areas can scroll
-  const bodyEl = document.querySelector('.body');
-  const pageBodyEl = document.getElementById('pageBody');
-  if (page === 'checklist') {
-    bodyEl.style.padding = '0';
-    bodyEl.style.overflow = 'hidden';
-    pageBodyEl.style.height = '100%';
-  } else {
-    bodyEl.style.padding = '';
-    bodyEl.style.overflow = '';
-    pageBodyEl.style.height = '';
-  }
   if (page === 'brief')      { _bcHistory = []; renderDailyBriefPage(); }
   if (page === 'power')      renderPowerPage();
   if (page === 'signin')     renderSigninPage();
@@ -5795,6 +5783,7 @@ async function confirmActionTaken(id) {
 
 let _clActiveTab = 'daily';
 let _clDate = new Date().toISOString().slice(0,10);
+let _clCritDate = new Date().toISOString().slice(0,10);
 let _clData = null;
 
 function _clTodayISO() {
@@ -5815,53 +5804,55 @@ function _clFmtTime(ts) {
   return p.length >= 2 ? p[1].substring(0,5) : ts;
 }
 function _clEsc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
-let _clSubmissionMap = {}; // submissionId -> {slot, submitted_by, submitted_at}
+let _clSubmissionMap = {};
+
+const CL_SLOT_COLORS = { Morning:'#d97706', 'Mid Day':'#2563eb', Closing:'#7c3aed' };
 
 function renderChecklistStatusPage() {
   _clDate = _clTodayISO();
-  _clData = null;
+  _clCritDate = _clTodayISO();
   _clActiveTab = 'daily';
+  const bodyEl = document.querySelector('.body');
+  bodyEl.style.padding = '';
+  bodyEl.style.overflow = '';
+
   document.getElementById('pageBody').innerHTML = `
 <style>
-/* ── shell ── */
-#cl-shell { display:flex; flex-direction:column; height:100%; min-height:0; gap:0; }
-/* ── tab bar ── */
-.cl-tabbar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 4px; flex-shrink:0; }
+.cl-wrap { display:flex; flex-direction:column; gap:0; }
+/* tab bar */
+.cl-tabbar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 4px; position:sticky; top:0; z-index:10; }
 .cl-tab { padding:11px 18px; font-size:13px; font-weight:500; color:var(--ink-3); border:none; background:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s; }
 .cl-tab.active { color:var(--blue); border-bottom-color:var(--blue); font-weight:600; }
 .cl-tab:hover:not(.active) { color:var(--ink-2); }
-/* ── date strip ── */
-.cl-datebar { display:flex; align-items:center; gap:0; background:var(--surface); border-bottom:1px solid var(--border); padding:0; flex-shrink:0; }
-.cl-date-arrow { width:40px; height:40px; border:none; background:none; cursor:pointer; font-size:18px; color:var(--ink-2); display:flex; align-items:center; justify-content:center; }
+/* date strip */
+.cl-datebar { display:flex; align-items:center; background:var(--surface); border-bottom:1px solid var(--border); padding:0; position:sticky; top:44px; z-index:9; }
+.cl-date-arrow { width:44px; height:44px; border:none; background:none; cursor:pointer; font-size:20px; color:var(--ink-2); }
 .cl-date-arrow:hover { color:var(--blue); }
 .cl-date-label { flex:1; text-align:center; font-size:14px; font-weight:600; color:var(--ink); }
-/* ── summary chips ── */
-.cl-chips { display:flex; gap:8px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+/* chips */
+.cl-chips { display:flex; gap:8px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); }
 .cl-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600; }
 .cl-chip.green { background:#dcfce7; color:#16a34a; }
 .cl-chip.red   { background:#fee2e2; color:#dc2626; }
-/* ── content area ── */
-.cl-content { flex:1; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
-/* ── slot section card ── */
-.cl-slot-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); }
-.cl-slot-head { display:flex; align-items:center; gap:10px; padding:13px 16px; cursor:pointer; user-select:none; }
-.cl-slot-head:hover { background:var(--bg); }
-.cl-slot-bar { width:4px; height:20px; border-radius:2px; flex-shrink:0; }
-.cl-slot-title { font-size:15px; font-weight:700; color:var(--ink); flex:1; }
-.cl-slot-badge { padding:3px 12px; border-radius:20px; font-size:13px; font-weight:700; }
-.cl-slot-chevron { font-size:12px; color:var(--ink-3); transition:transform .2s; }
-.cl-slot-body { border-top:1px solid var(--border); }
-.cl-slot-row { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid #f3f4f6; }
-.cl-slot-row:last-child { border-bottom:none; }
-.cl-slot-row.clickable { cursor:pointer; }
-.cl-slot-row.clickable:hover { background:#f8faff; }
+/* slot group */
+.cl-slot-group { padding:16px 16px 0; }
+.cl-slot-label { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.cl-slot-bar { width:4px; height:18px; border-radius:2px; flex-shrink:0; }
+.cl-slot-title { font-size:14px; font-weight:700; color:var(--ink); flex:1; }
+.cl-slot-badge { padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+/* outlet rows card */
+.cl-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); margin-bottom:16px; }
+.cl-row { display:flex; align-items:center; gap:10px; padding:11px 14px; border-bottom:1px solid #f3f4f6; }
+.cl-row:last-child { border-bottom:none; }
+.cl-row.clickable { cursor:pointer; }
+.cl-row.clickable:hover { background:#f8faff; }
 .cl-outlet-badge { background:#eff6ff; padding:3px 9px; border-radius:7px; font-size:12px; font-weight:700; color:#2563eb; white-space:nowrap; flex-shrink:0; }
 .cl-row-right { flex:1; display:flex; align-items:center; justify-content:flex-end; gap:8px; }
 .cl-filled-info { text-align:right; }
 .cl-filled-by { font-size:13px; font-weight:500; color:var(--ink); }
 .cl-filled-at { font-size:11px; color:var(--ink-3); }
 .cl-not-filled { background:#fef2f2; padding:3px 9px; border-radius:6px; font-size:12px; font-weight:500; color:#dc2626; }
-/* ── missed tab ── */
+/* missed tab */
 .cl-missed-form { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
 .cl-missed-field { display:flex; flex-direction:column; gap:4px; }
 .cl-missed-field label { font-size:11px; font-weight:600; color:var(--ink-2); text-transform:uppercase; letter-spacing:.04em; }
@@ -5874,14 +5865,14 @@ function renderChecklistStatusPage() {
 .cl-missed-row:last-child { border-bottom:none; }
 .cl-missed-row:hover { background:var(--bg); }
 .cl-num { text-align:right; font-family:var(--mono); font-weight:600; }
-/* ── critical tab ── */
-.cl-crit-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); }
-.cl-crit-head { display:flex; align-items:center; gap:8px; padding:12px 14px; cursor:pointer; user-select:none; }
-.cl-crit-head:hover { background:var(--bg); }
+/* critical */
+.cl-crit-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); margin-bottom:12px; }
+.cl-crit-head { display:flex; align-items:center; gap:8px; padding:12px 14px; background:var(--bg); border-bottom:1px solid var(--border); }
 .cl-q-badge { width:22px; height:22px; border-radius:11px; background:#e0e7ff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#4338ca; flex-shrink:0; }
 .cl-q-text { flex:1; font-size:13px; font-weight:700; color:var(--ink); line-height:1.4; }
 .cl-q-meta { font-size:12px; font-weight:600; color:var(--ink-3); white-space:nowrap; }
-.cl-crit-row { display:flex; align-items:center; gap:8px; padding:9px 12px; border-top:1px solid #f3f4f6; }
+.cl-crit-row { display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid #f3f4f6; }
+.cl-crit-row:last-child { border-bottom:none; }
 .cl-crit-row.ok-row   { background:#f0fdf4; }
 .cl-crit-row.bad-row  { background:#fff5f5; }
 .cl-outlet-slot { display:flex; align-items:center; gap:6px; flex:1; }
@@ -5892,7 +5883,7 @@ function renderChecklistStatusPage() {
 .cl-not-sub { background:#f3f4f6; padding:3px 8px; border-radius:8px; font-size:11px; color:#9ca3af; font-weight:600; }
 .cl-crit-issue-badge { background:#fee2e2; color:#dc2626; border-radius:20px; padding:2px 8px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:3px; }
 .cl-thumb { width:40px; height:40px; border-radius:8px; object-fit:cover; cursor:pointer; }
-/* ── responses modal ── */
+/* modal */
 .cl-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; }
 .cl-modal { background:var(--surface); border-radius:var(--r-lg); width:min(600px,95vw); max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--sh-lg); overflow:hidden; }
 .cl-modal-head { display:flex; align-items:flex-start; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--border); }
@@ -5907,70 +5898,62 @@ function renderChecklistStatusPage() {
 .cl-resp-ans { font-size:14px; font-weight:600; margin-left:28px; }
 .cl-resp-ans.yes { color:#16a34a; } .cl-resp-ans.no { color:#dc2626; }
 .cl-resp-img { width:100%; max-height:200px; object-fit:cover; border-radius:8px; margin-top:8px; cursor:pointer; }
-/* spinner */
 .cl-spin { display:inline-block; width:16px; height:16px; border:2px solid var(--blue); border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; }
 </style>
 
-<div id="cl-shell">
+<div class="cl-wrap">
   <div class="cl-tabbar">
     <button class="cl-tab active" id="cltab-daily"    onclick="clSwitchTab('daily')">Daily</button>
     <button class="cl-tab"        id="cltab-missed"   onclick="clSwitchTab('missed')">Missed</button>
     <button class="cl-tab"        id="cltab-critical" onclick="clSwitchTab('critical')">⚠️ Critical</button>
   </div>
-  <div id="cl-tab-daily"    style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+
+  <!-- DAILY TAB -->
+  <div id="cl-tab-daily">
     <div class="cl-datebar">
       <button class="cl-date-arrow" onclick="clDateShift(-1)">‹</button>
       <span class="cl-date-label" id="cl-date-lbl"></span>
       <button class="cl-date-arrow" onclick="clDateShift(1)">›</button>
     </div>
     <div class="cl-chips" id="cl-chips" style="display:none"></div>
-    <div class="cl-content" id="cl-daily-content"><div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span></div></div>
+    <div id="cl-daily-content" style="padding-bottom:40px"><div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span></div></div>
   </div>
-  <div id="cl-tab-missed"   style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-    <div class="cl-content">
-      <div class="cl-missed-form">
-        <div class="cl-missed-field"><label>From</label><input type="date" id="cl-miss-from"></div>
-        <div class="cl-missed-field"><label>To</label><input type="date" id="cl-miss-to"></div>
-        <button class="cl-load-btn" onclick="clLoadMissed()">Load Report</button>
-      </div>
-      <div id="cl-missed-result"></div>
+
+  <!-- MISSED TAB -->
+  <div id="cl-tab-missed" style="display:none;padding:16px;display:none;flex-direction:column;gap:12px">
+    <div class="cl-missed-form">
+      <div class="cl-missed-field"><label>From</label><input type="date" id="cl-miss-from"></div>
+      <div class="cl-missed-field"><label>To</label><input type="date" id="cl-miss-to"></div>
+      <button class="cl-load-btn" onclick="clLoadMissed()">Load Report</button>
     </div>
+    <div id="cl-missed-result" style="padding-bottom:40px"></div>
   </div>
-  <div id="cl-tab-critical" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+
+  <!-- CRITICAL TAB -->
+  <div id="cl-tab-critical" style="display:none">
     <div class="cl-datebar">
       <button class="cl-date-arrow" onclick="clCritDateShift(-1)">‹</button>
       <span class="cl-date-label" id="cl-crit-date-lbl"></span>
       <button class="cl-date-arrow" onclick="clCritDateShift(1)">›</button>
     </div>
-    <div class="cl-content" id="cl-crit-content"><div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span></div></div>
+    <div id="cl-crit-content" style="padding:16px;padding-bottom:40px"><div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span></div></div>
   </div>
 </div>
 `;
 
-  // init missed date defaults
   const today = _clTodayISO();
   document.getElementById('cl-miss-to').value = today;
   document.getElementById('cl-miss-from').value = _clAddDays(today, -6);
-
-  // init date label
   document.getElementById('cl-date-lbl').textContent = _clFmtDate(_clDate);
-  _clLoadDaily(_clDate);
-
-  // critical tab
-  _clCritDate = _clTodayISO();
   document.getElementById('cl-crit-date-lbl').textContent = _clFmtDate(_clCritDate);
+  _clLoadDaily(_clDate);
 }
-
-let _clCritDate = '';
-const CL_SLOT_COLORS = { Morning:'#d97706', 'Mid Day':'#2563eb', Closing:'#7c3aed' };
-const _clExpandedSlots = {};
-const _clExpandedCrit  = {};
 
 function clSwitchTab(t) {
   ['daily','missed','critical'].forEach(id => {
     document.getElementById('cltab-'+id)?.classList.toggle('active', id===t);
     const el = document.getElementById('cl-tab-'+id);
-    if (el) el.style.display = id===t ? 'flex' : 'none';
+    if (el) el.style.display = id===t ? (id==='missed'?'flex':'block') : 'none';
   });
   _clActiveTab = t;
   if (t === 'critical' && !document.getElementById('cl-crit-content').dataset.loaded) {
@@ -5999,100 +5982,61 @@ async function _clLoadDaily(date) {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     _clData = data;
-
-    // Store submission metadata in a JS map so onclick doesn't embed raw strings
     _clSubmissionMap = {};
     (data.outlets || []).forEach(outlet => {
       (outlet.slots || []).forEach(s => {
-        if (s.submission_id) {
-          _clSubmissionMap[s.submission_id] = {
-            slot: s.slot,
-            submitted_by: s.submitted_by || '',
-            submitted_at: s.submitted_at || '',
-          };
-        }
+        if (s.submission_id) _clSubmissionMap[s.submission_id] = { slot:s.slot, submitted_by:s.submitted_by||'', submitted_at:s.submitted_at||'' };
       });
     });
 
     const filled = data.filled_outlets ?? 0;
     const total  = data.total_outlets ?? 0;
     chips.style.display = 'flex';
-    chips.innerHTML = `
-      <span class="cl-chip green">✓ ${filled} Complete</span>
-      <span class="cl-chip red">✗ ${total - filled} Pending</span>`;
+    chips.innerHTML = `<span class="cl-chip green">✓ ${filled} Complete</span><span class="cl-chip red">✗ ${total-filled} Pending</span>`;
 
     const outlets = data.outlets || [];
-    if (outlets.length === 0) {
-      content.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">No data for this date.</div>';
-      return;
-    }
+    if (outlets.length === 0) { content.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">No data for this date.</div>'; return; }
 
-    const slots = ['Morning', 'Mid Day', 'Closing'];
     content.innerHTML = '';
-    slots.forEach(slot => {
-      const slotKey   = slot.replace(/ /g, '_');
-      const filledCount = outlets.filter(o => (o.slots||[]).some(s=>s.slot===slot&&s.status==='filled')).length;
-      const color     = CL_SLOT_COLORS[slot] || '#6b7280';
-      const badgeBg   = filledCount===outlets.length ? '#dcfce7' : filledCount>0 ? '#fef9c3' : '#fee2e2';
-      const badgeColor= filledCount===outlets.length ? '#16a34a' : filledCount>0 ? '#d97706' : '#dc2626';
-      const isOpen    = _clExpandedSlots[slot] === true;
+    ['Morning','Mid Day','Closing'].forEach(slot => {
+      const color = CL_SLOT_COLORS[slot] || '#6b7280';
+      const filledCount = outlets.filter(o=>(o.slots||[]).some(s=>s.slot===slot&&s.status==='filled')).length;
+      const badgeBg    = filledCount===outlets.length?'#dcfce7':filledCount>0?'#fef9c3':'#fee2e2';
+      const badgeColor = filledCount===outlets.length?'#16a34a':filledCount>0?'#d97706':'#dc2626';
 
-      const card = document.createElement('div');
-      card.className = 'cl-slot-card';
-
-      const rowsHtml = outlets.map(outlet => {
-        const s = (outlet.slots||[]).find(x=>x.slot===slot);
-        const isFilled = s && s.status === 'filled';
-        const rowHtml = `<div class="cl-slot-row${isFilled?' clickable':''}" ${isFilled?`data-sid="${_clEsc(s.submission_id)}"`:''}>
-          <span class="cl-outlet-badge">${_clEsc(outlet.outlet_code)}</span>
-          <div class="cl-row-right">
-            ${isFilled
-              ? `<div class="cl-filled-info"><div class="cl-filled-by">${_clEsc(s.submitted_by||'—')}</div><div class="cl-filled-at">${_clFmtTime(s.submitted_at)}</div></div><span style="color:var(--ink-3);font-size:12px">›</span>`
-              : `<span class="cl-not-filled">Not filled</span>`}
-          </div>
-        </div>`;
-        return rowHtml;
-      }).join('');
-
-      card.innerHTML = `
-        <div class="cl-slot-head" data-slot="${_clEsc(slot)}">
+      const group = document.createElement('div');
+      group.className = 'cl-slot-group';
+      group.innerHTML = `
+        <div class="cl-slot-label">
           <div class="cl-slot-bar" style="background:${color}"></div>
           <span class="cl-slot-title">${_clEsc(slot)}</span>
           <span class="cl-slot-badge" style="background:${badgeBg};color:${badgeColor}">${filledCount}/${outlets.length}</span>
-          <span class="cl-slot-chevron" id="clchev-${slotKey}">${isOpen?'▲':'▼'}</span>
         </div>
-        <div class="cl-slot-body" id="clbody-${slotKey}" style="display:${isOpen?'block':'none'}">
-          ${rowsHtml}
-        </div>`;
+        <div class="cl-card">${outlets.map(outlet => {
+          const s = (outlet.slots||[]).find(x=>x.slot===slot);
+          const isFilled = s && s.status==='filled';
+          return `<div class="cl-row${isFilled?' clickable':''}"${isFilled?` data-sid="${_clEsc(s.submission_id)}"`:''}>
+            <span class="cl-outlet-badge">${_clEsc(outlet.outlet_code)}</span>
+            <div class="cl-row-right">
+              ${isFilled
+                ? `<div class="cl-filled-info"><div class="cl-filled-by">${_clEsc(s.submitted_by||'—')}</div><div class="cl-filled-at">${_clFmtTime(s.submitted_at)}</div></div><span style="color:var(--ink-3);font-size:12px">›</span>`
+                : `<span class="cl-not-filled">Not filled</span>`}
+            </div>
+          </div>`;
+        }).join('')}</div>`;
 
-      // Attach events after setting innerHTML
-      card.querySelector('.cl-slot-head').addEventListener('click', function() {
-        clToggleSlot(slot, this);
-      });
-      card.querySelectorAll('.cl-slot-row.clickable').forEach(row => {
+      group.querySelectorAll('.cl-row.clickable').forEach(row => {
         row.addEventListener('click', function() {
           const sid = this.dataset.sid;
           const meta = _clSubmissionMap[sid] || {};
           clOpenResponses(sid, meta.slot||slot, meta.submitted_by||'', _clFmtTime(meta.submitted_at||''));
         });
       });
-
-      content.appendChild(card);
+      content.appendChild(group);
     });
   } catch(e) {
     content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
   }
-}
-
-function clToggleSlot(slot, headEl) {
-  const key = slot.replace(/ /g, '_');
-  const body = document.getElementById('clbody-' + key);
-  const chev = document.getElementById('clchev-' + key);
-  if (!body || !chev) return;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  chev.textContent = open ? '▼' : '▲';
-  _clExpandedSlots[slot] = !open; // true = expanded
 }
 
 async function clOpenResponses(submissionId, slot, by, time) {
@@ -6104,7 +6048,7 @@ async function clOpenResponses(submissionId, slot, by, time) {
       <div class="cl-modal-head">
         <div>
           <div class="cl-modal-title">${_clEsc(slot)} Checklist</div>
-          ${by ? `<div class="cl-modal-sub">by ${_clEsc(by)}${time?' · '+time:''}</div>` : ''}
+          ${by?`<div class="cl-modal-sub">by ${_clEsc(by)}${time?' · '+time:''}</div>`:''}
         </div>
         <button class="cl-modal-close" onclick="document.getElementById('cl-modal').remove()">×</button>
       </div>
@@ -6114,34 +6058,22 @@ async function clOpenResponses(submissionId, slot, by, time) {
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
-
   try {
     const r = await fetch(`${API}/api/admin/checklist/submission/${encodeURIComponent(submissionId)}/responses`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     const body = document.getElementById('cl-modal-body');
-    if (!data.responses || data.responses.length === 0) {
-      body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-3)">No responses found.</div>';
-      return;
-    }
-    body.innerHTML = data.responses.map((resp, i) => `
+    if (!data.responses || data.responses.length===0) { body.innerHTML='<div style="text-align:center;padding:30px;color:var(--ink-3)">No responses found.</div>'; return; }
+    body.innerHTML = data.responses.map((resp,i) => `
       <div class="cl-resp-card">
-        <div class="cl-resp-q">
-          <div class="cl-resp-qbadge">${i+1}</div>
-          <div class="cl-resp-qtext">${_clEsc(resp.question)}</div>
-        </div>
+        <div class="cl-resp-q"><div class="cl-resp-qbadge">${i+1}</div><div class="cl-resp-qtext">${_clEsc(resp.question)}</div></div>
         <div class="cl-resp-ans ${resp.answer==='Yes'?'yes':resp.answer==='No'?'no':''}">${_clEsc(resp.answer||'—')}</div>
-        ${resp.image_url ? `<img class="cl-resp-img" data-src="${_clEsc(resp.image_url)}">` : ''}
+        ${resp.image_url?`<img class="cl-resp-img" data-src="${_clEsc(resp.image_url)}">`: ''}
       </div>`).join('');
-    // Set image src via JS to avoid URL mangling from HTML escaping
-    body.querySelectorAll('img[data-src]').forEach(img => {
-      const url = img.dataset.src;
-      img.src = url;
-      img.onclick = () => clFullscreenImg(url);
-    });
+    body.querySelectorAll('img[data-src]').forEach(img => { img.src=img.dataset.src; img.onclick=()=>clFullscreenImg(img.dataset.src); });
   } catch(e) {
-    const body = document.getElementById('cl-modal-body');
-    if (body) body.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+    const body=document.getElementById('cl-modal-body');
+    if(body) body.innerHTML=`<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
   }
 }
 
@@ -6163,28 +6095,22 @@ async function clLoadMissed() {
     const r = await fetch(`${API}/api/admin/checklist/missed-by-employee?start_date=${from}&end_date=${to}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    const rows = (data.employees || []).filter(e => e.scheduled > 0);
+    const rows = (data.employees||[]).filter(e=>e.scheduled>0);
     const totalMissed = rows.reduce((s,r)=>s+r.missed,0);
-    if (rows.length === 0) {
-      result.innerHTML = '<div style="padding:40px;text-align:center;color:var(--green)">✓ No missed checklists in this range.</div>';
-      return;
-    }
+    if (rows.length===0) { result.innerHTML='<div style="padding:40px;text-align:center;color:var(--green)">✓ No missed checklists in this range.</div>'; return; }
     result.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
         <span style="font-size:13px;font-weight:600;color:var(--ink-2)">${_clFmtDate(data.start_date)} – ${_clFmtDate(data.end_date)}</span>
         <span class="cl-chip red">${totalMissed} total missed</span>
       </div>
       <div class="cl-missed-table">
-        <div class="cl-missed-thead">
-          <span>Employee</span><span class="cl-num" style="color:#9ca3af">Sched</span><span class="cl-num" style="color:#16a34a">Done</span><span class="cl-num" style="color:#dc2626">Missed</span>
-        </div>
-        ${rows.map(row=>`
-          <div class="cl-missed-row">
-            <span style="font-size:13px;font-weight:500;color:var(--ink)">${_clEsc(row.short_name)}</span>
-            <span class="cl-num" style="color:var(--ink-3)">${row.scheduled}</span>
-            <span class="cl-num" style="color:#16a34a">${row.submitted}</span>
-            <span class="cl-num" style="${row.missed>0?'color:#dc2626;font-weight:700':'color:#16a34a'}">${row.missed}</span>
-          </div>`).join('')}
+        <div class="cl-missed-thead"><span>Employee</span><span class="cl-num" style="color:#9ca3af">Sched</span><span class="cl-num" style="color:#16a34a">Done</span><span class="cl-num" style="color:#dc2626">Missed</span></div>
+        ${rows.map(row=>`<div class="cl-missed-row">
+          <span style="font-size:13px;font-weight:500;color:var(--ink)">${_clEsc(row.short_name)}</span>
+          <span class="cl-num" style="color:var(--ink-3)">${row.scheduled}</span>
+          <span class="cl-num" style="color:#16a34a">${row.submitted}</span>
+          <span class="cl-num" style="${row.missed>0?'color:#dc2626;font-weight:700':'color:#16a34a'}">${row.missed}</span>
+        </div>`).join('')}
       </div>`;
   } catch(e) {
     result.innerHTML = `<div style="padding:20px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
@@ -6199,102 +6125,59 @@ async function _clLoadCritical(date) {
     const r = await fetch(`${API}/api/admin/checklist/critical-summary?date=${date}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-
-    if (!data.has_critical_questions) {
-      content.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">No critical questions set up yet.</div>';
-      return;
-    }
+    if (!data.has_critical_questions) { content.innerHTML='<div style="padding:60px;text-align:center;color:var(--ink-3)">No critical questions set up yet.</div>'; return; }
 
     const entries = data.entries || [];
     const subCount  = entries.filter(e=>e.submitted).length;
-    const flagCount = entries.filter(e=>e.submitted && e.critical_responses.some(r=>r.answer==='No')).length;
+    const flagCount = entries.filter(e=>e.submitted&&e.critical_responses.some(r=>r.answer==='No')).length;
 
-    // Group by question
     const byQ = new Map();
     entries.forEach(entry => {
       entry.critical_responses.forEach(resp => {
         if (!byQ.has(resp.question)) byQ.set(resp.question, []);
-        byQ.get(resp.question).push({
-          outlet_code: entry.outlet_code,
-          slot: entry.slot,
-          submitted: entry.submitted,
-          submitted_by: entry.submitted_by,
-          submitted_at: entry.submitted_at,
-          answer: resp.answer,
-          image_url: resp.image_url,
-        });
+        byQ.get(resp.question).push({ outlet_code:entry.outlet_code, slot:entry.slot, submitted:entry.submitted, answer:resp.answer, image_url:resp.image_url });
       });
     });
 
-    const chipHtml = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    let html = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <span class="cl-chip green">✓ ${subCount} Submitted</span>
-      ${flagCount > 0 ? `<span class="cl-chip red">⚠ ${flagCount} Issues</span>` : ''}
+      ${flagCount>0?`<span class="cl-chip red">⚠ ${flagCount} Issues</span>`:''}
     </div>`;
-
-    let html = chipHtml;
-    let qi = 0;
-    byQ.forEach((rows, question) => {
+    let qi=0;
+    byQ.forEach((rows,question) => {
       qi++;
       const issueCount    = rows.filter(r=>r.submitted&&r.answer==='No').length;
       const answeredCount = rows.filter(r=>r.submitted).length;
-      const isOpen = _clExpandedCrit[question] === true;
-      const rowsHtml = rows.map(row => {
-        const hasIssue = row.submitted && row.answer === 'No';
-        const isOk     = row.submitted && row.answer === 'Yes';
-        const slotColor = CL_SLOT_COLORS[row.slot] || '#6b7280';
-        return `<div class="cl-crit-row ${hasIssue?'bad-row':isOk?'ok-row':''}">
-          <div class="cl-outlet-slot">
-            <span class="cl-outlet-badge">${_clEsc(row.outlet_code)}</span>
-            <span class="cl-slot-pill" style="background:${slotColor}22;color:${slotColor}">${_clEsc(row.slot)}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            ${!row.submitted
-              ? '<span class="cl-not-sub">Not submitted</span>'
-              : `<span class="cl-ans-badge ${row.answer==='Yes'?'cl-ans-yes':'cl-ans-no'}">${_clEsc(row.answer||'—')}</span>
-                 ${row.image_url ? `<img class="cl-thumb" data-src="${_clEsc(row.image_url)}">` : ''}`
-            }
-          </div>
-        </div>`;
-      }).join('');
-      const qKey = `q${qi}`;
       html += `<div class="cl-crit-card">
-        <div class="cl-crit-head" data-qkey="${qKey}" data-question="${_clEsc(question)}">
+        <div class="cl-crit-head">
           <div class="cl-q-badge">${qi}</div>
           <div class="cl-q-text">${_clEsc(question)}</div>
-          ${issueCount > 0 ? `<span class="cl-crit-issue-badge">⚠ ${issueCount}</span>` : ''}
+          ${issueCount>0?`<span class="cl-crit-issue-badge">⚠ ${issueCount}</span>`:''}
           <span class="cl-q-meta">${answeredCount}/${rows.length}</span>
-          <span class="cl-slot-chevron" id="clcritchev-${qKey}">${isOpen?'▲':'▼'}</span>
         </div>
-        <div id="clcritbody-${qKey}" style="display:${isOpen?'block':'none'}">${rowsHtml}</div>
+        ${rows.map(row => {
+          const hasIssue=row.submitted&&row.answer==='No', isOk=row.submitted&&row.answer==='Yes';
+          const slotColor=CL_SLOT_COLORS[row.slot]||'#6b7280';
+          return `<div class="cl-crit-row ${hasIssue?'bad-row':isOk?'ok-row':''}">
+            <div class="cl-outlet-slot">
+              <span class="cl-outlet-badge">${_clEsc(row.outlet_code)}</span>
+              <span class="cl-slot-pill" style="background:${slotColor}22;color:${slotColor}">${_clEsc(row.slot)}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${!row.submitted
+                ? '<span class="cl-not-sub">Not submitted</span>'
+                : `<span class="cl-ans-badge ${row.answer==='Yes'?'cl-ans-yes':'cl-ans-no'}">${_clEsc(row.answer||'—')}</span>
+                   ${row.image_url?`<img class="cl-thumb" data-src="${_clEsc(row.image_url)}">`:''}` }
+            </div>
+          </div>`;
+        }).join('')}
       </div>`;
     });
-
     content.innerHTML = html || '<div style="padding:40px;text-align:center;color:var(--ink-3)">No critical data for this date.</div>';
-    // Attach click events to question headers
-    content.querySelectorAll('.cl-crit-head[data-qkey]').forEach(el => {
-      el.style.cursor = 'pointer';
-      el.addEventListener('click', function() {
-        clToggleCrit(this.dataset.qkey, this.dataset.question, this);
-      });
-    });
-    // Set image src via JS to avoid URL mangling from HTML escaping
-    content.querySelectorAll('img[data-src]').forEach(img => {
-      const url = img.dataset.src;
-      img.src = url;
-      img.onclick = () => clFullscreenImg(url);
-    });
+    content.querySelectorAll('img[data-src]').forEach(img => { img.src=img.dataset.src; img.onclick=()=>clFullscreenImg(img.dataset.src); });
   } catch(e) {
     content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
   }
-}
-
-function clToggleCrit(key, question, headEl) {
-  const body = document.getElementById('clcritbody-'+key);
-  const chev = document.getElementById('clcritchev-'+key);
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  chev.textContent = open ? '▼' : '▲';
-  if (question) _clExpandedCrit[question] = !open;
 }
 
 </script>
