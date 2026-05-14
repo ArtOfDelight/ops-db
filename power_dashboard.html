@@ -5263,6 +5263,7 @@ function renderMangoPage() {
 .mg-tbl-scroll{overflow-x:auto}.mg-tbl-scroll::-webkit-scrollbar{height:4px}.mg-tbl-scroll::-webkit-scrollbar-thumb{background:#21262d;border-radius:2px}
 .mg-tbl{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
 .mg-tbl thead th{background:#1c2330;padding:9px 13px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#7d8590;border-bottom:1px solid rgba(255,255,255,0.07);cursor:pointer;user-select:none;position:sticky;top:0;z-index:2}
+.mg-tbl thead th.th-num{text-align:right}
 .mg-tbl thead th:hover{color:#e6edf3}
 .mg-tbl thead th.sa::after{content:' ↑';color:#f5a623}.mg-tbl thead th.sd::after{content:' ↓';color:#f5a623}
 .mg-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,0.07)}.mg-tbl tbody tr:last-child{border-bottom:none}
@@ -5526,7 +5527,8 @@ function mgBuildTable(headers, rows, title, tabIdx, isCut) {
   let thead = '<thead><tr>';
   headers.forEach((h, i) => {
     if (h === 'Date' || skipCols.includes(h)) return;
-    const cls = st.col === i ? (st.dir === 'asc' ? 'sa' : 'sd') : '';
+    const isNum = _MG_NUM_COLS.includes(h) || h === 'Difference';
+    const cls = [isNum ? 'th-num' : '', st.col === i ? (st.dir === 'asc' ? 'sa' : 'sd') : ''].filter(Boolean).join(' ');
     thead += `<th class="${cls}" data-mg-col="${i}" data-mg-tab="${tabIdx}">${h}</th>`;
   });
   thead += '</tr></thead>';
