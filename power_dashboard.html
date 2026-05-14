@@ -4438,20 +4438,19 @@ function renderDailyBriefPage() {
   if (_briefResult) renderBriefResult(_briefResult);
 
   // Always show action list (pending carry-overs visible even before brief generated)
-  const store = _loadActionsStore();
-  if (store.length > 0) {
+  (async () => {
     const existingSection = document.getElementById('briefActionSection');
-    if (!existingSection) {
-      const briefBody = document.getElementById('briefBody');
-      if (briefBody) {
-        const sec = document.createElement('div');
-        sec.style.marginTop = '24px';
-        sec.id = 'briefActionSection';
-        sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + _renderActionTabs();
-        briefBody.after(sec);
-      }
+    if (existingSection) return;
+    const tabsHtml = await _renderActionTabs();
+    const briefBody = document.getElementById('briefBody');
+    if (briefBody) {
+      const sec = document.createElement('div');
+      sec.style.marginTop = '24px';
+      sec.id = 'briefActionSection';
+      sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + tabsHtml;
+      briefBody.after(sec);
     }
-  }
+  })();
 }
 
 function briefProgress(pct, msg) {
@@ -4506,7 +4505,7 @@ function renderBriefResult(data) {
   const sidebar = document.getElementById('briefSidebar');
   if (sidebar) sidebar.innerHTML = _renderBriefSidebar(logs);
 
-  // Merge new actions into persistent store (carry-over logic)
+  // Merge new actions into persistent Firestore store (async, fire-and-forget)
   if (actions.length) _mergeActionsIntoStore(actions);
 
   // Parse brief text into named sections
@@ -4590,8 +4589,14 @@ function renderBriefResult(data) {
     <div class="brief-sections">${sectionsHtml}</div>
     <div style="margin-top:24px" id="briefActionSection">
       <div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>
-      ${_renderActionTabs()}
+      <div style="color:var(--ink-3);font-size:13px;padding:8px 0">Loading actions…</div>
     </div>`;
+
+  // Async: fetch from Firestore then render tabs
+  _renderActionTabs().then(tabsHtml => {
+    const sec = document.getElementById('briefActionSection');
+    if (sec) sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + tabsHtml;
+  });
 }
 
 /* ── BRIEF CHATBOT ── */
@@ -5204,9 +5209,6 @@ function cmpEsc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ── ACTION TAKEN MODAL – persistent store key (must be before navTo) ── */
-const BRIEF_ACTIONS_KEY = 'briefActionsStore';
-
 navTo('brief');
 
 /* ═══════════════════════════════════════════
@@ -5618,44 +5620,42 @@ async function mgTriggerRun(mode) {
 function mgEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function mgFmt(n) { return Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
-/* ── ACTION TAKEN MODAL ── */
+/* ── ACTION TAKEN MODAL – Firestore-backed (shared across all users/devices) ── */
 
-function _loadActionsStore() {
-  try { return JSON.parse(localStorage.getItem(BRIEF_ACTIONS_KEY) || '[]'); } catch { return []; }
-}
-function _saveActionsStore(arr) {
-  localStorage.setItem(BRIEF_ACTIONS_KEY, JSON.stringify(arr));
+// In-memory cache so we don't re-fetch on every render within a session
+let _actionsCache = null;
+
+async function _fetchActionsStore() {
+  try {
+    const res = await fetch(`${API}/api/brief-actions`);
+    const data = await res.json();
+    _actionsCache = data.actions || [];
+  } catch { _actionsCache = _actionsCache || []; }
+  return _actionsCache;
 }
 
-// Merge newly generated actions into the persistent store (dedup by action text)
-function _mergeActionsIntoStore(newActions) {
-  const store = _loadActionsStore();
+async function _mergeActionsIntoStore(newActions) {
+  if (!newActions || !newActions.length) return;
+  try {
+    await fetch(`${API}/api/brief-actions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(newActions),
+    });
+    _actionsCache = null; // invalidate cache so next render re-fetches
+  } catch {}
+}
+
+function _buildActionTabsHtml(store) {
   const today = new Date().toISOString().slice(0,10);
-  let changed = false;
-  for (const a of newActions) {
-    const key = (a.action||'').trim().toLowerCase();
-    if (!key) continue;
-    const exists = store.find(s => (s.action||'').trim().toLowerCase() === key && s.status === 'pending');
-    if (!exists) {
-      store.push({ id: Date.now() + Math.random(), action: a.action, area: a.area||'', priority: a.priority||'Low', owner: a.owner||'', due: a.due||'Today', status: 'pending', addedDate: today });
-      changed = true;
-    }
-  }
-  if (changed) _saveActionsStore(store);
-  return store;
-}
-
-function _renderActionTabs() {
-  const store = _loadActionsStore();
   const pending   = store.filter(s => s.status === 'pending');
   const completed = store.filter(s => s.status === 'completed').slice().reverse();
-  const today = new Date().toISOString().slice(0,10);
 
   const pendingHtml = pending.length === 0
     ? `<div class="action-pending-empty">No pending actions — all clear ✓</div>`
     : pending.map(a => {
         const isOld = a.addedDate && a.addedDate < today;
-        return `<div class="action-item" id="astore-${a.id}" onclick="showActionTakenModal('${a.id}')">
+        return `<div class="action-item" id="astore-${a.id}" onclick="showActionTakenModal('${escHtml(a.id)}','${escHtml(a.action||'')}')">
           <div class="action-check"></div>
           <div class="action-content">
             <div class="action-top">
@@ -5708,6 +5708,11 @@ function _renderActionTabs() {
     </div>`;
 }
 
+async function _renderActionTabs() {
+  const store = await _fetchActionsStore();
+  return _buildActionTabsHtml(store);
+}
+
 function switchActionTab(tab) {
   ['pending','completed'].forEach(t => {
     document.getElementById('atab-'+t)?.classList.toggle('active', t===tab);
@@ -5715,11 +5720,8 @@ function switchActionTab(tab) {
   });
 }
 
-function showActionTakenModal(id) {
-  const store = _loadActionsStore();
-  const item = store.find(a => String(a.id) === String(id));
-  if (!item) return;
-
+// id and actionText passed directly to avoid re-fetching just for the modal
+function showActionTakenModal(id, actionText) {
   const overlay = document.createElement('div');
   overlay.className = 'atmodal-overlay';
   overlay.id = 'atModalOverlay';
@@ -5727,11 +5729,11 @@ function showActionTakenModal(id) {
     <div class="atmodal">
       <div class="atmodal-title">Mark Action Complete</div>
       <div class="atmodal-sub">Briefly describe what action was taken before marking this done.</div>
-      <div class="atmodal-task">${escHtml(item.action||'')}</div>
+      <div class="atmodal-task">${escHtml(actionText)}</div>
       <textarea id="atModalInput" placeholder="e.g. Called outlet manager, raised ticket, updated supplier…" rows="3"></textarea>
       <div class="atmodal-btns">
         <button class="atmodal-cancel" onclick="closeActionModal()">Cancel</button>
-        <button class="atmodal-confirm" id="atModalConfirm" onclick="confirmActionTaken('${id}')">Mark Done</button>
+        <button class="atmodal-confirm" id="atModalConfirm" onclick="confirmActionTaken('${escHtml(id)}')">Mark Done</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -5743,22 +5745,31 @@ function closeActionModal() {
   document.getElementById('atModalOverlay')?.remove();
 }
 
-function confirmActionTaken(id) {
+async function confirmActionTaken(id) {
   const actionTaken = (document.getElementById('atModalInput')?.value || '').trim();
   if (!actionTaken) { document.getElementById('atModalInput')?.focus(); return; }
 
-  const store = _loadActionsStore();
-  const item = store.find(a => String(a.id) === String(id));
-  if (!item) { closeActionModal(); return; }
-  item.status = 'completed';
-  item.actionTaken = actionTaken;
-  item.completedAt = new Date().toISOString();
-  _saveActionsStore(store);
+  const btn = document.getElementById('atModalConfirm');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    await fetch(`${API}/api/brief-actions/${encodeURIComponent(id)}/complete`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ actionTaken }),
+    });
+    _actionsCache = null; // invalidate so next render re-fetches fresh data
+  } catch {}
+
   closeActionModal();
 
-  // Re-render the action list section in place
+  // Re-render the action list section
   const actionSection = document.getElementById('briefActionSection');
-  if (actionSection) actionSection.innerHTML = _renderActionTabs();
+  if (actionSection) {
+    actionSection.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div><div style="color:var(--ink-3);font-size:13px;padding:8px 0">Refreshing…</div>';
+    const html = await _renderActionTabs();
+    actionSection.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
+  }
 }
 
 </script>
