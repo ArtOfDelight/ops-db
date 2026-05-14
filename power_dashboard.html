@@ -6119,8 +6119,14 @@ async function clOpenResponses(submissionId, slot, by, time) {
           <div class="cl-resp-qtext">${_clEsc(resp.question)}</div>
         </div>
         <div class="cl-resp-ans ${resp.answer==='Yes'?'yes':resp.answer==='No'?'no':''}">${_clEsc(resp.answer||'—')}</div>
-        ${resp.image_url ? `<img class="cl-resp-img" src="${_clEsc(resp.image_url)}" onclick="clFullscreenImg('${_clEsc(resp.image_url)}')">` : ''}
+        ${resp.image_url ? `<img class="cl-resp-img" data-src="${_clEsc(resp.image_url)}">` : ''}
       </div>`).join('');
+    // Set image src via JS to avoid URL mangling from HTML escaping
+    body.querySelectorAll('img[data-src]').forEach(img => {
+      const url = img.dataset.src;
+      img.src = url;
+      img.onclick = () => clFullscreenImg(url);
+    });
   } catch(e) {
     const body = document.getElementById('cl-modal-body');
     if (body) body.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
@@ -6233,7 +6239,7 @@ async function _clLoadCritical(date) {
             ${!row.submitted
               ? '<span class="cl-not-sub">Not submitted</span>'
               : `<span class="cl-ans-badge ${row.answer==='Yes'?'cl-ans-yes':'cl-ans-no'}">${_clEsc(row.answer||'—')}</span>
-                 ${row.image_url ? `<img class="cl-thumb" src="${_clEsc(row.image_url)}" onclick="clFullscreenImg('${_clEsc(row.image_url)}')">` : ''}`
+                 ${row.image_url ? `<img class="cl-thumb" data-src="${_clEsc(row.image_url)}">` : ''}`
             }
           </div>
         </div>`;
@@ -6252,12 +6258,18 @@ async function _clLoadCritical(date) {
     });
 
     content.innerHTML = html || '<div style="padding:40px;text-align:center;color:var(--ink-3)">No critical data for this date.</div>';
-    // Attach click events to question headers (avoids escaping issues in onclick)
+    // Attach click events to question headers
     content.querySelectorAll('.cl-crit-head[data-qkey]').forEach(el => {
       el.style.cursor = 'pointer';
       el.addEventListener('click', function() {
         clToggleCrit(this.dataset.qkey, this.dataset.question, this);
       });
+    });
+    // Set image src via JS to avoid URL mangling from HTML escaping
+    content.querySelectorAll('img[data-src]').forEach(img => {
+      const url = img.dataset.src;
+      img.src = url;
+      img.onclick = () => clFullscreenImg(url);
     });
   } catch(e) {
     content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
