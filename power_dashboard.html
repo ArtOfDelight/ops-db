@@ -5326,6 +5326,7 @@ function renderMangoPage() {
   <div style="margin-left:auto;display:flex;gap:8px">
     <button class="mg-btn mg-btn-ghost" onclick="mgClearFilters()">Clear Filters</button>
     <button class="mg-btn mg-btn-ghost" onclick="mgLoad()" id="mgBtnRefresh">↺ Refresh</button>
+    <button class="mg-btn mg-btn-ghost" onclick="mgLoad7Days()" id="mgBtn7d">Last 7 Days</button>
     <button class="mg-btn mg-btn-amber" onclick="mgOpenRunModal()">▶ Run Tracker</button>
   </div>
 </div>
@@ -5397,6 +5398,43 @@ async function mgLoad() {
     mgRenderTabs();
     mgRenderPanels();
     mgSetStatus(`Loaded data for ${date}`, 'ok');
+  } catch(e) {
+    mgSetStatus('Error: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function mgLoad7Days() {
+  const btn = document.getElementById('mgBtn7d');
+  if (btn) btn.disabled = true;
+  mgSetStatus('<span style="display:inline-block;width:12px;height:12px;border:2px solid #f5a623;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px"></span> Loading last 7 days…', 'running');
+  try {
+    const today = new Date();
+    const dates = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const results = await Promise.all(dates.map(d => fetch(`${API}/api/mango/data?date=${d}`).then(r => r.ok ? r.json() : {})));
+    // Merge: combine rows from all dates per SKU tab
+    const merged = {};
+    _MG_SKUS.forEach(sku => {
+      let headers = [], rows = [];
+      results.forEach((res, ri) => {
+        const d = res[sku.key];
+        if (!d || !d.headers.length) return;
+        if (!headers.length) headers = d.headers;
+        rows = rows.concat(d.rows);
+      });
+      merged[sku.key] = { headers, rows };
+    });
+    _mgData = merged;
+    mgBuildOutletFilter();
+    mgRenderSummary();
+    mgRenderTabs();
+    mgRenderPanels();
+    mgSetStatus(`Loaded last 7 days (${dates[0]} – ${dates[6]})`, 'ok');
   } catch(e) {
     mgSetStatus('Error: ' + e.message, 'error');
   } finally {
