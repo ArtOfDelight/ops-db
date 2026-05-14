@@ -6003,10 +6003,14 @@ async function _clLoadDaily(date) {
 
     content.innerHTML = '';
     ['Morning','Mid Day','Closing'].forEach(slot => {
+      // Only show outlets that have this slot in their expected slots list
+      const slotOutlets = outlets.filter(o => (o.slots||[]).some(s => s.slot === slot));
+      if (slotOutlets.length === 0) return;
+
       const color = CL_SLOT_COLORS[slot] || '#6b7280';
-      const filledCount = outlets.filter(o=>(o.slots||[]).some(s=>s.slot===slot&&s.status==='filled')).length;
-      const badgeBg    = filledCount===outlets.length?'#dcfce7':filledCount>0?'#fef9c3':'#fee2e2';
-      const badgeColor = filledCount===outlets.length?'#16a34a':filledCount>0?'#d97706':'#dc2626';
+      const filledCount = slotOutlets.filter(o=>(o.slots||[]).some(s=>s.slot===slot&&s.status==='filled')).length;
+      const badgeBg    = filledCount===slotOutlets.length?'#dcfce7':filledCount>0?'#fef9c3':'#fee2e2';
+      const badgeColor = filledCount===slotOutlets.length?'#16a34a':filledCount>0?'#d97706':'#dc2626';
 
       const group = document.createElement('div');
       group.className = 'cl-slot-group';
@@ -6014,9 +6018,9 @@ async function _clLoadDaily(date) {
         <div class="cl-slot-label">
           <div class="cl-slot-bar" style="background:${color}"></div>
           <span class="cl-slot-title">${_clEsc(slot)}</span>
-          <span class="cl-slot-badge" style="background:${badgeBg};color:${badgeColor}">${filledCount}/${outlets.length}</span>
+          <span class="cl-slot-badge" style="background:${badgeBg};color:${badgeColor}">${filledCount}/${slotOutlets.length}</span>
         </div>
-        <div class="cl-card">${outlets.map(outlet => {
+        <div class="cl-card">${slotOutlets.map(outlet => {
           const s = (outlet.slots||[]).find(x=>x.slot===slot);
           const isFilled = s && s.status==='filled';
           return `<div class="cl-row${isFilled?' clickable':''}"${isFilled?` data-sid="${_clEsc(s.submission_id)}"`:''}>
