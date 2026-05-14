@@ -1019,14 +1019,17 @@ function navTo(page) {
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
-  // Checklist needs flush layout (no padding, no outer scroll) so inner areas can scroll
+  // Checklist needs flush layout so inner areas can scroll
   const bodyEl = document.querySelector('.body');
+  const pageBodyEl = document.getElementById('pageBody');
   if (page === 'checklist') {
     bodyEl.style.padding = '0';
     bodyEl.style.overflow = 'hidden';
+    pageBodyEl.style.height = '100%';
   } else {
     bodyEl.style.padding = '';
     bodyEl.style.overflow = '';
+    pageBodyEl.style.height = '';
   }
   if (page === 'brief')      { _bcHistory = []; renderDailyBriefPage(); }
   if (page === 'power')      renderPowerPage();
@@ -5821,7 +5824,7 @@ function renderChecklistStatusPage() {
   document.getElementById('pageBody').innerHTML = `
 <style>
 /* ── shell ── */
-#cl-shell { display:flex; flex-direction:column; height:calc(100vh - var(--topbar-h)); gap:0; }
+#cl-shell { display:flex; flex-direction:column; height:100%; gap:0; }
 /* ── tab bar ── */
 .cl-tabbar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 4px; flex-shrink:0; }
 .cl-tab { padding:11px 18px; font-size:13px; font-weight:500; color:var(--ink-3); border:none; background:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s; }
