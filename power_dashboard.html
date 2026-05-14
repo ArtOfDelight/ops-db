@@ -5824,7 +5824,7 @@ function renderChecklistStatusPage() {
   document.getElementById('pageBody').innerHTML = `
 <style>
 /* ── shell ── */
-#cl-shell { display:flex; flex-direction:column; height:100%; gap:0; }
+#cl-shell { display:flex; flex-direction:column; height:100%; min-height:0; gap:0; }
 /* ── tab bar ── */
 .cl-tabbar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 4px; flex-shrink:0; }
 .cl-tab { padding:11px 18px; font-size:13px; font-weight:500; color:var(--ink-3); border:none; background:none; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s; }
@@ -5841,7 +5841,7 @@ function renderChecklistStatusPage() {
 .cl-chip.green { background:#dcfce7; color:#16a34a; }
 .cl-chip.red   { background:#fee2e2; color:#dc2626; }
 /* ── content area ── */
-.cl-content { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.cl-content { flex:1; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
 /* ── slot section card ── */
 .cl-slot-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); }
 .cl-slot-head { display:flex; align-items:center; gap:10px; padding:13px 16px; cursor:pointer; user-select:none; }
@@ -5917,7 +5917,7 @@ function renderChecklistStatusPage() {
     <button class="cl-tab"        id="cltab-missed"   onclick="clSwitchTab('missed')">Missed</button>
     <button class="cl-tab"        id="cltab-critical" onclick="clSwitchTab('critical')">⚠️ Critical</button>
   </div>
-  <div id="cl-tab-daily"    style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+  <div id="cl-tab-daily"    style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
     <div class="cl-datebar">
       <button class="cl-date-arrow" onclick="clDateShift(-1)">‹</button>
       <span class="cl-date-label" id="cl-date-lbl"></span>
@@ -5926,7 +5926,7 @@ function renderChecklistStatusPage() {
     <div class="cl-chips" id="cl-chips" style="display:none"></div>
     <div class="cl-content" id="cl-daily-content"><div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span></div></div>
   </div>
-  <div id="cl-tab-missed"   style="display:none;flex-direction:column;flex:1;overflow:hidden">
+  <div id="cl-tab-missed"   style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
     <div class="cl-content">
       <div class="cl-missed-form">
         <div class="cl-missed-field"><label>From</label><input type="date" id="cl-miss-from"></div>
@@ -5936,7 +5936,7 @@ function renderChecklistStatusPage() {
       <div id="cl-missed-result"></div>
     </div>
   </div>
-  <div id="cl-tab-critical" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+  <div id="cl-tab-critical" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
     <div class="cl-datebar">
       <button class="cl-date-arrow" onclick="clCritDateShift(-1)">‹</button>
       <span class="cl-date-label" id="cl-crit-date-lbl"></span>
