@@ -973,6 +973,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-mango" onclick="navTo('mango')">
       <span class="sb-icon">🥭</span> Mango Tracker
     </button>
+    <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
+      <span class="sb-icon">✅</span> Checklist Status
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1008,11 +1011,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1029,6 +1032,7 @@ function navTo(page) {
   if (page === 'roster')     renderRosterPage();
   if (page === 'complaints') renderComplaintsPage();
   if (page === 'mango')      renderMangoPage();
+  if (page === 'checklist')  renderChecklistStatusPage();
 }
 
 
@@ -5769,6 +5773,132 @@ async function confirmActionTaken(id) {
     actionSection.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div><div style="color:var(--ink-3);font-size:13px;padding:8px 0">Refreshing…</div>';
     const html = await _renderActionTabs();
     actionSection.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
+  }
+}
+
+
+/* ═══════════════════════════════════════════
+   CHECKLIST STATUS
+   ═══════════════════════════════════════════ */
+
+const CL_OUTLETS = [
+  { code: 'AOD-3',   name: 'Bellandur' },
+  { code: 'AOD-5',   name: 'Kalyan Nagar' },
+  { code: 'AOD-4',   name: 'Whitefield' },
+  { code: 'AOD-6',   name: 'Sahakarnagar' },
+  { code: 'AOD-RAJ', name: 'Rajajinagar' },
+  { code: 'AOD-ARK', name: 'Arekere' },
+  { code: 'AOD-02',  name: 'Koramangala' },
+  { code: 'AOD-CVR', name: 'Indiranagar' },
+  { code: 'AOD-01',  name: 'Residency Road' },
+  { code: 'AOD-JAY', name: 'Jayanagar' },
+  { code: 'AOD-FER', name: 'Ferro Hub' },
+];
+const CL_SLOTS = ['Morning', 'Mid Day', 'Closing'];
+
+function renderChecklistStatusPage() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('pageBody').innerHTML = `
+<style>
+.cl-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.cl-controls label { font-size:12px; font-weight:600; color:var(--ink-2); }
+.cl-controls input[type=date] { font-size:13px; font-family:var(--mono); border:1px solid var(--border-2); border-radius:var(--r); padding:6px 10px; background:var(--surface); color:var(--ink); }
+.cl-btn { font-size:12px; font-weight:600; padding:7px 16px; border-radius:var(--r); border:none; cursor:pointer; background:var(--blue); color:#fff; }
+.cl-btn:hover { opacity:.88; }
+.cl-grid-wrap { overflow-x:auto; }
+.cl-grid { width:100%; border-collapse:collapse; font-size:13px; }
+.cl-grid thead th { background:var(--navy); color:#fff; padding:10px 14px; text-align:left; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+.cl-grid thead th:first-child { border-radius:var(--r) 0 0 0; }
+.cl-grid thead th:last-child  { border-radius:0 var(--r) 0 0; }
+.cl-grid tbody tr { border-bottom:1px solid var(--border); }
+.cl-grid tbody tr:last-child { border-bottom:none; }
+.cl-grid td { padding:10px 14px; vertical-align:middle; background:var(--surface); }
+.cl-grid td:first-child { font-weight:600; color:var(--ink); }
+.cl-tick  { display:inline-flex; align-items:center; gap:5px; color:var(--green); font-size:13px; font-weight:600; }
+.cl-cross { display:inline-flex; align-items:center; gap:5px; color:var(--red); font-size:13px; font-weight:600; }
+.cl-who   { font-size:10px; color:var(--ink-3); margin-top:2px; font-family:var(--mono); }
+.cl-summary { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+.cl-stat  { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:14px 20px; min-width:120px; }
+.cl-stat-val { font-size:22px; font-weight:700; font-family:var(--mono); }
+.cl-stat-lbl { font-size:11px; color:var(--ink-3); margin-top:2px; }
+.cl-stat.good .cl-stat-val { color:var(--green); }
+.cl-stat.bad  .cl-stat-val { color:var(--red); }
+.cl-stat.neu  .cl-stat-val { color:var(--blue); }
+#cl-body { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); }
+</style>
+<div class="cl-controls">
+  <label>Date</label>
+  <input type="date" id="clDate" value="${today}" max="${today}">
+  <button class="cl-btn" onclick="clLoad()">Load</button>
+</div>
+<div id="cl-summary" style="display:none" class="cl-summary"></div>
+<div id="cl-body"><div style="padding:40px;text-align:center;color:var(--ink-3)">Pick a date and click Load.</div></div>
+`;
+}
+
+async function clLoad() {
+  const date = document.getElementById('clDate')?.value;
+  if (!date) return;
+  const body = document.getElementById('cl-body');
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="spin" style="display:inline-block;width:18px;height:18px;border:2px solid var(--blue);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></span> Loading…</div>';
+
+  try {
+    const res = await fetch(`${API}/api/admin/checklist-submissions-list?date=${date}`, {
+      headers: { 'x-employee-id': 'AOD019', 'x-employee-name': 'Admin' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const subs = data.submissions || [];
+
+    // Build lookup: outlet_code -> slot -> submission
+    const lookup = {};
+    for (const s of subs) {
+      const key = (s.outlet_code || '').trim();
+      if (!lookup[key]) lookup[key] = {};
+      lookup[key][s.slot] = s;
+    }
+
+    // Summary counts
+    const total = CL_OUTLETS.length * CL_SLOTS.length;
+    const done  = subs.length;
+    const miss  = total - done;
+
+    const summEl = document.getElementById('cl-summary');
+    summEl.style.display = 'flex';
+    summEl.innerHTML = `
+      <div class="cl-stat neu"><div class="cl-stat-val">${total}</div><div class="cl-stat-lbl">Total Expected</div></div>
+      <div class="cl-stat good"><div class="cl-stat-val">${done}</div><div class="cl-stat-lbl">Submitted</div></div>
+      <div class="cl-stat bad"><div class="cl-stat-val">${miss}</div><div class="cl-stat-lbl">Missing</div></div>
+    `;
+
+    // Build table
+    let thead = '<thead><tr><th>Outlet</th>';
+    for (const slot of CL_SLOTS) thead += `<th>${slot}</th>`;
+    thead += '</tr></thead>';
+
+    let tbody = '<tbody>';
+    for (const outlet of CL_OUTLETS) {
+      tbody += `<tr><td>${outlet.name}</td>`;
+      for (const slot of CL_SLOTS) {
+        const sub = (lookup[outlet.code] || {})[slot];
+        if (sub) {
+          const who = sub.employee_name ? `${sub.employee_name} (${sub.employee_id})` : sub.employee_id || '';
+          const time = sub.timestamp ? sub.timestamp.slice(11, 16) : '';
+          tbody += `<td>
+            <div class="cl-tick">✓ Done</div>
+            <div class="cl-who">${who}${time ? ' · ' + time : ''}</div>
+          </td>`;
+        } else {
+          tbody += `<td><div class="cl-cross">✗ Missing</div></td>`;
+        }
+      }
+      tbody += '</tr>';
+    }
+    tbody += '</tbody>';
+
+    body.innerHTML = `<div class="cl-grid-wrap"><table class="cl-grid">${thead}${tbody}</table></div>`;
+  } catch(e) {
+    body.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
   }
 }
 
