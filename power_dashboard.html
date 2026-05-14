@@ -5417,15 +5417,56 @@ async function mgLoad7Days() {
       dates.push(d.toISOString().slice(0, 10));
     }
     const results = await Promise.all(dates.map(d => fetch(`${API}/api/mango/data?date=${d}`).then(r => r.ok ? r.json() : {})));
-    // Merge: combine rows from all dates per SKU tab
+    // Aggregate: sum numeric cols per outlet across all 7 days
     const merged = {};
     _MG_SKUS.forEach(sku => {
-      let headers = [], rows = [];
-      results.forEach((res, ri) => {
+      let headers = [];
+      const outletMap = {}; // outlet -> aggregated row array
+      results.forEach(res => {
         const d = res[sku.key];
         if (!d || !d.headers.length) return;
         if (!headers.length) headers = d.headers;
-        rows = rows.concat(d.rows);
+        const dateIdx   = headers.indexOf('Date');
+        const outletIdx = headers.indexOf('Outlet');
+        const typeIdx   = headers.indexOf('Type');
+        const openIdx   = headers.indexOf('Opening Stock');
+        const closeIdx  = headers.indexOf('Closing Stock');
+        const calcIdx   = headers.indexOf('Calculated Closing Stock');
+        const diffIdx   = headers.indexOf('Difference');
+        d.rows.forEach(row => {
+          const outlet = row[outletIdx] || '';
+          if (!outletMap[outlet]) {
+            outletMap[outlet] = row.slice(); // copy first occurrence
+            // zero out numeric cols we'll re-sum
+            headers.forEach((h, i) => {
+              if (_MG_NUM_COLS.includes(h) || h === 'Difference') outletMap[outlet][i] = 0;
+            });
+            if (dateIdx >= 0) outletMap[outlet][dateIdx] = '7-day';
+          }
+          const agg = outletMap[outlet];
+          headers.forEach((h, i) => {
+            if (!(_MG_NUM_COLS.includes(h) || h === 'Difference')) return;
+            if (i === openIdx) {
+              // keep the earliest non-zero opening (first day)
+              if (agg[i] === 0 && parseFloat(row[i]) !== 0) agg[i] = parseFloat(row[i]) || 0;
+            } else if (i === closeIdx || i === calcIdx || i === diffIdx) {
+              // overwrite with latest value
+              agg[i] = parseFloat(row[i]) || 0;
+            } else {
+              agg[i] = (parseFloat(agg[i]) || 0) + (parseFloat(row[i]) || 0);
+            }
+          });
+        });
+      });
+      // Recompute diff from aggregated closing vs calc
+      const closeIdx = headers.indexOf('Closing Stock');
+      const calcIdx  = headers.indexOf('Calculated Closing Stock');
+      const diffIdx  = headers.indexOf('Difference');
+      const rows = Object.values(outletMap).map(r => {
+        const agg = r.slice();
+        if (closeIdx >= 0 && calcIdx >= 0 && diffIdx >= 0)
+          agg[diffIdx] = Math.round((parseFloat(agg[closeIdx]) - parseFloat(agg[calcIdx])) * 1000) / 1000;
+        return agg;
       });
       merged[sku.key] = { headers, rows };
     });
