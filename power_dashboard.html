@@ -5374,11 +5374,12 @@ let _mgData = {};
 let _mgActiveTab = 0;
 let _mgSortState = {};
 const _MG_SKUS = [
-  { key: 'Badami Mango',      label: 'Badami Mango' },
-  { key: 'Cut Badami Mango',  label: 'Cut Badami' },
-  { key: 'Raspuri Mango',     label: 'Raspuri Mango' },
-  { key: 'Raspuri Cut Mango', label: 'Cut Raspuri' },
+  { key: 'Badami Mango',      label: 'Badami Mango',  cut: false },
+  { key: 'Cut Badami Mango',  label: 'Cut Badami',    cut: true  },
+  { key: 'Raspuri Mango',     label: 'Raspuri Mango', cut: false },
+  { key: 'Raspuri Cut Mango', label: 'Cut Raspuri',   cut: true  },
 ];
+const _MG_CUT_HIDE = ['Purchased', 'Transfer In'];
 const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Closing Stock','Calculated Closing Stock','Difference'];
 
 async function mgLoad() {
@@ -5505,7 +5506,7 @@ function mgRenderPanels() {
     } else {
       const filtered = mgFilterRows(d.rows, d.headers);
       const sorted   = mgSortRows(filtered, d.headers, i);
-      panel.innerHTML = mgBuildTable(d.headers, sorted, sku.label, i);
+      panel.innerHTML = mgBuildTable(d.headers, sorted, sku.label, i, sku.cut);
     }
     wrap.appendChild(panel);
   });
@@ -5519,23 +5520,25 @@ function mgRenderPanels() {
   });
 }
 
-function mgBuildTable(headers, rows, title, tabIdx) {
+function mgBuildTable(headers, rows, title, tabIdx, isCut) {
   const st = _mgSortState[tabIdx] || {};
+  const skipCols = isCut ? _MG_CUT_HIDE : [];
   let thead = '<thead><tr>';
   headers.forEach((h, i) => {
-    if (h === 'Date') return;
+    if (h === 'Date' || skipCols.includes(h)) return;
     const cls = st.col === i ? (st.dir === 'asc' ? 'sa' : 'sd') : '';
     thead += `<th class="${cls}" data-mg-col="${i}" data-mg-tab="${tabIdx}">${h}</th>`;
   });
   thead += '</tr></thead>';
+  const visCount = headers.filter(h => h !== 'Date' && !skipCols.includes(h)).length;
   let tbody = '<tbody>';
   if (rows.length === 0) {
-    tbody += `<tr><td colspan="${headers.length - 1}" style="text-align:center;padding:36px;color:#7d8590">No rows match the current filters.</td></tr>`;
+    tbody += `<tr><td colspan="${visCount}" style="text-align:center;padding:36px;color:#7d8590">No rows match the current filters.</td></tr>`;
   } else {
     rows.forEach(row => {
       tbody += '<tr>';
       headers.forEach((h, i) => {
-        if (h === 'Date') return;
+        if (h === 'Date' || skipCols.includes(h)) return;
         const val = row[i];
         if (h === 'Outlet') {
           tbody += `<td class="mg-td-outlet">${mgEsc(val)}</td>`;
