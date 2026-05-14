@@ -672,6 +672,35 @@ td.c { text-align: center; }
 .action-due { font-size: 11px; color: var(--ink-3); margin-left: auto; white-space: nowrap; }
 .action-text { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
 .action-owner { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+/* action tabs */
+.action-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 12px; }
+.action-tab { padding: 7px 16px; font-size: 12px; font-weight: 700; color: var(--ink-3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; }
+.action-tab.active { color: var(--blue); border-color: var(--blue); }
+.action-tab-panel { display: none; }
+.action-tab-panel.active { display: block; }
+/* completed log */
+.action-log-row { display: flex; flex-direction: column; gap: 4px; padding: 11px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); }
+.action-log-row + .action-log-row { margin-top: 6px; }
+.action-log-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.action-log-check { width: 16px; height: 16px; min-width: 16px; background: var(--green); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #fff; }
+.action-log-task { font-size: 13px; color: var(--ink-2); text-decoration: line-through; flex: 1; }
+.action-log-meta { font-size: 10px; color: var(--ink-3); white-space: nowrap; }
+.action-log-taken { font-size: 12px; color: var(--ink); background: #f0fdf4; border-left: 3px solid var(--green); padding: 5px 10px; border-radius: 0 4px 4px 0; margin-top: 2px; }
+.action-log-taken-label { font-size: 10px; font-weight: 700; color: var(--green); display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .05em; }
+/* action taken modal */
+.atmodal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.atmodal { background: #fff; border-radius: 14px; padding: 24px 24px 20px; width: 420px; max-width: 94vw; box-shadow: 0 12px 48px rgba(0,0,0,.18); }
+.atmodal-title { font-size: 15px; font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+.atmodal-sub { font-size: 12px; color: var(--ink-3); margin-bottom: 14px; line-height: 1.5; }
+.atmodal-task { font-size: 12px; background: #f5f7fa; border-radius: 6px; padding: 8px 12px; color: var(--ink-2); margin-bottom: 14px; border-left: 3px solid var(--blue); }
+.atmodal textarea { width: 100%; box-sizing: border-box; border: 1.5px solid var(--border-2); border-radius: 8px; padding: 10px 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 72px; outline: none; }
+.atmodal textarea:focus { border-color: var(--blue); }
+.atmodal-btns { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+.atmodal-cancel { background: none; border: 1.5px solid var(--border-2); border-radius: 7px; padding: 7px 16px; font-size: 13px; cursor: pointer; color: var(--ink-3); }
+.atmodal-confirm { background: var(--green); border: none; border-radius: 7px; padding: 7px 18px; font-size: 13px; font-weight: 700; color: #fff; cursor: pointer; }
+.atmodal-confirm:disabled { opacity: .4; cursor: default; }
+.action-pending-empty { text-align: center; padding: 32px 0; color: var(--ink-3); font-size: 13px; }
+.action-carryover-badge { font-size: 10px; background: #fff3cd; color: #92600a; border-radius: 4px; padding: 1px 6px; font-weight: 700; }
 .brief-progress { width: 280px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .brief-progress-fill { height: 4px; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
 
@@ -4407,6 +4436,22 @@ function renderDailyBriefPage() {
     </div>`;
 
   if (_briefResult) renderBriefResult(_briefResult);
+
+  // Always show action list (pending carry-overs visible even before brief generated)
+  const store = _loadActionsStore();
+  if (store.length > 0) {
+    const existingSection = document.getElementById('briefActionSection');
+    if (!existingSection) {
+      const briefBody = document.getElementById('briefBody');
+      if (briefBody) {
+        const sec = document.createElement('div');
+        sec.style.marginTop = '24px';
+        sec.id = 'briefActionSection';
+        sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + _renderActionTabs();
+        briefBody.after(sec);
+      }
+    }
+  }
 }
 
 function briefProgress(pct, msg) {
@@ -4461,30 +4506,8 @@ function renderBriefResult(data) {
   const sidebar = document.getElementById('briefSidebar');
   if (sidebar) sidebar.innerHTML = _renderBriefSidebar(logs);
 
-  // Load checked state from localStorage
-  const storageKey = 'briefChecked_' + new Date().toISOString().slice(0,10);
-  let checked = {};
-  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch{}
-
-  const actionItems = actions.map((a, i) => {
-    const isDone = !!checked[i];
-    const pri = (a.priority||'low').toLowerCase();
-    return `
-    <div class="action-item${isDone?' action-done':''}" id="action-item-${i}" onclick="toggleAction(${i},'${storageKey}')">
-      <div class="action-check${isDone?' action-check-done':''}">
-        ${isDone ? '✓' : ''}
-      </div>
-      <div class="action-content">
-        <div class="action-top">
-          <span class="pri-${pri}">${a.priority||'Low'}</span>
-          <span class="action-area">${escHtml(a.area||'')}</span>
-          <span class="action-due">${escHtml(a.due||'Today')}</span>
-        </div>
-        <div class="action-text">${escHtml(a.action||'')}</div>
-        <div class="action-owner">${escHtml(a.owner||'Ops Manager')}</div>
-      </div>
-    </div>`;
-  }).join('');
+  // Merge new actions into persistent store (carry-over logic)
+  if (actions.length) _mergeActionsIntoStore(actions);
 
   // Parse brief text into named sections
   const SECTION_ICONS = {
@@ -4565,11 +4588,10 @@ function renderBriefResult(data) {
 
   body.innerHTML = `
     <div class="brief-sections">${sectionsHtml}</div>
-    ${actions.length ? `
-    <div style="margin-top:24px">
-      <div class="inv-section-head">📌 Action List</div>
-      <div class="action-list">${actionItems}</div>
-    </div>` : ''}`;
+    <div style="margin-top:24px" id="briefActionSection">
+      <div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>
+      ${_renderActionTabs()}
+    </div>`;
 }
 
 /* ── BRIEF CHATBOT ── */
@@ -4682,16 +4704,7 @@ async function bcSend() {
   inp?.focus();
 }
 
-function toggleAction(idx, storageKey) {
-  let checked = {};
-  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch{}
-  checked[idx] = !checked[idx];
-  localStorage.setItem(storageKey, JSON.stringify(checked));
-  const item = document.getElementById(`action-item-${idx}`);
-  const chk  = item && item.querySelector('.action-check');
-  if (item) item.classList.toggle('action-done', !!checked[idx]);
-  if (chk)  { chk.classList.toggle('action-check-done', !!checked[idx]); chk.textContent = checked[idx] ? '✓' : ''; }
-}
+// toggleAction replaced by showActionTakenModal / confirmActionTaken
 
 function escHtml(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -5191,6 +5204,9 @@ function cmpEsc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/* ── ACTION TAKEN MODAL – persistent store key (must be before navTo) ── */
+const BRIEF_ACTIONS_KEY = 'briefActionsStore';
+
 navTo('brief');
 
 /* ═══════════════════════════════════════════
@@ -5602,7 +5618,149 @@ async function mgTriggerRun(mode) {
 function mgEsc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function mgFmt(n) { return Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
-navTo('brief');
+/* ── ACTION TAKEN MODAL ── */
+
+function _loadActionsStore() {
+  try { return JSON.parse(localStorage.getItem(BRIEF_ACTIONS_KEY) || '[]'); } catch { return []; }
+}
+function _saveActionsStore(arr) {
+  localStorage.setItem(BRIEF_ACTIONS_KEY, JSON.stringify(arr));
+}
+
+// Merge newly generated actions into the persistent store (dedup by action text)
+function _mergeActionsIntoStore(newActions) {
+  const store = _loadActionsStore();
+  const today = new Date().toISOString().slice(0,10);
+  let changed = false;
+  for (const a of newActions) {
+    const key = (a.action||'').trim().toLowerCase();
+    if (!key) continue;
+    const exists = store.find(s => (s.action||'').trim().toLowerCase() === key && s.status === 'pending');
+    if (!exists) {
+      store.push({ id: Date.now() + Math.random(), action: a.action, area: a.area||'', priority: a.priority||'Low', owner: a.owner||'', due: a.due||'Today', status: 'pending', addedDate: today });
+      changed = true;
+    }
+  }
+  if (changed) _saveActionsStore(store);
+  return store;
+}
+
+function _renderActionTabs() {
+  const store = _loadActionsStore();
+  const pending   = store.filter(s => s.status === 'pending');
+  const completed = store.filter(s => s.status === 'completed').slice().reverse();
+  const today = new Date().toISOString().slice(0,10);
+
+  const pendingHtml = pending.length === 0
+    ? `<div class="action-pending-empty">No pending actions — all clear ✓</div>`
+    : pending.map(a => {
+        const isOld = a.addedDate && a.addedDate < today;
+        return `<div class="action-item" id="astore-${a.id}" onclick="showActionTakenModal('${a.id}')">
+          <div class="action-check"></div>
+          <div class="action-content">
+            <div class="action-top">
+              <span class="pri-${(a.priority||'low').toLowerCase()}">${escHtml(a.priority||'Low')}</span>
+              <span class="action-area">${escHtml(a.area||'')}</span>
+              ${isOld ? `<span class="action-carryover-badge">carried over</span>` : ''}
+              <span class="action-due">${escHtml(a.due||'Today')}</span>
+            </div>
+            <div class="action-text">${escHtml(a.action||'')}</div>
+            <div class="action-owner">${escHtml(a.owner||'')}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+  const completedHtml = completed.length === 0
+    ? `<div class="action-pending-empty">No completed actions yet.</div>`
+    : completed.map(a => {
+        const dt = a.completedAt ? new Date(a.completedAt).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+        return `<div class="action-log-row">
+          <div class="action-log-header">
+            <div class="action-log-check">✓</div>
+            <div class="action-log-task">${escHtml(a.action||'')}</div>
+            <div class="action-log-meta">${escHtml(dt)}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px">
+            <span class="pri-${(a.priority||'low').toLowerCase()}" style="font-size:10px">${escHtml(a.priority||'Low')}</span>
+            <span style="font-size:11px;color:var(--ink-3)">${escHtml(a.area||'')} ${a.owner?'· '+a.owner:''}</span>
+          </div>
+          <div class="action-log-taken">
+            <span class="action-log-taken-label">Action taken</span>
+            ${escHtml(a.actionTaken||'')}
+          </div>
+        </div>`;
+      }).join('');
+
+  return `
+    <div class="action-tabs">
+      <div class="action-tab active" id="atab-pending" onclick="switchActionTab('pending')">
+        Pending <span style="background:${pending.length?'var(--red)':'var(--green)'};color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${pending.length}</span>
+      </div>
+      <div class="action-tab" id="atab-completed" onclick="switchActionTab('completed')">
+        Completed Log <span style="background:var(--border-2);color:var(--ink-3);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${completed.length}</span>
+      </div>
+    </div>
+    <div class="action-tab-panel active" id="atpanel-pending">
+      <div class="action-list">${pendingHtml}</div>
+    </div>
+    <div class="action-tab-panel" id="atpanel-completed">
+      ${completedHtml}
+    </div>`;
+}
+
+function switchActionTab(tab) {
+  ['pending','completed'].forEach(t => {
+    document.getElementById('atab-'+t)?.classList.toggle('active', t===tab);
+    document.getElementById('atpanel-'+t)?.classList.toggle('active', t===tab);
+  });
+}
+
+function showActionTakenModal(id) {
+  const store = _loadActionsStore();
+  const item = store.find(a => String(a.id) === String(id));
+  if (!item) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'atmodal-overlay';
+  overlay.id = 'atModalOverlay';
+  overlay.innerHTML = `
+    <div class="atmodal">
+      <div class="atmodal-title">Mark Action Complete</div>
+      <div class="atmodal-sub">Briefly describe what action was taken before marking this done.</div>
+      <div class="atmodal-task">${escHtml(item.action||'')}</div>
+      <textarea id="atModalInput" placeholder="e.g. Called outlet manager, raised ticket, updated supplier…" rows="3"></textarea>
+      <div class="atmodal-btns">
+        <button class="atmodal-cancel" onclick="closeActionModal()">Cancel</button>
+        <button class="atmodal-confirm" id="atModalConfirm" onclick="confirmActionTaken('${id}')">Mark Done</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeActionModal(); });
+  setTimeout(() => document.getElementById('atModalInput')?.focus(), 50);
+}
+
+function closeActionModal() {
+  document.getElementById('atModalOverlay')?.remove();
+}
+
+function confirmActionTaken(id) {
+  const actionTaken = (document.getElementById('atModalInput')?.value || '').trim();
+  if (!actionTaken) { document.getElementById('atModalInput')?.focus(); return; }
+
+  const store = _loadActionsStore();
+  const item = store.find(a => String(a.id) === String(id));
+  if (!item) { closeActionModal(); return; }
+  item.status = 'completed';
+  item.actionTaken = actionTaken;
+  item.completedAt = new Date().toISOString();
+  _saveActionsStore(store);
+  closeActionModal();
+
+  // Re-render the action list section in place
+  const actionSection = document.getElementById('briefActionSection');
+  if (actionSection) actionSection.innerHTML = _renderActionTabs();
+}
+
 </script>
 </body>
 </html>
