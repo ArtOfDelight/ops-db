@@ -976,6 +976,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
       <span class="sb-icon">✅</span> Checklist Status
     </button>
+    <button class="sb-item" id="sbitem-cashcoll" onclick="navTo('cashcoll')">
+      <span class="sb-icon">💵</span> Cash Collection
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1011,11 +1014,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist','cashcoll'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1033,6 +1036,7 @@ function navTo(page) {
   if (page === 'complaints') renderComplaintsPage();
   if (page === 'mango')      renderMangoPage();
   if (page === 'checklist')  renderChecklistStatusPage();
+  if (page === 'cashcoll')   renderCashCollectionPage();
 }
 
 
@@ -6175,6 +6179,141 @@ async function _clLoadCritical(date) {
     });
     content.innerHTML = html || '<div style="padding:40px;text-align:center;color:var(--ink-3)">No critical data for this date.</div>';
     content.querySelectorAll('img[data-src]').forEach(img => { img.src=img.dataset.src; img.onclick=()=>clFullscreenImg(img.dataset.src); });
+  } catch(e) {
+    content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
+  }
+}
+
+
+/* ═══════════════════════════════════════════
+   CASH COLLECTION PAGE
+   ═══════════════════════════════════════════ */
+let _ccDate = new Date().toISOString().slice(0,10);
+
+function renderCashCollectionPage() {
+  _ccDate = new Date().toISOString().slice(0,10);
+  document.getElementById('pageBody').innerHTML = `
+<style>
+.cc-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+.cc-datebar { display:flex; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+.cc-date-arrow { width:36px; height:36px; border:none; background:none; cursor:pointer; font-size:18px; color:var(--ink-2); }
+.cc-date-arrow:hover { color:var(--blue); background:var(--bg); }
+.cc-date-label { padding:0 14px; font-size:13px; font-weight:600; color:var(--ink); white-space:nowrap; }
+.cc-all-btn { padding:6px 14px; border:1px solid var(--border); border-radius:var(--r); background:var(--surface); font-size:12px; font-weight:600; color:var(--ink-2); cursor:pointer; }
+.cc-all-btn.active, .cc-all-btn:hover { background:var(--blue); color:#fff; border-color:var(--blue); }
+.cc-summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+.cc-chip { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:10px 16px; min-width:130px; }
+.cc-chip-label { font-size:10px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:3px; }
+.cc-chip-val { font-size:18px; font-weight:700; color:var(--ink); font-family:var(--mono); }
+.cc-chip-val.green { color:var(--green); }
+.cc-chip-val.amber { color:var(--amber); }
+.cc-chip-val.red   { color:var(--red); }
+.cc-table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); }
+.cc-thead { display:grid; grid-template-columns:90px 60px 130px 110px 100px 100px 110px 1fr; background:var(--navy); color:#fff; padding:9px 14px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; gap:8px; }
+.cc-row { display:grid; grid-template-columns:90px 60px 130px 110px 100px 100px 110px 1fr; padding:11px 14px; border-bottom:1px solid var(--border); font-size:13px; align-items:center; gap:8px; transition:background .1s; }
+.cc-row:last-child { border-bottom:none; }
+.cc-row:hover { background:var(--bg); }
+.cc-mono { font-family:var(--mono); font-weight:600; }
+.cc-outlet { background:#eff6ff; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; color:#2563eb; display:inline-block; }
+.cc-green { color:var(--green); font-weight:700; font-family:var(--mono); }
+.cc-red   { color:var(--red);   font-weight:700; font-family:var(--mono); }
+.cc-amber { color:var(--amber); font-weight:700; font-family:var(--mono); }
+.cc-note  { font-size:11px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cc-spin { display:inline-block; width:16px; height:16px; border:2px solid var(--blue); border-top-color:transparent; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; }
+</style>
+
+<div class="cc-toolbar">
+  <div class="cc-datebar">
+    <button class="cc-date-arrow" onclick="ccShiftDate(-1)">‹</button>
+    <span class="cc-date-label" id="cc-date-lbl"></span>
+    <button class="cc-date-arrow" onclick="ccShiftDate(1)">›</button>
+  </div>
+  <button class="cc-all-btn" id="cc-all-btn" onclick="ccToggleAll()">Show All Dates</button>
+</div>
+<div class="cc-summary" id="cc-summary"></div>
+<div id="cc-content"><div style="padding:40px;text-align:center"><span class="cc-spin"></span></div></div>
+`;
+  document.getElementById('cc-date-lbl').textContent = ccFmtDate(_ccDate);
+  ccLoad();
+}
+
+function ccFmtDate(iso) {
+  return new Date(iso+'T12:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+}
+function ccFmtNum(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? '—' : '₹'+n.toLocaleString('en-IN',{maximumFractionDigits:0});
+}
+
+let _ccShowAll = false;
+function ccToggleAll() {
+  _ccShowAll = !_ccShowAll;
+  document.getElementById('cc-all-btn').classList.toggle('active', _ccShowAll);
+  document.getElementById('cc-all-btn').textContent = _ccShowAll ? 'Show Today Only' : 'Show All Dates';
+  ccLoad();
+}
+function ccShiftDate(d) {
+  const dt = new Date(_ccDate+'T12:00:00');
+  dt.setDate(dt.getDate()+d);
+  _ccDate = dt.toISOString().slice(0,10);
+  document.getElementById('cc-date-lbl').textContent = ccFmtDate(_ccDate);
+  _ccShowAll = false;
+  document.getElementById('cc-all-btn').classList.remove('active');
+  document.getElementById('cc-all-btn').textContent = 'Show All Dates';
+  ccLoad();
+}
+
+async function ccLoad() {
+  const content = document.getElementById('cc-content');
+  const summary = document.getElementById('cc-summary');
+  if (!content) return;
+  content.innerHTML = '<div style="padding:40px;text-align:center"><span class="cc-spin"></span> Loading…</div>';
+  summary.innerHTML = '';
+  try {
+    const url = _ccShowAll
+      ? `${API}/api/admin/cash-collection`
+      : `${API}/api/admin/cash-collection?date=${_ccDate}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const rows = data.rows || [];
+
+    if (rows.length === 0) {
+      content.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">No entries for this date.</div>';
+      return;
+    }
+
+    // Summary chips
+    const totalCash     = rows.reduce((s,r)=>s+(parseFloat(r['Cash Collected'])||0),0);
+    const totalExp      = rows.reduce((s,r)=>s+(parseFloat(r['Expenses'])||0),0);
+    const totalSendRR   = rows.reduce((s,r)=>s+(parseFloat(r['Send to RR'])||0),0);
+    const totalClosing  = rows.reduce((s,r)=>s+(parseFloat(r['Closing Balance'])||0),0);
+    summary.innerHTML = `
+      <div class="cc-chip"><div class="cc-chip-label">Cash Collected</div><div class="cc-chip-val green">${ccFmtNum(totalCash)}</div></div>
+      <div class="cc-chip"><div class="cc-chip-label">Expenses</div><div class="cc-chip-val red">${ccFmtNum(totalExp)}</div></div>
+      <div class="cc-chip"><div class="cc-chip-label">Send to RR</div><div class="cc-chip-val amber">${ccFmtNum(totalSendRR)}</div></div>
+      <div class="cc-chip"><div class="cc-chip-label">Closing Balance</div><div class="cc-chip-val">${ccFmtNum(totalClosing)}</div></div>
+      <div class="cc-chip"><div class="cc-chip-label">Outlets</div><div class="cc-chip-val">${rows.length}</div></div>`;
+
+    content.innerHTML = `
+      <div class="cc-table-wrap">
+        <div class="cc-thead">
+          <span>Date</span><span>Outlet</span><span>Employee</span>
+          <span>Opening Bal</span><span>Cash Coll.</span><span>Expenses</span>
+          <span>Send to RR</span><span>Expense Note</span>
+        </div>
+        ${rows.map(row => `
+          <div class="cc-row">
+            <span class="cc-mono" style="font-size:11px;color:var(--ink-2)">${row['Date']||'—'}</span>
+            <span class="cc-outlet">${row['Outlet']||'—'}</span>
+            <span style="font-size:12px;color:var(--ink-2)">${row['Employee Name']||row['Employee ID']||'—'}</span>
+            <span class="cc-mono" style="color:var(--ink-2)">${ccFmtNum(row['Opening Balance'])}</span>
+            <span class="cc-green">${ccFmtNum(row['Cash Collected'])}</span>
+            <span class="cc-red">${row['Expenses']&&parseFloat(row['Expenses'])>0 ? ccFmtNum(row['Expenses']) : '—'}</span>
+            <span class="cc-amber">${row['Send to RR']&&parseFloat(row['Send to RR'])>0 ? ccFmtNum(row['Send to RR']) : '—'}</span>
+            <span class="cc-note" title="${row['Expense Note']||''}">${row['Expense Note']||'—'}</span>
+          </div>`).join('')}
+      </div>`;
   } catch(e) {
     content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
   }
