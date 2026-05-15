@@ -3143,6 +3143,8 @@ function toggleInvAction(idx, storageKey) {
 let _reconWindow = 7;
 let _reconOutlet = 'All';
 let _reconData   = null;
+let _reconCustomFrom = '';
+let _reconCustomTo   = '';
 
 function renderReconPage() {
   const el = document.getElementById('pageBody');
@@ -3164,10 +3166,21 @@ function _reconSetOutlet(o) {
 
 function _reconSetWindow(w) {
   _reconWindow = w;
-  [1,7,28].forEach(n => {
+  [1,7,28,'custom'].forEach(n => {
     const b = document.getElementById('recontab-' + n);
     if (b) b.classList.toggle('active', n === w);
   });
+  const cp = document.getElementById('recon-custom-picker');
+  if (cp) cp.style.display = w === 'custom' ? 'flex' : 'none';
+  _renderRecon();
+}
+
+function _reconApplyCustom() {
+  const f = document.getElementById('recon-date-from');
+  const t = document.getElementById('recon-date-to');
+  if (!f || !t) return;
+  _reconCustomFrom = f.value;
+  _reconCustomTo   = t.value;
   _renderRecon();
 }
 
@@ -3181,10 +3194,15 @@ function _localDateStr(offsetDays = 0) {
 function _reconRows() {
   if (!_reconData) return [];
   const todayStr  = _localDateStr(0);
+
+  if (_reconWindow === 'custom') {
+    if (!_reconCustomFrom || !_reconCustomTo) return [];
+    return _reconData.filter(r => r.date >= _reconCustomFrom && r.date <= _reconCustomTo);
+  }
+
   const cutoffStr = _localDateStr(-(_reconWindow - 1));
 
   if (_reconWindow === 1) {
-    // Find latest date for the selected outlet (or globally if All)
     const pool = _reconOutlet === 'All' ? _reconData : _reconData.filter(r => r.outlet === _reconOutlet);
     const latestDate = pool.reduce((max, r) => r.date > max ? r.date : max, '');
     return _reconData.filter(r => r.date === latestDate);
@@ -3200,7 +3218,9 @@ function _renderRecon() {
   const allRows = _reconRows();
   const rows    = _reconOutlet === 'All' ? allRows : allRows.filter(r => r.outlet === _reconOutlet);
   const latestInRows = rows.length ? rows[0].date : '';
-  const label  = _reconWindow === 1
+  const label  = _reconWindow === 'custom'
+    ? (_reconCustomFrom && _reconCustomTo ? `${_reconCustomFrom} to ${_reconCustomTo}` : 'Custom Range')
+    : _reconWindow === 1
     ? `Latest Day (${latestInRows || 'no data'})`
     : `Last ${_reconWindow} Days`;
 
@@ -3228,8 +3248,17 @@ function _renderRecon() {
     return `<td class="r" style="color:${col};font-weight:700" id="rdiff-${rowIdx}">${d < 0 ? '-' : '+'}${fmtAbs(d)}</td>`;
   };
 
-  const tabBar = `<div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
-    ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Latest':n===7?'7 Days':'28 Days'}</button>`).join('')}
+  const tabBar = `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+    <div style="display:flex;gap:1px;background:var(--border);border-radius:var(--r);padding:3px;width:fit-content">
+      ${[1,7,28].map(n => `<button class="ptab ${_reconWindow===n?'active':''}" id="recontab-${n}" onclick="_reconSetWindow(${n})" style="padding:4px 14px;font-size:10px">${n===1?'Latest':n===7?'7 Days':'28 Days'}</button>`).join('')}
+      <button class="ptab ${_reconWindow==='custom'?'active':''}" id="recontab-custom" onclick="_reconSetWindow('custom')" style="padding:4px 14px;font-size:10px">Custom</button>
+    </div>
+    <div id="recon-custom-picker" style="display:${_reconWindow==='custom'?'flex':'none'};align-items:center;gap:6px;flex-wrap:wrap">
+      <input type="date" id="recon-date-from" value="${_reconCustomFrom}" style="font-size:11px;padding:3px 7px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface);color:var(--ink-1);font-family:var(--sans)">
+      <span style="font-size:11px;color:var(--ink-3)">to</span>
+      <input type="date" id="recon-date-to" value="${_reconCustomTo}" style="font-size:11px;padding:3px 7px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface);color:var(--ink-1);font-family:var(--sans)">
+      <button onclick="_reconApplyCustom()" style="padding:3px 12px;font-size:11px;border-radius:6px;border:none;background:var(--blue);color:#fff;cursor:pointer;font-family:var(--sans);font-weight:600">Apply</button>
+    </div>
   </div>`;
 
   const SHORT = {'Sahakar Nagar':'SKN','Residency Road':'RR','Koramangala':'KOR','Jayanagar':'JAY','Whitefield':'WF','Kalyan Nagar':'KLN','Bellandur':'BLN','Indiranagar':'IND','Arekere':'ARK'};
@@ -3322,9 +3351,9 @@ function _renderRecon() {
   </tr>`;
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
       ${tabBar}
-      <span style="font-size:11px;color:var(--ink-3)">${rows.length} rows · ${dates.length} days</span>
+      <span style="font-size:11px;color:var(--ink-3);padding-top:6px">${rows.length} rows · ${dates.length} days</span>
     </div>
     <div style="margin-bottom:16px">${outletBar}</div>
     ${summaryCards}
@@ -3339,7 +3368,7 @@ function _renderRecon() {
         </div>
       </div>
       ${rows.length === 0
-        ? `<div class="no-outages">No data for this period</div>`
+        ? `<div class="no-outages">${_reconWindow === 'custom' && (!_reconCustomFrom || !_reconCustomTo) ? 'Select a date range above and click Apply' : 'No data for this period'}</div>`
         : `<table>
           <thead><tr>
             <th>Date</th>
