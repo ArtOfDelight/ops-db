@@ -1535,12 +1535,11 @@ function loadAll() {
 /* ══════════════════════════════════════════
    LATE SIGN-IN
 ═══════════════════════════════════════════ */
-const LS_API   = 'https://aodapp-backend.onrender.com';
 let   _lsToken = localStorage.getItem('adminToken');
 let   _lsPhone = '';
 let   _lsWindow = 1;
 
-fetch(`${LS_API}/api/`).catch(() => {});
+fetch(`${API}/api/`).catch(() => {});
 
 function renderSigninPage() {
   document.getElementById('asOf').textContent = '';
@@ -1663,7 +1662,7 @@ async function lsSendOTP() {
   if (!/^\d{10}$/.test(_lsPhone)) { lsSetErr('Enter a valid 10-digit phone number'); return; }
   lsSetErr('Sending OTP…');
   try {
-    const r = await fetch(`${LS_API}/api/auth/send-otp`, {
+    const r = await fetch(`${API}/api/auth/send-otp`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employee_id: empId, phone: _lsPhone })
     });
@@ -1681,7 +1680,7 @@ async function lsVerifyPassword() {
   if (!password) { lsSetErr('Enter your password'); return; }
   lsSetErr('Verifying…');
   try {
-    const r = await fetch(`${LS_API}/api/auth/login-password`, {
+    const r = await fetch(`${API}/api/auth/login-password`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employee_id: empId, password })
     });
@@ -1699,7 +1698,7 @@ async function lsVerifyOTP() {
   const otp   = document.getElementById('ls-otp').value.trim();
   lsSetErr('Verifying…');
   try {
-    const r = await fetch(`${LS_API}/api/auth/verify-otp`, {
+    const r = await fetch(`${API}/api/auth/verify-otp`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employee_id: empId, phone: _lsPhone, otp })
     });
@@ -1762,7 +1761,7 @@ async function lsLoadReport() {
   }, 200);
   try {
     const r = await fetch(
-      `${LS_API}/api/admin/attendance-late-report?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`,
+      `${API}/api/admin/attendance-late-report?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`,
       { headers: { 'Authorization': `Bearer ${_lsToken}` } }
     );
     if (r.status === 401 || r.status === 403) { clearInterval(tick); lsLogout(); return; }
@@ -2053,7 +2052,7 @@ async function scLoadData() {
   const fmt = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
   const labelEl = document.getElementById('scDateLabel');
   if (labelEl) labelEl.textContent = _scWindow === 1 ? fmt(end) : `${fmt(start)} – ${fmt(end)}`;
-  const url = `${LS_API}/api/admin/employee-scorecard?week_start=${scFmtISO(start)}&week_end=${scFmtISO(end)}`;
+  const url = `${API}/api/admin/employee-scorecard?week_start=${scFmtISO(start)}&week_end=${scFmtISO(end)}`;
   const el = document.getElementById('sc-content');
   try {
     const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
@@ -3994,121 +3993,6 @@ async function _ckPublish() {
   } catch(e) { alert('Error: ' + e.message); }
 }
 
-// (history tab removed — past workers shown inline in build pool with "Recent" badge)
-async function _ckLoadHistory_UNUSED() {
-  document.getElementById('ckBody').innerHTML =
-    '<div style="text-align:center;padding:40px;color:var(--ink-3)">Loading past 2 weeks…</div>';
-
-  if (_ckState.historyLoaded) { _ckRenderHistory(); return; }
-
-  try {
-    const [empRes, shiftRes] = await Promise.all([
-      fetch(`${API}/api/ops/roster/employees`).then(r=>r.json()),
-      fetch(`${API}/api/ops/roster/shifts`).then(r=>r.json()),
-    ]);
-    const pools = empRes.pools_by_outlet || {};
-    const ck_pool = pools['CK'] || [];
-    const empById = {};
-    ck_pool.forEach(e => empById[e.employee_id] = e);
-    const shifts = shiftRes.shifts || [];
-    const shiftById = {};
-    shifts.forEach(s => shiftById[s.shift_id] = s);
-
-    // Build list of past 14 dates (today inclusive)
-    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const dates = [];
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const dd = String(d.getDate()).padStart(2,'0');
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const yy = d.getFullYear();
-      dates.push({ str: `${dd}/${mm}/${yy}`, dayName: days[d.getDay()] });
-    }
-
-    // Fetch all 14 days in parallel
-    const results = await Promise.all(
-      dates.map(({ str }) =>
-        fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(str)}`).then(r=>r.json())
-      )
-    );
-
-    _ckState.history = dates.map(({ str, dayName }, i) => {
-      const ckEntries = (results[i].entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
-      return {
-        date: str,
-        dayName,
-        entries: ckEntries.map(e => {
-          const sh = shiftById[e.shift] || {};
-          const emp = empById[e.employee_id] || {};
-          return {
-            name: e.employee_name || emp.name || e.employee_id,
-            shift_name: e.outlet === 'WO' ? 'Weekly Off' : (sh.shift_name || e.shift || '—'),
-            start_time: e.start_time || sh.start_time || '',
-            end_time: e.end_time || sh.end_time || '',
-            is_wo: e.outlet === 'WO',
-          };
-        }),
-      };
-    });
-    _ckState.historyLoaded = true;
-    _ckRenderHistory();
-  } catch(e) {
-    document.getElementById('ckBody').innerHTML =
-      `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
-  }
-}
-
-function _ckRenderHistory_UNUSED() {
-  const rows = _ckState.history.map(day => {
-    if (!day.entries.length) {
-      return `
-        <div style="margin-bottom:14px;border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
-          <div style="padding:10px 16px;background:#f8f9fb;display:flex;align-items:center;gap:10px">
-            <span style="font-size:13px;font-weight:700;color:var(--ink)">${day.date}</span>
-            <span style="font-size:12px;color:var(--ink-3)">${day.dayName}</span>
-            <span style="margin-left:auto;font-size:11px;color:var(--ink-3)">No roster published</span>
-          </div>
-        </div>`;
-    }
-    const empRows = day.entries.map(e => {
-      const times = !e.is_wo && e.start_time && e.end_time
-        ? `<span style="font-size:11px;color:var(--ink-3);font-family:var(--mono)">${e.start_time}–${e.end_time}</span>` : '';
-      const badge = e.is_wo
-        ? `<span style="font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:20px">WO</span>` : '';
-      return `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border-2)">
-          <span style="font-size:13px;font-weight:600;color:var(--ink)">${e.name}</span>
-          <div style="display:flex;align-items:center;gap:8px">
-            ${badge}
-            <span style="font-size:12px;color:var(--ink-2)">${e.is_wo ? '' : e.shift_name}</span>
-            ${times}
-          </div>
-        </div>`;
-    }).join('');
-
-    return `
-      <div style="margin-bottom:14px;border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
-        <div style="padding:10px 16px;background:#f8f9fb;display:flex;align-items:center;gap:10px">
-          <span style="font-size:13px;font-weight:700;color:var(--ink)">${day.date}</span>
-          <span style="font-size:12px;color:var(--ink-3)">${day.dayName}</span>
-          <span style="margin-left:auto;font-size:12px;font-weight:600;color:${CK_GREEN}">${day.entries.filter(e=>!e.is_wo).length} kitchen</span>
-        </div>
-        ${empRows}
-      </div>`;
-  }).join('');
-
-  document.getElementById('ckBody').innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3)">
-        CK Kitchen Roster — Last 14 Days
-      </div>
-      <button onclick="_ckState.historyLoaded=false;_ckLoadHistory()"
-        style="padding:6px 14px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink-2)">
-        ↻ Refresh
-      </button>
-    </div>
-    ${rows}`;
-}
 
 /* ── HOME PAGE ── */
 const HOME_TABS = [
@@ -4206,7 +4090,7 @@ async function loadHomeSummaries() {
   try {
     const yStr = isoDate(yesterday);
     const d = await fetch(
-      `${LS_API}/api/admin/attendance-late-report?start_date=${yStr}&end_date=${yStr}`,
+      `${API}/api/admin/attendance-late-report?start_date=${yStr}&end_date=${yStr}`,
       { headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {} }
     ).then(r=>r.json());
     const records = (d.records||[]).filter(r => !/^wo$/i.test(r.outlet||'') && r.type !== 'missed_signout');
@@ -4245,7 +4129,7 @@ async function loadHomeSummaries() {
 
   // ── Employee Dashboard — bottom 5 ──
   try {
-    const d = await fetch(`${LS_API}/api/admin/employee-scorecard`, {
+    const d = await fetch(`${API}/api/admin/employee-scorecard`, {
       headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {}
     }).then(r=>r.json());
     const sc = (d.scorecards || d.employees || []);
@@ -4746,115 +4630,10 @@ async function bcSend() {
   inp?.focus();
 }
 
-// toggleAction replaced by showActionTakenModal / confirmActionTaken
-
 function escHtml(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-async function gatherBriefContext() {
-  const ctx = {};
-  const today = new Date();
-  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
-  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate()-7);
-  const yStr  = isoDate(yesterday);
-  const w7Str = isoDate(sevenDaysAgo);
-  const tStr  = isoDate(today);
-
-  briefProgress(5, 'Power status…');
-  try {
-    const [live, summary] = await Promise.all([
-      fetch(`${API}/api/power/live`).then(r=>r.json()),
-      fetch(`${API}/api/power/summary`).then(r=>r.json()),
-    ]);
-    const outlets = live.outlets||[];
-    const offline = outlets.filter(o=>o.swiggy_aod?.color==='red'||o.swiggy_fc?.color==='red'||o.zomato?.color==='red');
-    const sumData = summary.outlets||{};
-    const worst7 = Object.entries(sumData).sort((a,b)=>b[1].last_7_days_mins-a[1].last_7_days_mins)[0];
-    const total28 = Object.values(sumData).reduce((s,o)=>s+o.last_28_days_mins,0);
-    ctx.power = `POWER STATUS\nOffline now (${offline.length}): ${offline.map(o=>`${o.outlet} (${[o.swiggy_aod?.color==='red'?'Swiggy AOD':'',o.swiggy_fc?.color==='red'?'Swiggy FC':'',o.zomato?.color==='red'?'Zomato':''].filter(Boolean).join('+')})`).join(', ')||'None'}\n7-day worst: ${worst7?`${worst7[0]} at ${worst7[1].last_7_days_fmt}`:'—'}\n28-day total op-hours lost: ${Math.floor(total28/60)}h ${total28%60}m`;
-  } catch(e) { ctx.power = 'Power data unavailable.'; }
-
-  briefProgress(18, 'Late sign-ins…');
-  try {
-    const [yd, w7] = await Promise.all([
-      fetch(`${LS_API}/api/admin/attendance-late-report?start_date=${yStr}&end_date=${yStr}`, {headers:_lsToken?{Authorization:`Bearer ${_lsToken}`}:{}}).then(r=>r.json()),
-      fetch(`${LS_API}/api/admin/attendance-late-report?start_date=${w7Str}&end_date=${yStr}`, {headers:_lsToken?{Authorization:`Bearer ${_lsToken}`}:{}}).then(r=>r.json()),
-    ]);
-    const filt = recs => (recs||[]).filter(r=>!/^wo$/i.test(r.outlet||'')&&r.type!=='missed_signout');
-    const ydR = filt(yd.records); const w7R = filt(w7.records);
-    const byEmp = {}; w7R.forEach(r=>{ const k=r.employee_id; if(!byEmp[k]) byEmp[k]={name:r.employee_name,outlet:r.outlet,late:0,missed:0}; if(r.type==='late') byEmp[k].late++; else byEmp[k].missed++; });
-    const top5 = Object.values(byEmp).sort((a,b)=>(b.late+b.missed)-(a.late+a.missed)).slice(0,5);
-    ctx.signin = `LATE SIGN-IN\nYesterday (${yStr}): ${ydR.filter(r=>r.type==='late').length} late, ${ydR.filter(r=>r.type==='missed_signin').length} missed — ${ydR.map(r=>`${r.employee_name}(${r.outlet},${r.type})`).join(', ')||'none'}\n7-day (${w7Str} to ${yStr}): ${w7R.filter(r=>r.type==='late').length} late, ${w7R.filter(r=>r.type==='missed_signin').length} missed across ${Object.keys(byEmp).length} employees\nTop offenders 7d: ${top5.map(e=>`${e.name}(${e.outlet}, ${e.late}L+${e.missed}M)`).join(', ')}`;
-  } catch { ctx.signin = 'Late sign-in data unavailable (admin login required).'; }
-
-  briefProgress(32, 'Platform metrics…');
-  try {
-    const d = await fetch(`${API}/api/metrics/kpt_mfr?window=7`).then(r=>r.json());
-    const outlets = d.outlets||[];
-    const avg = arr => arr.filter(v=>v!=null).length ? (arr.filter(v=>v!=null).reduce((a,b)=>a+b,0)/arr.filter(v=>v!=null).length).toFixed(1) : '—';
-    ctx.metrics = `PLATFORM METRICS (7-day, ${d.swiggy_period||'latest'})\n`+outlets.map(o=>`${o.outlet}: Swiggy KPT=${o.swiggy_kpt??'—'} MFR=${o.swiggy_mfr??'—'}% | Zomato KPT=${o.zomato_kpt??'—'} MFR=${o.zomato_mfr??'—'}%`).join('\n')+`\nAvg: Swiggy KPT=${avg(outlets.map(o=>o.swiggy_kpt))} MFR=${avg(outlets.map(o=>o.swiggy_mfr))}% | Zomato KPT=${avg(outlets.map(o=>o.zomato_kpt))} MFR=${avg(outlets.map(o=>o.zomato_mfr))}%`;
-  } catch { ctx.metrics = 'Platform metrics unavailable.'; }
-
-  briefProgress(44, 'Employee scorecard…');
-  try {
-    const d = await fetch(`${LS_API}/api/admin/employee-scorecard?week_start=${w7Str}&week_end=${yStr}`, {headers:_lsToken?{Authorization:`Bearer ${_lsToken}`}:{}}).then(r=>r.json());
-    const sc = (d.scorecards||d.employees||[]).sort((a,b)=>(b.total_orders||0)-(a.total_orders||0));
-    ctx.scorecard = `EMPLOYEE DASHBOARD (7-day)\nTop 5: ${sc.slice(0,5).map(e=>`${e.name} ${e.total_orders} orders / ${e.high_rated||0} high-rated`).join(', ')}\nBottom 5: ${sc.slice(-5).map(e=>`${e.name} ${e.total_orders} orders`).join(', ')}`;
-  } catch { ctx.scorecard = 'Employee scorecard unavailable.'; }
-
-  briefProgress(54, 'Outlet ratings…');
-  try {
-    const d = await fetch(`${API}/api/admin/outlet-ratings-summary?date_from=${w7Str}&date_to=${tStr}`).then(r=>r.json());
-    const outlets = (d.outlets||[]).sort((a,b)=>(parseFloat(b.avg_rating||b.rating)||0)-(parseFloat(a.avg_rating||a.rating)||0));
-    ctx.ratings = `OUTLET RATINGS (7-day)\nBest: ${outlets.slice(0,3).map(o=>`${o.outlet||o.name} ${o.avg_rating||o.rating}%`).join(', ')}\nWorst: ${outlets.slice(-3).map(o=>`${o.outlet||o.name} ${o.avg_rating||o.rating}%`).join(', ')}\nAll: ${outlets.map(o=>`${o.outlet||o.name}=${o.avg_rating||o.rating}%`).join(', ')}`;
-  } catch { ctx.ratings = 'Ratings unavailable.'; }
-
-  briefProgress(62, 'Out of stock…');
-  try {
-    const d = await fetch(`${API}/api/inventory/live`).then(r=>r.json());
-    const oos = (d.items||[]).filter(i=>(i.status||'').toUpperCase().includes('OUT'));
-    const byOutlet = {}; oos.forEach(i=>{ byOutlet[i.outlet]=(byOutlet[i.outlet]||[]); byOutlet[i.outlet].push(i.item||i.sku); });
-    ctx.stock = `OUT OF STOCK NOW\nTotal: ${oos.length} items across ${Object.keys(byOutlet).length} outlets\n`+Object.entries(byOutlet).sort((a,b)=>b[1].length-a[1].length).map(([o,items])=>`${o} (${items.length}): ${items.slice(0,5).join(', ')}${items.length>5?'…':''}`).join('\n');
-  } catch { ctx.stock = 'OOS data unavailable.'; }
-
-  briefProgress(70, 'OOS tracker…');
-  try {
-    const d = await fetch(`${API}/api/inventory/tracker?days=7`).then(r=>r.json());
-    const evts = d.events||[]; const byOutlet={};
-    evts.forEach(e=>{ byOutlet[e.outlet]=(byOutlet[e.outlet]||0)+1; });
-    const sorted = Object.entries(byOutlet).sort((a,b)=>b[1]-a[1]);
-    ctx.tracker = `OOS TRACKER (7-day)\nTotal events: ${evts.length}\nWorst outlets: ${sorted.slice(0,5).map(([o,c])=>`${o}(${c})`).join(', ')}`;
-  } catch { ctx.tracker = 'OOS tracker unavailable.'; }
-
-  briefProgress(78, 'Daily recon…');
-  try {
-    const d = await fetch(`${API}/api/ops/daily-recon`).then(r=>r.json());
-    const rows = (d.rows||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,14);
-    const totalDiff = rows.reduce((s,r)=>s+(parseFloat(r.diff)||0),0);
-    const gaps = rows.filter(r=>(parseFloat(r.diff)||0)<-200).sort((a,b)=>(parseFloat(a.diff)||0)-(parseFloat(b.diff)||0));
-    ctx.recon = `DAILY RECON (last 7 days)\nNet variance: ₹${totalDiff.toFixed(0)} (${totalDiff<0?'deficit':'surplus'})\nBiggest gaps: ${gaps.slice(0,4).map(r=>`${r.outlet} ${r.date} ₹${parseFloat(r.diff||0).toFixed(0)}`).join(', ')||'None'}\nAll rows: ${rows.map(r=>`${r.outlet} ${r.date}: cash=${r.cash} swiggy=${r.swiggy} zomato=${r.zomato} diff=${r.diff}`).join(' | ')}`;
-  } catch { ctx.recon = 'Recon data unavailable.'; }
-
-  briefProgress(86, 'RR recon…');
-  try {
-    const d = await fetch(`${API}/api/ops/rr-recon`).then(r=>r.json());
-    const rows = (d.rows||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,7);
-    const flags = rows.filter(r=>Math.abs(parseFloat(r.difference||0))>10);
-    ctx.rrrecon = `RR RECON (last 7 days)\nFlags (|diff|>₹10): ${flags.map(r=>`${r.date} diff=₹${parseFloat(r.difference||0).toFixed(0)}`).join(', ')||'None'}`;
-  } catch { ctx.rrrecon = 'RR recon unavailable.'; }
-
-  briefProgress(92, 'CK Roster…');
-  try {
-    const d = await fetch(`${API}/api/ops/roster/ck`).then(r=>r.json());
-    const ck = (d.entries||[]).filter(e=>e.outlet==='CK');
-    const wo = (d.entries||[]).filter(e=>e.outlet==='WO');
-    ctx.roster = `CK ROSTER TODAY\n${ck.length} staff on shift: ${ck.map(e=>e.name||e.employee_id).join(', ')}\n${wo.length} on week-off: ${wo.map(e=>e.name||e.employee_id).join(', ')||'None'}`;
-  } catch { ctx.roster = 'CK roster unavailable.'; }
-
-  briefProgress(97, 'Compiling…');
-  return Object.values(ctx).join('\n\n');
-}
 
 /* ══════════════════════════════════════════════════════════════
    COMPLAINTS REVIEW
