@@ -5644,7 +5644,7 @@ async function _loadMissingRoster(date) {
     const url = date
       ? `${API}/api/admin/roster/missing-outlets?date=${encodeURIComponent(date)}`
       : `${API}/api/admin/roster/missing-outlets`;
-    const data = await fetch(url).then(r => r.json());
+    const data = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } }).then(r => r.json());
     if (!data.success) throw new Error('API error');
 
     const badge = document.getElementById('atab-roster-badge');
