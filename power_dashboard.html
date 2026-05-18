@@ -2751,7 +2751,7 @@ async function scpLoad() {
       fetch(`${API}/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
       fetch(`${API}/api/admin/scoop-cogs?date_from=${from}&date_to=${to}`,     { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
     ]);
-    if (rankRes.status === 401 || rankRes.status === 403) { lsLogout(); renderProductsPage(); return; }
+    if (rankRes.status === 401 || rankRes.status === 403 || cogsRes.status === 401 || cogsRes.status === 403) { lsLogout(); renderProductsPage(); return; }
     const d    = await rankRes.json();
     const cogs = cogsRes.ok ? await cogsRes.json() : null;
     _scpCogsData = cogs;
