@@ -660,13 +660,16 @@ td.c { text-align: center; }
 .brief-bullets li { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
 .brief-para { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.6; }
 .action-list { display: flex; flex-direction: column; gap: 6px; }
-.action-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: background .15s; user-select: none; }
+.action-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); transition: background .15s; user-select: none; }
 .action-item:hover { background: #f8fafd; }
+.action-suppress-btn { flex-shrink: 0; margin-left: auto; margin-top: 1px; width: 22px; height: 22px; border: none; border-radius: 5px; background: transparent; color: var(--ink-3); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s, background .15s, color .15s; }
+.action-item:hover .action-suppress-btn { opacity: 1; }
+.action-suppress-btn:hover { background: #fee2e2; color: var(--red); }
 .action-done { opacity: .55; }
 .action-done .action-text { text-decoration: line-through; color: var(--ink-3); }
-.action-check { width: 18px; height: 18px; min-width: 18px; border: 2px solid var(--border-2); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; transition: all .15s; margin-top: 1px; }
+.action-check { width: 18px; height: 18px; min-width: 18px; border: 2px solid var(--border-2); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; transition: all .15s; margin-top: 1px; cursor: pointer; }
 .action-check-done { background: var(--green); border-color: var(--green); }
-.action-content { flex: 1; min-width: 0; }
+.action-content { flex: 1; min-width: 0; cursor: pointer; }
 .action-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
 .action-area { font-size: 12px; font-weight: 700; color: var(--ink); }
 .action-due { font-size: 11px; color: var(--ink-3); margin-left: auto; white-space: nowrap; }
@@ -5549,9 +5552,11 @@ function _buildActionTabsHtml(store) {
     ? `<div class="action-pending-empty">No pending actions — all clear ✓</div>`
     : pending.map(a => {
         const isOld = a.addedDate && a.addedDate < today;
-        return `<div class="action-item" id="astore-${a.id}" onclick="showActionTakenModal('${escHtml(a.id)}','${escHtml(a.action||'')}')">
-          <div class="action-check"></div>
-          <div class="action-content">
+        const safeId     = escHtml(a.id);
+        const safeAction = escHtml(a.action||'').replace(/'/g, '&#39;');
+        return `<div class="action-item" id="astore-${a.id}">
+          <div class="action-check" onclick="showActionTakenModal('${safeId}','${safeAction}')"></div>
+          <div class="action-content" onclick="showActionTakenModal('${safeId}','${safeAction}')">
             <div class="action-top">
               <span class="pri-${(a.priority||'low').toLowerCase()}">${escHtml(a.priority||'Low')}</span>
               <span class="action-area">${escHtml(a.area||'')}</span>
@@ -5561,6 +5566,7 @@ function _buildActionTabsHtml(store) {
             <div class="action-text">${escHtml(a.action||'')}</div>
             <div class="action-owner">${escHtml(a.owner||'')}</div>
           </div>
+          <button class="action-suppress-btn" title="Not needed — suppress this action type" onclick="event.stopPropagation();showSuppressModal('${safeId}','${safeAction}')">✕</button>
         </div>`;
       }).join('');
 
@@ -5666,6 +5672,56 @@ async function confirmActionTaken(id) {
   }
 }
 
+
+function showSuppressModal(id, actionText) {
+  const overlay = document.createElement('div');
+  overlay.className = 'atmodal-overlay';
+  overlay.id = 'atSuppressOverlay';
+  overlay.innerHTML = `
+    <div class="atmodal">
+      <div class="atmodal-title" style="color:var(--red)">Not Needed?</div>
+      <div class="atmodal-sub">Tell us why — this action type won't appear in future briefs.</div>
+      <div class="atmodal-task">${escHtml(actionText)}</div>
+      <textarea id="atSuppressInput" placeholder="e.g. We already have a permanent fix in place, this is monitored elsewhere…" rows="3"></textarea>
+      <div class="atmodal-btns">
+        <button class="atmodal-cancel" onclick="closeSuppressModal()">Cancel</button>
+        <button class="atmodal-confirm" id="atSuppressConfirm" style="background:var(--red)" onclick="confirmSuppress('${escHtml(id)}')">Suppress</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSuppressModal(); });
+  setTimeout(() => document.getElementById('atSuppressInput')?.focus(), 50);
+}
+
+function closeSuppressModal() {
+  document.getElementById('atSuppressOverlay')?.remove();
+}
+
+async function confirmSuppress(id) {
+  const reason = (document.getElementById('atSuppressInput')?.value || '').trim();
+  if (!reason) { document.getElementById('atSuppressInput')?.focus(); return; }
+
+  const btn = document.getElementById('atSuppressConfirm');
+  if (btn) { btn.disabled = true; btn.textContent = 'Suppressing…'; }
+
+  try {
+    await fetch(`${API}/api/brief-actions/${encodeURIComponent(id)}/suppress`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    });
+    _actionsCache = null;
+  } catch {}
+
+  closeSuppressModal();
+
+  const actionSection = document.getElementById('briefActionSection');
+  if (actionSection) {
+    actionSection.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div><div style="color:var(--ink-3);font-size:13px;padding:8px 0">Refreshing…</div>';
+    const html = await _renderActionTabs();
+    actionSection.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
+  }
+}
 
 /* ═══════════════════════════════════════════
    CHECKLIST STATUS
