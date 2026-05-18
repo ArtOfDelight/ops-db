@@ -662,9 +662,8 @@ td.c { text-align: center; }
 .action-list { display: flex; flex-direction: column; gap: 6px; }
 .action-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; background: #fff; border: 1px solid var(--border); border-radius: var(--r); transition: background .15s; user-select: none; }
 .action-item:hover { background: #f8fafd; }
-.action-suppress-btn { flex-shrink: 0; margin-left: auto; margin-top: 1px; width: 22px; height: 22px; border: none; border-radius: 5px; background: transparent; color: var(--ink-3); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s, background .15s, color .15s; }
-.action-item:hover .action-suppress-btn { opacity: 1; }
-.action-suppress-btn:hover { background: #fee2e2; color: var(--red); }
+.action-suppress-btn { flex-shrink: 0; margin-left: auto; margin-top: 2px; border: 1px solid var(--border-2); border-radius: 5px; background: transparent; color: var(--ink-3); font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 8px; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
+.action-suppress-btn:hover { background: #fee2e2; color: var(--red); border-color: var(--red); }
 .action-done { opacity: .55; }
 .action-done .action-text { text-decoration: line-through; color: var(--ink-3); }
 .action-check { width: 18px; height: 18px; min-width: 18px; border: 2px solid var(--border-2); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; transition: all .15s; margin-top: 1px; cursor: pointer; }
@@ -5566,7 +5565,7 @@ function _buildActionTabsHtml(store) {
             <div class="action-text">${escHtml(a.action||'')}</div>
             <div class="action-owner">${escHtml(a.owner||'')}</div>
           </div>
-          <button class="action-suppress-btn" title="Not needed — suppress this action type" onclick="event.stopPropagation();showSuppressModal('${safeId}','${safeAction}')">✕</button>
+          <button class="action-suppress-btn" title="Not needed — suppress this action type" onclick="event.stopPropagation();showSuppressModal('${safeId}','${safeAction}')">Not needed</button>
         </div>`;
       }).join('');
 
