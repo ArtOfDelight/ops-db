@@ -1539,8 +1539,6 @@ let   _lsToken = localStorage.getItem('adminToken');
 let   _lsPhone = '';
 let   _lsWindow = 1;
 
-fetch(`${API}/api/`).catch(() => {});
-
 function renderSigninPage() {
   document.getElementById('asOf').textContent = '';
   const body = document.getElementById('pageBody');
@@ -2146,11 +2144,9 @@ function scRenderTable(rows, el) {
 /* ══════════════════════════════════════════════════
    OUTLET RATINGS
 ═══════════════════════════════════════════════════ */
-let _orToken = localStorage.getItem('adminToken');
-
 function renderRatingsPage() {
   const body = document.getElementById('pageBody');
-  if (!_orToken) { renderSigninLogin(body); return; }
+  if (!_lsToken) { renderSigninLogin(body); return; }
   body.innerHTML = `
     <div style="padding:24px 28px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
@@ -2197,8 +2193,8 @@ async function orLoad() {
   const el = document.getElementById('or-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
   try {
-    const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/outlet-ratings-summary?date_from=${from}&date_to=${to}`,
-      { headers: { 'Authorization': `Bearer ${_orToken}` } });
+    const r = await fetch(`${API}/api/admin/outlet-ratings-summary?date_from=${from}&date_to=${to}`,
+      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
     if (r.status === 401 || r.status === 403) { lsLogout(); renderRatingsPage(); return; }
     const d = await r.json();
     const outlets = d.outlets || [];
@@ -2293,7 +2289,7 @@ let _prViewTab = 'online';  // 'online' | 'dinein' | 'combined'
 
 function renderProductsPage() {
   const body = document.getElementById('pageBody');
-  if (!_orToken) { renderSigninLogin(body); return; }
+  if (!_lsToken) { renderSigninLogin(body); return; }
   body.innerHTML = `
     <div style="padding:24px 28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
@@ -2448,8 +2444,8 @@ async function prLoad() {
   const el = document.getElementById('pr-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
   try {
-    const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
-      { headers: { 'Authorization': `Bearer ${_orToken}` } });
+    const r = await fetch(`${API}/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
+      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
     if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); return; }
     const d = await r.json();
     const products = d.products || [];
@@ -2639,8 +2635,8 @@ async function trLoad() {
   const statusEl = document.getElementById('tr-status');
   try {
     const fetchPeriod = async (from, to) => {
-      const r = await fetch(`https://aodapp-backend.onrender.com/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
-        { headers: { 'Authorization': `Bearer ${_orToken}` } });
+      const r = await fetch(`${API}/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
+        { headers: { 'Authorization': `Bearer ${_lsToken}` } });
       if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); throw new Error('auth'); }
       return (await r.json()).products || [];
     };
@@ -2752,8 +2748,8 @@ async function scpLoad() {
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
   try {
     const [rankRes, cogsRes] = await Promise.all([
-      fetch(`https://aodapp-backend.onrender.com/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`, { headers: { 'Authorization': `Bearer ${_orToken}` } }),
-      fetch(`https://aodapp-backend.onrender.com/api/admin/scoop-cogs?date_from=${from}&date_to=${to}`,     { headers: { 'Authorization': `Bearer ${_orToken}` } }),
+      fetch(`${API}/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
+      fetch(`${API}/api/admin/scoop-cogs?date_from=${from}&date_to=${to}`,     { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
     ]);
     if (rankRes.status === 401 || rankRes.status === 403) { lsLogout(); renderProductsPage(); return; }
     const d    = await rankRes.json();
