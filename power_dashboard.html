@@ -689,6 +689,16 @@ td.c { text-align: center; }
 .action-log-meta { font-size: 10px; color: var(--ink-3); white-space: nowrap; }
 .action-log-taken { font-size: 12px; color: var(--ink); background: #f0fdf4; border-left: 3px solid var(--green); padding: 5px 10px; border-radius: 0 4px 4px 0; margin-top: 2px; }
 .action-log-taken-label { font-size: 10px; font-weight: 700; color: var(--green); display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: .05em; }
+/* missing roster panel */
+.roster-missing-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.roster-missing-list { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
+.roster-missing-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: #fff8f8; border: 1px solid #fde8e8; border-radius: 7px; }
+.roster-missing-dot { width: 8px; height: 8px; min-width: 8px; border-radius: 50%; background: var(--red); }
+.roster-missing-name { font-size: 13px; font-weight: 600; color: var(--ink); flex: 1; }
+.roster-missing-code { font-size: 11px; color: var(--ink-3); }
+.roster-progress-bar { width: 80px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.roster-progress-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width .4s; }
+.roster-date-inp { border: 1px solid var(--border-2); border-radius: 6px; padding: 3px 7px; font-size: 12px; color: var(--ink); background: var(--surface); cursor: pointer; }
 /* action taken modal */
 .atmodal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.38); z-index: 9999; display: flex; align-items: center; justify-content: center; }
 .atmodal { background: #fff; border-radius: 14px; padding: 24px 24px 20px; width: 420px; max-width: 94vw; box-shadow: 0 12px 48px rgba(0,0,0,.18); }
@@ -5598,12 +5608,18 @@ function _buildActionTabsHtml(store) {
       <div class="action-tab" id="atab-completed" onclick="switchActionTab('completed')">
         Completed Log <span style="background:var(--border-2);color:var(--ink-3);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${completed.length}</span>
       </div>
+      <div class="action-tab" id="atab-roster" onclick="switchActionTab('roster')">
+        Missing Roster <span id="atab-roster-badge" style="background:var(--border-2);color:var(--ink-3);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">…</span>
+      </div>
     </div>
     <div class="action-tab-panel active" id="atpanel-pending">
       <div class="action-list">${pendingHtml}</div>
     </div>
     <div class="action-tab-panel" id="atpanel-completed">
       ${completedHtml}
+    </div>
+    <div class="action-tab-panel" id="atpanel-roster">
+      <div id="rosterMissingBody" style="padding:8px 0;font-size:13px;color:var(--ink-3)">Loading…</div>
     </div>`;
 }
 
@@ -5613,10 +5629,78 @@ async function _renderActionTabs() {
 }
 
 function switchActionTab(tab) {
-  ['pending','completed'].forEach(t => {
+  ['pending','completed','roster'].forEach(t => {
     document.getElementById('atab-'+t)?.classList.toggle('active', t===tab);
     document.getElementById('atpanel-'+t)?.classList.toggle('active', t===tab);
   });
+  if (tab === 'roster') _loadMissingRoster();
+}
+
+async function _loadMissingRoster(date) {
+  const body = document.getElementById('rosterMissingBody');
+  if (!body) return;
+  body.innerHTML = '<span style="color:var(--ink-3)">Loading…</span>';
+  try {
+    const url = date
+      ? `${API}/api/admin/roster/missing-outlets?date=${encodeURIComponent(date)}`
+      : `${API}/api/admin/roster/missing-outlets`;
+    const data = await fetch(url).then(r => r.json());
+    if (!data.success) throw new Error('API error');
+
+    const badge = document.getElementById('atab-roster-badge');
+    if (badge) {
+      badge.textContent = data.missing_count;
+      badge.style.background = data.missing_count ? 'var(--red)' : 'var(--green)';
+      badge.style.color = '#fff';
+    }
+
+    const dateLabel = data.date || '';
+    const filledPct = data.total_outlets ? Math.round((data.filled / data.total_outlets) * 100) : 0;
+
+    if (!data.missing_count) {
+      body.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 0;color:var(--green);font-size:13px;font-weight:600">
+          ✓ All ${data.total_outlets} outlets have roster for ${dateLabel}
+        </div>`;
+      return;
+    }
+
+    const rows = data.missing.map(o => `
+      <div class="roster-missing-row">
+        <span class="roster-missing-dot"></span>
+        <span class="roster-missing-name">${escHtml(o.outlet_name || o.outlet_code)}</span>
+        <span class="roster-missing-code">${escHtml(o.outlet_code)}</span>
+      </div>`).join('');
+
+    body.innerHTML = `
+      <div class="roster-missing-header">
+        <div>
+          <span style="font-size:13px;font-weight:700;color:var(--ink)">${data.missing_count} outlet${data.missing_count!==1?'s':''} missing roster</span>
+          <span style="font-size:11px;color:var(--ink-3);margin-left:8px">for ${dateLabel}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="roster-progress-bar"><div class="roster-progress-fill" style="width:${filledPct}%"></div></div>
+          <span style="font-size:11px;color:var(--ink-3)">${data.filled}/${data.total_outlets} filled</span>
+          <input type="date" id="rosterMissingDate" class="roster-date-inp" value="${_isoFromDmy(dateLabel)}" onchange="_loadMissingRoster(_dmyFromIso(this.value))">
+        </div>
+      </div>
+      <div class="roster-missing-list">${rows}</div>`;
+  } catch(e) {
+    if (body) body.innerHTML = `<span style="color:var(--red);font-size:13px">Failed to load: ${escHtml(e.message)}</span>`;
+  }
+}
+
+function _isoFromDmy(dmy) {
+  // DD/MM/YYYY → YYYY-MM-DD
+  if (!dmy) return '';
+  const [d, m, y] = dmy.split('/');
+  return y && m && d ? `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}` : '';
+}
+function _dmyFromIso(iso) {
+  // YYYY-MM-DD → DD/MM/YYYY
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return y && m && d ? `${d}/${m}/${y}` : '';
 }
 
 // id and actionText passed directly to avoid re-fetching just for the modal
