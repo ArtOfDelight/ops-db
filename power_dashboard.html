@@ -950,6 +950,10 @@ td.c { text-align: center; }
 .cust-expired-box { background:#fff5f5; border:1px solid #fca5a5; border-radius:var(--r-lg); padding:24px; text-align:center; }
 .cust-expired-title { font-size:14px; font-weight:800; color:var(--red); margin-bottom:6px; }
 .cust-expired-sub { font-size:12px; color:var(--ink-3); }
+.cust-tabs { display:flex; gap:4px; margin-bottom:18px; flex-wrap:wrap; }
+.cust-tab { padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:1.5px solid var(--border-2); background:var(--surface); color:var(--ink-3); font-family:var(--sans); transition:all .14s; }
+.cust-tab:hover { border-color:var(--blue); color:var(--blue); }
+.cust-tab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
 </style>
 </head>
 <body>
@@ -6381,6 +6385,8 @@ async function ccLoad() {
 }
 
 /* ── CUSTOMERS PAGE ── */
+let _custAllData    = null;   // group-level payload []
+let _custOutletData = null;   // outlets array from /reelo/outlets
 
 const REELO_SAMPLE = [
   {"date":"Apr 19","new":62,"repeat":27},{"date":"Apr 20","new":25,"repeat":18},
@@ -6402,6 +6408,7 @@ function custIsoMinus(days) {
 }
 
 function renderCustomersPage() {
+  _custAllData = null; _custOutletData = null;
   const body = document.getElementById('pageBody');
   body.innerHTML = `
     <div class="cust-toolbar">
@@ -6411,24 +6418,8 @@ function renderCustomersPage() {
       <input type="date" id="custTo" value="${custIsoToday()}">
       <button class="cust-fetch-btn" id="custFetchBtn" onclick="custFetch()">Load</button>
     </div>
-    <div id="custMetrics" class="cust-metrics">
-      ${[0,1,2,3].map(()=>`<div class="cust-metric" style="background:#f5f7fb;border-color:var(--border)"><div style="height:48px"></div></div>`).join('')}
-    </div>
-    <div class="cust-chart-wrap" id="custBarWrap">
-      <div class="cust-chart-title">Daily New vs Repeat Customers</div>
-      <div class="cust-chart-sub">Stacked by day — blue = new, green = repeat</div>
-      <div class="cust-legend">
-        <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#2563eb"></div>New</div>
-        <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#16a34a"></div>Repeat</div>
-      </div>
-      <canvas id="custBarCanvas" height="200" style="width:100%;display:block"></canvas>
-    </div>
-    <div class="cust-chart-wrap" id="custLineWrap">
-      <div class="cust-chart-title">7-Day Rolling Average — New Customers</div>
-      <div class="cust-chart-sub">Smoothed trend line</div>
-      <canvas id="custLineCanvas" height="140" style="width:100%;display:block"></canvas>
-    </div>`;
-
+    <div id="custTabsRow" class="cust-tabs" style="display:none"></div>
+    <div id="custTabContent"></div>`;
   custFetch();
 }
 
@@ -6437,84 +6428,128 @@ async function custFetch() {
   const to   = document.getElementById('custTo').value;
   const btn  = document.getElementById('custFetchBtn');
   btn.disabled = true; btn.textContent = 'Loading…';
+  document.getElementById('custTabsRow').style.display = 'none';
+  document.getElementById('custTabContent').innerHTML =
+    '<div style="padding:40px;text-align:center;color:var(--ink-3);font-size:13px">Loading…</div>';
+
   try {
-    const res = await fetch(`${API}/api/reelo/new-repeat?start=${from}&end=${to}`);
-    if (res.status === 401) {
-      document.getElementById('custMetrics').innerHTML = '';
-      document.getElementById('custBarWrap').innerHTML = `
+    const [r1, r2] = await Promise.all([
+      fetch(`${API}/api/reelo/new-repeat?start=${from}&end=${to}`),
+      fetch(`${API}/api/reelo/outlets?start=${from}&end=${to}`)
+    ]);
+
+    if (r1.status === 401 || r2.status === 401) {
+      document.getElementById('custTabContent').innerHTML = `
         <div class="cust-expired-box">
           <div class="cust-expired-title">🔒 Token Expired</div>
-          <div class="cust-expired-sub">The Reelo token on the server has expired. Update REELO_TOKEN in Render environment variables and redeploy.</div>
+          <div class="cust-expired-sub">Update REELO_TOKEN in Render environment variables and redeploy.</div>
         </div>`;
-      document.getElementById('custLineWrap').style.display = 'none';
       return;
     }
-    if (res.status === 503) {
-      custRender(REELO_SAMPLE, true); return;
+    if (r1.status === 503) {
+      _custAllData = REELO_SAMPLE;
+      _custOutletData = [];
+      custBuildTabs(true);
+      return;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data.success) throw new Error('API returned success:false');
-    custRender(data.payload, false);
+
+    const d1 = await r1.json();
+    const d2 = r2.ok ? await r2.json() : { outlets: [] };
+    _custAllData    = d1.payload || [];
+    _custOutletData = d2.outlets || [];
+    custBuildTabs(false);
   } catch(e) {
-    document.getElementById('custBarWrap').innerHTML = `<div style="padding:32px;text-align:center;color:var(--red);font-size:13px">Error: ${e.message}<br><span style="color:var(--ink-3);font-size:11px">Showing sample data</span></div>`;
-    custRender(REELO_SAMPLE, true);
+    _custAllData = REELO_SAMPLE; _custOutletData = [];
+    custBuildTabs(true);
   } finally {
     btn.disabled = false; btn.textContent = 'Load';
   }
 }
 
-function custRender(payload, isSample) {
+function custBuildTabs(isSample) {
+  const tabs = [{ key: 'all', label: 'All Outlets' }];
+  (_custOutletData || []).forEach(o => tabs.push({ key: o.outlet, label: o.outlet }));
+
+  const tabsRow = document.getElementById('custTabsRow');
+  tabsRow.style.display = 'flex';
+  tabsRow.innerHTML = tabs.map(t =>
+    `<button class="cust-tab${t.key==='all'?' active':''}" onclick="custSwitchTab('${t.key}',this)">${t.label}</button>`
+  ).join('');
+
+  custSwitchTab('all', tabsRow.querySelector('.cust-tab'), isSample);
+}
+
+function custSwitchTab(key, btn, isSample) {
+  document.querySelectorAll('.cust-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  let payload, sample = isSample || false;
+  if (key === 'all') {
+    payload = _custAllData || REELO_SAMPLE;
+    if (!_custAllData) sample = true;
+  } else {
+    const outlet = (_custOutletData || []).find(o => o.outlet === key);
+    payload = outlet ? outlet.daily : [];
+  }
+
+  custRenderTab(key, payload, sample);
+}
+
+function custRenderTab(key, payload, isSample) {
+  const wrap = document.getElementById('custTabContent');
   if (!payload || !payload.length) {
-    document.getElementById('custMetrics').innerHTML = `<div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--ink-3)">No data for this period.</div>`;
+    wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--ink-3);font-size:13px">No data for this period.</div>`;
     return;
   }
 
-  // ── Metrics ──
   const totalNew    = payload.reduce((s,r)=>s+r.new,0);
   const totalRepeat = payload.reduce((s,r)=>s+r.repeat,0);
   const total       = totalNew + totalRepeat;
   const repeatRate  = total > 0 ? ((totalRepeat/total)*100).toFixed(1) : '0.0';
   const peak        = payload.reduce((best,r)=> (r.new+r.repeat) > (best.new+best.repeat) ? r : best, payload[0]);
 
-  document.getElementById('custMetrics').innerHTML = `
-    <div class="cust-metric blue">
-      <div class="cust-metric-label">Total New</div>
-      <div class="cust-metric-val">${totalNew.toLocaleString()}</div>
-      <div class="cust-metric-sub">First-time customers</div>
+  const sampleNote = isSample ? `<div style="font-size:10px;color:var(--amber);font-weight:700;margin-bottom:10px;">⚠ Showing sample data</div>` : '';
+
+  wrap.innerHTML = `
+    ${sampleNote}
+    <div class="cust-metrics">
+      <div class="cust-metric blue">
+        <div class="cust-metric-label">Total New</div>
+        <div class="cust-metric-val">${totalNew.toLocaleString()}</div>
+        <div class="cust-metric-sub">First-time customers</div>
+      </div>
+      <div class="cust-metric green">
+        <div class="cust-metric-label">Total Repeat</div>
+        <div class="cust-metric-val">${totalRepeat.toLocaleString()}</div>
+        <div class="cust-metric-sub">Returning customers</div>
+      </div>
+      <div class="cust-metric amber">
+        <div class="cust-metric-label">Repeat Rate</div>
+        <div class="cust-metric-val">${repeatRate}%</div>
+        <div class="cust-metric-sub">repeat / (new + repeat)</div>
+      </div>
+      <div class="cust-metric navy">
+        <div class="cust-metric-label">Peak Day</div>
+        <div class="cust-metric-val" style="font-size:18px">${peak.date}</div>
+        <div class="cust-metric-sub">${(peak.new+peak.repeat).toLocaleString()} customers</div>
+      </div>
     </div>
-    <div class="cust-metric green">
-      <div class="cust-metric-label">Total Repeat</div>
-      <div class="cust-metric-val">${totalRepeat.toLocaleString()}</div>
-      <div class="cust-metric-sub">Returning customers</div>
+    <div class="cust-chart-wrap">
+      <div class="cust-chart-title">Daily New vs Repeat Customers</div>
+      <div class="cust-chart-sub">Stacked by day</div>
+      <div class="cust-legend">
+        <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#2563eb"></div>New</div>
+        <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#16a34a"></div>Repeat</div>
+      </div>
+      <canvas id="custBarCanvas" style="width:100%;display:block"></canvas>
     </div>
-    <div class="cust-metric amber">
-      <div class="cust-metric-label">Repeat Rate</div>
-      <div class="cust-metric-val">${repeatRate}%</div>
-      <div class="cust-metric-sub">repeat / (new + repeat)</div>
-    </div>
-    <div class="cust-metric navy">
-      <div class="cust-metric-label">Peak Day</div>
-      <div class="cust-metric-val" style="font-size:18px">${peak.date}</div>
-      <div class="cust-metric-sub">${(peak.new+peak.repeat).toLocaleString()} customers</div>
+    <div class="cust-chart-wrap">
+      <div class="cust-chart-title">7-Day Rolling Average — New Customers</div>
+      <div class="cust-chart-sub">Smoothed trend line</div>
+      <canvas id="custLineCanvas" style="width:100%;display:block"></canvas>
     </div>`;
 
-  if (isSample) {
-    ['custBarWrap','custLineWrap'].forEach(id=>{
-      const el = document.getElementById(id);
-      if (el && !el.querySelector('.cust-sample-note')) {
-        const note = document.createElement('div');
-        note.className = 'cust-sample-note';
-        note.style.cssText = 'font-size:10px;color:var(--amber);font-weight:700;margin-bottom:6px;';
-        note.textContent = '⚠ Showing sample data — paste a token above to load live data';
-        el.insertBefore(note, el.firstChild);
-      }
-    });
-  }
-
-  document.getElementById('custLineWrap').style.display = '';
-  custDrawBar(payload);
-  custDrawLine(payload);
+  requestAnimationFrame(() => { custDrawBar(payload); custDrawLine(payload); });
 }
 
 function custSetupCanvas(canvas, logicalH) {
