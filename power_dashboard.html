@@ -928,6 +928,10 @@ td.c { text-align: center; }
 .cust-toolbar label { font-size:11px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em; }
 .cust-toolbar input[type=date] { border:1px solid var(--border-2); border-radius:6px; padding:5px 10px; font-size:12px; color:var(--ink); background:var(--surface); font-family:var(--sans); cursor:pointer; outline:none; }
 .cust-toolbar input[type=date]:focus { border-color:var(--blue); }
+.cust-quick-btns { display:flex; gap:4px; }
+.cust-quick-btn { border:1.5px solid var(--border-2); background:var(--surface); border-radius:6px; padding:5px 12px; font-size:11px; font-weight:600; color:var(--ink-3); cursor:pointer; font-family:var(--sans); transition:all .14s; }
+.cust-quick-btn:hover { border-color:var(--blue); color:var(--blue); }
+.cust-quick-btn.active { background:var(--blue-dim); border-color:var(--blue); color:var(--blue); }
 .cust-fetch-btn { background:var(--blue); color:#fff; border:none; border-radius:6px; padding:6px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:var(--sans); margin-left:auto; }
 .cust-fetch-btn:hover { background:#1d4ed8; }
 .cust-fetch-btn:disabled { opacity:.5; cursor:default; }
@@ -6399,6 +6403,14 @@ const REELO_SAMPLE = [
   {"date":"May 17","new":54,"repeat":20}
 ];
 
+function custQuick(days, btn) {
+  document.querySelectorAll('.cust-quick-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('custFrom').value = custIsoMinus(days);
+  document.getElementById('custTo').value   = custIsoToday();
+  custFetch();
+}
+
 function custIsoToday() {
   return new Date().toISOString().slice(0,10);
 }
@@ -6412,7 +6424,12 @@ function renderCustomersPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = `
     <div class="cust-toolbar">
-      <label>From</label>
+      <div class="cust-quick-btns">
+        <button class="cust-quick-btn" onclick="custQuick(7,this)">7 days</button>
+        <button class="cust-quick-btn" onclick="custQuick(28,this)">28 days</button>
+        <button class="cust-quick-btn active" onclick="custQuick(30,this)">30 days</button>
+      </div>
+      <label style="margin-left:8px">From</label>
       <input type="date" id="custFrom" value="${custIsoMinus(30)}">
       <label>To</label>
       <input type="date" id="custTo" value="${custIsoToday()}">
