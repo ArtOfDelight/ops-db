@@ -922,6 +922,34 @@ td.c { text-align: center; }
 #cmpToast.show { opacity:1; }
 #cmpToast.ok   { background:var(--green); }
 #cmpToast.err  { background:var(--red); }
+
+/* ── CUSTOMERS PAGE ── */
+.cust-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+.cust-toolbar label { font-size:11px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.08em; }
+.cust-toolbar input[type=date] { border:1px solid var(--border-2); border-radius:6px; padding:5px 10px; font-size:12px; color:var(--ink); background:var(--surface); font-family:var(--sans); cursor:pointer; outline:none; }
+.cust-toolbar input[type=date]:focus { border-color:var(--blue); }
+.cust-fetch-btn { background:var(--blue); color:#fff; border:none; border-radius:6px; padding:6px 16px; font-size:12px; font-weight:700; cursor:pointer; font-family:var(--sans); margin-left:auto; }
+.cust-fetch-btn:hover { background:#1d4ed8; }
+.cust-fetch-btn:disabled { opacity:.5; cursor:default; }
+.cust-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+@media(max-width:800px){ .cust-metrics { grid-template-columns:repeat(2,1fr); } }
+.cust-metric { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 18px; }
+.cust-metric-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-3); margin-bottom:6px; }
+.cust-metric-val   { font-size:26px; font-weight:800; color:var(--ink); font-family:var(--mono); line-height:1.1; }
+.cust-metric-sub   { font-size:11px; color:var(--ink-3); margin-top:3px; }
+.cust-metric.blue  { border-top:3px solid var(--blue); }
+.cust-metric.green { border-top:3px solid var(--green); }
+.cust-metric.amber { border-top:3px solid var(--amber); }
+.cust-metric.navy  { border-top:3px solid #2563eb; }
+.cust-chart-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; margin-bottom:16px; }
+.cust-chart-title { font-size:12px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+.cust-chart-sub   { font-size:11px; color:var(--ink-3); margin-bottom:14px; }
+.cust-legend { display:flex; gap:16px; margin-bottom:10px; }
+.cust-legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-2); font-weight:500; }
+.cust-legend-dot  { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+.cust-expired-box { background:#fff5f5; border:1px solid #fca5a5; border-radius:var(--r-lg); padding:24px; text-align:center; }
+.cust-expired-title { font-size:14px; font-weight:800; color:var(--red); margin-bottom:6px; }
+.cust-expired-sub { font-size:12px; color:var(--ink-3); }
 </style>
 </head>
 <body>
@@ -991,6 +1019,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-cashcoll" onclick="navTo('cashcoll')">
       <span class="sb-icon">💵</span> Cash Collection
     </button>
+    <button class="sb-item" id="sbitem-customers" onclick="navTo('customers')">
+      <span class="sb-icon">👤</span> Customers
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1026,11 +1057,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist','cashcoll'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist','cashcoll','customers'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1049,6 +1080,7 @@ function navTo(page) {
   if (page === 'mango')      renderMangoPage();
   if (page === 'checklist')  renderChecklistStatusPage();
   if (page === 'cashcoll')   renderCashCollectionPage();
+  if (page === 'customers')  renderCustomersPage();
 }
 
 
@@ -6346,6 +6378,271 @@ async function ccLoad() {
   } catch(e) {
     content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red)">Error: ${e.message}</div>`;
   }
+}
+
+/* ── CUSTOMERS PAGE ── */
+
+const REELO_SAMPLE = [
+  {"date":"Apr 19","new":62,"repeat":27},{"date":"Apr 20","new":25,"repeat":18},
+  {"date":"Apr 21","new":28,"repeat":18},{"date":"Apr 22","new":42,"repeat":9},
+  {"date":"Apr 23","new":35,"repeat":22},{"date":"Apr 24","new":54,"repeat":24},
+  {"date":"Apr 25","new":79,"repeat":18},{"date":"Apr 26","new":95,"repeat":25},
+  {"date":"Apr 27","new":21,"repeat":11},{"date":"Apr 28","new":20,"repeat":14},
+  {"date":"Apr 29","new":23,"repeat":16},{"date":"Apr 30","new":40,"repeat":5},
+  {"date":"May 01","new":62,"repeat":24},{"date":"May 16","new":79,"repeat":25},
+  {"date":"May 17","new":54,"repeat":20}
+];
+
+function custIsoToday() {
+  return new Date().toISOString().slice(0,10);
+}
+function custIsoMinus(days) {
+  const d = new Date(); d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0,10);
+}
+
+function renderCustomersPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div class="cust-toolbar">
+      <label>From</label>
+      <input type="date" id="custFrom" value="${custIsoMinus(30)}">
+      <label>To</label>
+      <input type="date" id="custTo" value="${custIsoToday()}">
+      <button class="cust-fetch-btn" id="custFetchBtn" onclick="custFetch()">Load</button>
+    </div>
+    <div id="custMetrics" class="cust-metrics">
+      ${[0,1,2,3].map(()=>`<div class="cust-metric" style="background:#f5f7fb;border-color:var(--border)"><div style="height:48px"></div></div>`).join('')}
+    </div>
+    <div class="cust-chart-wrap" id="custBarWrap">
+      <div class="cust-chart-title">Daily New vs Repeat Customers</div>
+      <div class="cust-chart-sub">Stacked by day — blue = new, green = repeat</div>
+      <div class="cust-legend">
+        <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#2563eb"></div>New</div>
+        <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#16a34a"></div>Repeat</div>
+      </div>
+      <canvas id="custBarCanvas" height="200" style="width:100%;display:block"></canvas>
+    </div>
+    <div class="cust-chart-wrap" id="custLineWrap">
+      <div class="cust-chart-title">7-Day Rolling Average — New Customers</div>
+      <div class="cust-chart-sub">Smoothed trend line</div>
+      <canvas id="custLineCanvas" height="140" style="width:100%;display:block"></canvas>
+    </div>`;
+
+  custFetch();
+}
+
+async function custFetch() {
+  const from = document.getElementById('custFrom').value;
+  const to   = document.getElementById('custTo').value;
+  const btn  = document.getElementById('custFetchBtn');
+  btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const res = await fetch(`${API}/api/reelo/new-repeat?start=${from}&end=${to}`);
+    if (res.status === 401) {
+      document.getElementById('custMetrics').innerHTML = '';
+      document.getElementById('custBarWrap').innerHTML = `
+        <div class="cust-expired-box">
+          <div class="cust-expired-title">🔒 Token Expired</div>
+          <div class="cust-expired-sub">The Reelo token on the server has expired. Update REELO_TOKEN in Render environment variables and redeploy.</div>
+        </div>`;
+      document.getElementById('custLineWrap').style.display = 'none';
+      return;
+    }
+    if (res.status === 503) {
+      custRender(REELO_SAMPLE, true); return;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.success) throw new Error('API returned success:false');
+    custRender(data.payload, false);
+  } catch(e) {
+    document.getElementById('custBarWrap').innerHTML = `<div style="padding:32px;text-align:center;color:var(--red);font-size:13px">Error: ${e.message}<br><span style="color:var(--ink-3);font-size:11px">Showing sample data</span></div>`;
+    custRender(REELO_SAMPLE, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Load';
+  }
+}
+
+function custRender(payload, isSample) {
+  if (!payload || !payload.length) {
+    document.getElementById('custMetrics').innerHTML = `<div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--ink-3)">No data for this period.</div>`;
+    return;
+  }
+
+  // ── Metrics ──
+  const totalNew    = payload.reduce((s,r)=>s+r.new,0);
+  const totalRepeat = payload.reduce((s,r)=>s+r.repeat,0);
+  const total       = totalNew + totalRepeat;
+  const repeatRate  = total > 0 ? ((totalRepeat/total)*100).toFixed(1) : '0.0';
+  const peak        = payload.reduce((best,r)=> (r.new+r.repeat) > (best.new+best.repeat) ? r : best, payload[0]);
+
+  document.getElementById('custMetrics').innerHTML = `
+    <div class="cust-metric blue">
+      <div class="cust-metric-label">Total New</div>
+      <div class="cust-metric-val">${totalNew.toLocaleString()}</div>
+      <div class="cust-metric-sub">First-time customers</div>
+    </div>
+    <div class="cust-metric green">
+      <div class="cust-metric-label">Total Repeat</div>
+      <div class="cust-metric-val">${totalRepeat.toLocaleString()}</div>
+      <div class="cust-metric-sub">Returning customers</div>
+    </div>
+    <div class="cust-metric amber">
+      <div class="cust-metric-label">Repeat Rate</div>
+      <div class="cust-metric-val">${repeatRate}%</div>
+      <div class="cust-metric-sub">repeat / (new + repeat)</div>
+    </div>
+    <div class="cust-metric navy">
+      <div class="cust-metric-label">Peak Day</div>
+      <div class="cust-metric-val" style="font-size:18px">${peak.date}</div>
+      <div class="cust-metric-sub">${(peak.new+peak.repeat).toLocaleString()} customers</div>
+    </div>`;
+
+  if (isSample) {
+    ['custBarWrap','custLineWrap'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el && !el.querySelector('.cust-sample-note')) {
+        const note = document.createElement('div');
+        note.className = 'cust-sample-note';
+        note.style.cssText = 'font-size:10px;color:var(--amber);font-weight:700;margin-bottom:6px;';
+        note.textContent = '⚠ Showing sample data — paste a token above to load live data';
+        el.insertBefore(note, el.firstChild);
+      }
+    });
+  }
+
+  document.getElementById('custLineWrap').style.display = '';
+  custDrawBar(payload);
+  custDrawLine(payload);
+}
+
+function custDrawBar(payload) {
+  const canvas = document.getElementById('custBarCanvas');
+  if (!canvas) return;
+  canvas.width = canvas.offsetWidth || canvas.parentElement.offsetWidth || 800;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const PAD_L=40, PAD_R=16, PAD_T=12, PAD_B=36;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+  const n = payload.length;
+  const maxVal = Math.max(...payload.map(r=>r.new+r.repeat), 1);
+  const barW   = Math.max(4, Math.floor(chartW/n*0.72));
+  const gap    = chartW/n;
+
+  // Y-axis gridlines
+  ctx.strokeStyle = '#e3e8f2'; ctx.lineWidth = 1;
+  ctx.fillStyle   = '#7a92ab'; ctx.font = '10px DM Mono, monospace'; ctx.textAlign='right';
+  const steps = 4;
+  for (let i=0; i<=steps; i++) {
+    const v = Math.round(maxVal * i/steps);
+    const y = PAD_T + chartH - (v/maxVal)*chartH;
+    ctx.beginPath(); ctx.moveTo(PAD_L,y); ctx.lineTo(W-PAD_R,y); ctx.stroke();
+    ctx.fillText(v, PAD_L-6, y+3);
+  }
+
+  // Bars
+  payload.forEach((r,i) => {
+    const x       = PAD_L + i*gap + (gap-barW)/2;
+    const hRepeat = (r.repeat/maxVal)*chartH;
+    const hNew    = (r.new/maxVal)*chartH;
+
+    // Repeat (bottom, green)
+    ctx.fillStyle = '#16a34a';
+    ctx.beginPath();
+    ctx.roundRect(x, PAD_T+chartH-hRepeat, barW, hRepeat, [2,2,0,0]);
+    ctx.fill();
+
+    // New (top, blue)
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.roundRect(x, PAD_T+chartH-hRepeat-hNew, barW, hNew, [2,2,0,0]);
+    ctx.fill();
+
+    // X-axis label — every Nth to avoid crowding
+    const every = Math.ceil(n/14);
+    if (i % every === 0) {
+      ctx.fillStyle = '#7a92ab'; ctx.font = '9px DM Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(r.date, x + barW/2, H - PAD_B + 14);
+    }
+  });
+}
+
+function custDrawLine(payload) {
+  const canvas = document.getElementById('custLineCanvas');
+  if (!canvas) return;
+  canvas.width = canvas.offsetWidth || canvas.parentElement.offsetWidth || 800;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const PAD_L=40, PAD_R=16, PAD_T=12, PAD_B=28;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+  const n = payload.length;
+
+  // Compute 7-day rolling average
+  const avgs = payload.map((_,i) => {
+    const window = payload.slice(Math.max(0,i-6), i+1);
+    return window.reduce((s,r)=>s+r.new,0) / window.length;
+  });
+
+  const maxAvg = Math.max(...avgs, 1);
+
+  // Gridlines
+  ctx.strokeStyle = '#e3e8f2'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#7a92ab'; ctx.font = '10px DM Mono, monospace'; ctx.textAlign='right';
+  for (let i=0; i<=3; i++) {
+    const v = Math.round(maxAvg * i/3);
+    const y = PAD_T + chartH - (v/maxAvg)*chartH;
+    ctx.beginPath(); ctx.moveTo(PAD_L,y); ctx.lineTo(W-PAD_R,y); ctx.stroke();
+    ctx.fillText(v, PAD_L-6, y+3);
+  }
+
+  // Gradient fill under line
+  const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T+chartH);
+  grad.addColorStop(0, 'rgba(37,99,235,.18)');
+  grad.addColorStop(1, 'rgba(37,99,235,0)');
+  ctx.beginPath();
+  avgs.forEach((v,i) => {
+    const x = PAD_L + (i/(n-1||1))*chartW;
+    const y = PAD_T + chartH - (v/maxAvg)*chartH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo(PAD_L + chartW, PAD_T+chartH);
+  ctx.lineTo(PAD_L, PAD_T+chartH);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  avgs.forEach((v,i) => {
+    const x = PAD_L + (i/(n-1||1))*chartW;
+    const y = PAD_T + chartH - (v/maxAvg)*chartH;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Dots + x-labels
+  const every = Math.ceil(n/14);
+  avgs.forEach((v,i) => {
+    const x = PAD_L + (i/(n-1||1))*chartW;
+    const y = PAD_T + chartH - (v/maxAvg)*chartH;
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+    ctx.strokeStyle='#2563eb'; ctx.lineWidth=2; ctx.stroke();
+
+    if (i % every === 0) {
+      ctx.fillStyle='#7a92ab'; ctx.font='9px DM Mono, monospace'; ctx.textAlign='center';
+      ctx.fillText(payload[i].date, x, H - PAD_B + 14);
+    }
+  });
 }
 
 </script>
