@@ -6517,12 +6517,22 @@ function custRender(payload, isSample) {
   custDrawLine(payload);
 }
 
+function custSetupCanvas(canvas, logicalH) {
+  const dpr = window.devicePixelRatio || 1;
+  const logicalW = canvas.offsetWidth || canvas.parentElement.offsetWidth || 800;
+  canvas.width  = logicalW * dpr;
+  canvas.height = logicalH * dpr;
+  canvas.style.width  = logicalW + 'px';
+  canvas.style.height = logicalH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, W: logicalW, H: logicalH };
+}
+
 function custDrawBar(payload) {
   const canvas = document.getElementById('custBarCanvas');
   if (!canvas) return;
-  canvas.width = canvas.offsetWidth || canvas.parentElement.offsetWidth || 800;
-  const W = canvas.width, H = canvas.height;
-  const ctx = canvas.getContext('2d');
+  const { ctx, W, H } = custSetupCanvas(canvas, 200);
   ctx.clearRect(0,0,W,H);
 
   const PAD_L=40, PAD_R=16, PAD_T=12, PAD_B=36;
@@ -6575,9 +6585,7 @@ function custDrawBar(payload) {
 function custDrawLine(payload) {
   const canvas = document.getElementById('custLineCanvas');
   if (!canvas) return;
-  canvas.width = canvas.offsetWidth || canvas.parentElement.offsetWidth || 800;
-  const W = canvas.width, H = canvas.height;
-  const ctx = canvas.getContext('2d');
+  const { ctx, W, H } = custSetupCanvas(canvas, 140);
   ctx.clearRect(0,0,W,H);
 
   const PAD_L=40, PAD_R=16, PAD_T=12, PAD_B=28;
