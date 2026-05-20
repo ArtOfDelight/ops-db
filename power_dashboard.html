@@ -5294,11 +5294,12 @@ async function mgLoad7Days() {
   if (btn) btn.disabled = true;
   mgSetStatus('<span style="display:inline-block;width:12px;height:12px;border:2px solid #f5a623;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:4px"></span> Loading last 7 days…', 'running');
   try {
-    const today = new Date();
+    // Use IST date to avoid timezone shift issues
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     const dates = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(today); d.setDate(today.getDate() - i);
-      dates.push(d.toISOString().slice(0, 10));
+      const d = new Date(nowIST); d.setDate(nowIST.getDate() - i);
+      dates.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
     }
     const results = await Promise.all(dates.map(d => fetch(`${API}/api/mango/data?date=${d}`).then(r => r.ok ? r.json() : {})));
     // Aggregate: sum numeric cols per outlet across all 7 days
