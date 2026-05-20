@@ -1179,11 +1179,18 @@ function renderPowerPage() {
               <div class="section-sub">Operating-hours offline · Δ = platform time minus power cut baseline</div>
             </div>
           </div>
-          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px;flex-wrap:wrap;align-items:center">
             <button class="ptab active" id="pdtab-live"      onclick="setPdWindow('live')"      style="padding:4px 12px;font-size:10px">Live</button>
             <button class="ptab"        id="pdtab-yesterday" onclick="setPdWindow('yesterday')" style="padding:4px 12px;font-size:10px">Yesterday</button>
             <button class="ptab"        id="pdtab-7"         onclick="setPdWindow(7)"           style="padding:4px 12px;font-size:10px">7 Days</button>
             <button class="ptab"        id="pdtab-28"        onclick="setPdWindow(28)"          style="padding:4px 12px;font-size:10px">28 Days</button>
+            <button class="ptab"        id="pdtab-custom"    onclick="setPdWindow('custom')"    style="padding:4px 12px;font-size:10px">Custom</button>
+            <span id="pdCustomPicker" style="display:none;align-items:center;gap:4px;margin-left:4px">
+              <input type="date" id="pdCustomStart" style="font-size:10px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--ink)">
+              <span style="font-size:10px;color:var(--ink-3)">→</span>
+              <input type="date" id="pdCustomEnd"   style="font-size:10px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--ink)">
+              <button onclick="applyCustomWindow()" style="font-size:10px;padding:3px 10px;background:var(--blue);color:#fff;border:none;border-radius:6px;cursor:pointer">Go</button>
+            </span>
           </div>
         </div>
         <div id="platform-content" class="loader-box"><div class="loader"></div> Loading…</div>
@@ -1390,17 +1397,33 @@ let _pdSummary = null, _pdPlatform = null;
 
 function setPdWindow(w) {
   _pdWindow = w;
-  ['live', 'yesterday', 7, 28].forEach(d => {
+  ['live', 'yesterday', 7, 28, 'custom'].forEach(d => {
     const btn = document.getElementById('pdtab-' + d);
     if (btn) btn.classList.toggle('active', d === w);
   });
-  if (_pdSummary && _pdPlatform) renderPlatform(_pdSummary, _pdPlatform);
+  const picker = document.getElementById('pdCustomPicker');
+  if (picker) picker.style.display = w === 'custom' ? 'flex' : 'none';
+  if (w !== 'custom' && _pdSummary && _pdPlatform) renderPlatform(_pdSummary, _pdPlatform);
+}
+
+function applyCustomWindow() {
+  const s = document.getElementById('pdCustomStart').value;
+  const e = document.getElementById('pdCustomEnd').value;
+  if (!s || !e) return;
+  const el = document.getElementById('platform-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  const qs = `?start=${s}&end=${e}`;
+  let _s = null, _p = null;
+  function _try() { if (_s && _p) renderPlatform(_s, _p); }
+  fetch(API + '/api/power/summary' + qs).then(r => r.json()).then(d => { _pdSummary = d; _s = d; _try(); }).catch(() => {});
+  fetch(API + '/api/power/platform_downtime' + qs).then(r => r.json()).then(d => { _pdPlatform = d; _platformData = d.outlets || {}; _p = d; _try(); }).catch(() => {});
 }
 
 function minsForWindow(obj, w) {
   if (w === 'live')      return obj.today_mins        || obj.last_1_day_mins || 0;
   if (w === 'yesterday') return obj.yesterday_mins    || 0;
   if (w === 7)           return obj.last_7_days_mins  || 0;
+  if (w === 'custom')    return obj.custom_mins       ?? 0;
   return obj.last_28_days_mins || 0;
 }
 
