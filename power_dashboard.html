@@ -2414,6 +2414,9 @@ function prSwitchSubTab(tab, skipState) {
             <option value="">All</option>
           </select>
         </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="text" id="pr-search" placeholder="Search product…" style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink);width:160px" oninput="prDrawTable()"/>
+        </div>
         <span class="as-of-label" id="pr-status"></span>
       </div>
       <!-- Online / Dine In / Combined view tabs -->
@@ -2555,6 +2558,7 @@ function prDrawTable(el) {
   if (!el) el = document.getElementById('pr-content');
   const minOrders = parseInt(document.getElementById('pr-min-orders')?.value || '0', 10) || 0;
   const catFilter = document.getElementById('pr-category')?.value || '';
+  const searchQ = (document.getElementById('pr-search')?.value || '').trim().toLowerCase();
   const { key, dir } = _prSort;
   const view = _prViewTab; // 'online' | 'dinein' | 'combined'
 
@@ -2564,6 +2568,7 @@ function prDrawTable(el) {
   const sorted = [..._prData]
     .filter(p => (p[orderKey] || 0) >= minOrders)
     .filter(p => !catFilter || (p.category || '') === catFilter)
+    .filter(p => !searchQ || (p.product || '').toLowerCase().includes(searchQ))
     // hide products with 0 orders in current view
     .filter(p => (p[orderKey] || 0) > 0 || view === 'combined')
     .sort((a, b) => {
