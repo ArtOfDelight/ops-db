@@ -5608,6 +5608,20 @@ async function _fetchActionsStore() {
   return _actionsCache;
 }
 
+async function clearAllActions() {
+  if (!confirm('Clear all actions? Fresh ones will be generated on the next brief.')) return;
+  try {
+    await fetch(`${API}/api/brief-actions`, { method: 'DELETE' });
+    _actionsCache = null;
+    const sec = document.getElementById('briefActionSection');
+    if (sec) {
+      _renderActionTabs().then(tabsHtml => {
+        sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + tabsHtml;
+      });
+    }
+  } catch(e) { alert('Failed to clear: ' + e.message); }
+}
+
 async function _mergeActionsIntoStore(newActions) {
   if (!newActions || !newActions.length) return;
   try {
@@ -5669,13 +5683,14 @@ function _buildActionTabsHtml(store) {
       }).join('');
 
   return `
-    <div class="action-tabs">
+    <div class="action-tabs" style="display:flex;align-items:center">
       <div class="action-tab active" id="atab-pending" onclick="switchActionTab('pending')">
         Pending <span style="background:${pending.length?'var(--red)':'var(--green)'};color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${pending.length}</span>
       </div>
       <div class="action-tab" id="atab-completed" onclick="switchActionTab('completed')">
         Completed Log <span style="background:var(--border-2);color:var(--ink-3);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">${completed.length}</span>
       </div>
+      <button onclick="clearAllActions()" style="margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-3);background:transparent;border:1px solid var(--border-2);border-radius:5px;padding:3px 10px;cursor:pointer" title="Delete all actions so fresh ones are generated on next brief">🗑 Clear All</button>
       <div class="action-tab" id="atab-roster" onclick="switchActionTab('roster')">
         Missing Roster <span id="atab-roster-badge" style="background:var(--border-2);color:var(--ink-3);border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px">…</span>
       </div>
