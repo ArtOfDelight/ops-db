@@ -5611,7 +5611,7 @@ async function _fetchActionsStore() {
 async function clearAllActions() {
   if (!confirm('Clear all actions? Fresh ones will be generated on the next brief.')) return;
   try {
-    await fetch(`${API}/api/brief-actions`, { method: 'DELETE' });
+    await fetch(`${API}/api/brief-actions/clear`, { method: 'POST' });
     _actionsCache = null;
     const sec = document.getElementById('briefActionSection');
     if (sec) {
