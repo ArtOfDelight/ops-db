@@ -132,6 +132,42 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .spin { display: inline-block; animation: spin .65s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── PRODUCT RANKINGS TOOLBAR ── */
+.pr-toolbar {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px 16px;
+  margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.pr-toolbar-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pr-ctrl-group { display: flex; align-items: center; gap: 6px; }
+.pr-ctrl-label {
+  font-size: 9px; color: var(--ink-3); font-family: var(--mono);
+  text-transform: uppercase; letter-spacing: .08em; white-space: nowrap;
+}
+.pr-ctrl-input {
+  padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-family: var(--mono); background: var(--bg);
+  color: var(--ink); outline: none; transition: border-color .15s;
+}
+.pr-ctrl-input:focus { border-color: var(--blue); background: var(--surface); }
+.pr-search-wrap {
+  position: relative; display: flex; align-items: center; margin-left: auto;
+}
+.pr-search-icon {
+  position: absolute; left: 8px; font-size: 11px; color: var(--ink-3);
+  pointer-events: none; line-height: 1;
+}
+.pr-search-input {
+  padding: 5px 9px 5px 26px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-family: var(--mono); background: var(--bg);
+  color: var(--ink); width: 200px; outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.pr-search-input:focus {
+  border-color: var(--blue); background: var(--surface);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+.pr-search-input::placeholder { color: var(--ink-3); }
+
 /* ── STAT CARDS ── */
 .stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
 .stat-card {
@@ -2390,40 +2426,46 @@ function prSwitchSubTab(tab, skipState) {
   if (!wrap) return;
   if (tab === 'products') {
     wrap.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
-          <button class="ptab active" id="prtab-7"  onclick="prSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
-          <button class="ptab"        id="prtab-28" onclick="prSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+      <div class="pr-toolbar">
+        <!-- Row 1: date range + load + status -->
+        <div class="pr-toolbar-row">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="prtab-7"  onclick="prSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+            <button class="ptab"        id="prtab-28" onclick="prSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+          </div>
+          <div class="pr-ctrl-group">
+            <span class="pr-ctrl-label">From</span>
+            <input type="date" id="pr-start" class="pr-ctrl-input"/>
+          </div>
+          <div class="pr-ctrl-group">
+            <span class="pr-ctrl-label">To</span>
+            <input type="date" id="pr-end" class="pr-ctrl-input"/>
+          </div>
+          <button class="ptab active" onclick="prLoad()" style="padding:5px 16px;font-size:10px">Load</button>
+          <span class="as-of-label" id="pr-status" style="margin-left:4px"></span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">From</label>
-          <input type="date" id="pr-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        <!-- Row 2: filters + search -->
+        <div class="pr-toolbar-row">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab ${_prViewTab==='online'  ?'active':''}" id="prvtab-online"   onclick="prSetViewTab('online')"   style="padding:4px 14px;font-size:10px">🌐 Online</button>
+            <button class="ptab ${_prViewTab==='dinein'  ?'active':''}" id="prvtab-dinein"   onclick="prSetViewTab('dinein')"   style="padding:4px 14px;font-size:10px">🪑 Dine In</button>
+            <button class="ptab ${_prViewTab==='combined'?'active':''}" id="prvtab-combined" onclick="prSetViewTab('combined')" style="padding:4px 14px;font-size:10px">📊 Combined</button>
+          </div>
+          <div class="pr-ctrl-group">
+            <span class="pr-ctrl-label">Min Orders</span>
+            <input type="number" id="pr-min-orders" min="0" value="0" class="pr-ctrl-input" style="width:72px" oninput="prDrawTable()"/>
+          </div>
+          <div class="pr-ctrl-group">
+            <span class="pr-ctrl-label">Category</span>
+            <select id="pr-category" class="pr-ctrl-input" onchange="prDrawTable()">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div class="pr-search-wrap">
+            <span class="pr-search-icon">🔍</span>
+            <input type="text" id="pr-search" class="pr-search-input" placeholder="Search product…" oninput="prDrawTable()"/>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">To</label>
-          <input type="date" id="pr-end" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
-        </div>
-        <button class="ptab active" onclick="prLoad()" style="padding:4px 14px;font-size:10px">Load</button>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Min Orders</label>
-          <input type="number" id="pr-min-orders" min="0" value="0" style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" oninput="prDrawTable()"/>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Category</label>
-          <select id="pr-category" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="prDrawTable()">
-            <option value="">All</option>
-          </select>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input type="text" id="pr-search" placeholder="Search product…" style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink);width:160px" oninput="prDrawTable()"/>
-        </div>
-        <span class="as-of-label" id="pr-status"></span>
-      </div>
-      <!-- Online / Dine In / Combined view tabs -->
-      <div class="panel-tabs" style="margin:0 0 16px 0;padding:3px;gap:1px;width:fit-content">
-        <button class="ptab ${_prViewTab==='online'  ?'active':''}" id="prvtab-online"   onclick="prSetViewTab('online')"   style="padding:4px 14px;font-size:10px">🌐 Online</button>
-        <button class="ptab ${_prViewTab==='dinein'  ?'active':''}" id="prvtab-dinein"   onclick="prSetViewTab('dinein')"   style="padding:4px 14px;font-size:10px">🪑 Dine In</button>
-        <button class="ptab ${_prViewTab==='combined'?'active':''}" id="prvtab-combined" onclick="prSetViewTab('combined')" style="padding:4px 14px;font-size:10px">📊 Combined</button>
       </div>
       <div id="pr-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     prSetPreset(7);
@@ -4358,11 +4400,46 @@ function scrollChat() {
    ════════════════════════════════════════════ */
 
 let _briefResult = null;
+let _briefViewDate = null; // null = today
 
 const BRIEF_SECTIONS = [
   'Power Status','Late Sign-ins','KPT / MFR',
-  'Outlet Ratings','Product Rankings','Daily Recon','Mango Tracker',
+  'Outlet Ratings','Product Rankings','Daily Recon','Mango Tracker','Checklist',
 ];
+
+/* ── Brief persistence ── */
+const BRIEF_STORE_KEY = 'zaan_briefs_v1';
+const BRIEF_MAX_DAYS  = 14;
+
+function _briefTodayKey() {
+  const d = new Date(); d.setDate(d.getDate() - 1); // keyed by ops-date (yesterday)
+  return d.toISOString().split('T')[0];
+}
+
+function _briefSave(data) {
+  try {
+    const store = JSON.parse(localStorage.getItem(BRIEF_STORE_KEY) || '{}');
+    const key = _briefTodayKey();
+    store[key] = { data, savedAt: new Date().toISOString() };
+    // Prune old entries
+    const keys = Object.keys(store).sort().reverse();
+    keys.slice(BRIEF_MAX_DAYS).forEach(k => delete store[k]);
+    localStorage.setItem(BRIEF_STORE_KEY, JSON.stringify(store));
+  } catch(e) {}
+}
+
+function _briefLoad(dateKey) {
+  try {
+    const store = JSON.parse(localStorage.getItem(BRIEF_STORE_KEY) || '{}');
+    return store[dateKey]?.data || null;
+  } catch(e) { return null; }
+}
+
+function _briefDates() {
+  try {
+    return Object.keys(JSON.parse(localStorage.getItem(BRIEF_STORE_KEY) || '{}')).sort().reverse();
+  } catch(e) { return []; }
+}
 
 function _renderBriefSidebar(logs) {
   // logs may be empty (pre-generation) or partial
@@ -4399,17 +4476,42 @@ function _renderBriefSidebar(logs) {
 
 function renderDailyBriefPage() {
   const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const todayKey = _briefTodayKey();
+
+  // Auto-load saved brief for today if none in memory
+  if (!_briefResult) {
+    const saved = _briefLoad(todayKey);
+    if (saved) _briefResult = saved;
+  }
+
+  // If viewing a past date, load that
+  const viewKey = _briefViewDate || todayKey;
+  const viewData = _briefViewDate ? _briefLoad(_briefViewDate) : _briefResult;
+
+  // Build date history pills
+  const savedDates = _briefDates();
+  const datePickerHtml = savedDates.length > 1 ? `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <span style="font-size:9px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em">History:</span>
+      ${savedDates.map(d => {
+        const isActive = d === viewKey;
+        const label = d === todayKey ? 'Today' : d;
+        return `<button onclick="briefViewDate('${d}')" style="padding:3px 9px;border-radius:12px;border:1px solid ${isActive?'var(--blue)':'var(--border)'};background:${isActive?'var(--blue)':'var(--surface)'};color:${isActive?'#fff':'var(--ink-3)'};font-size:10px;font-family:var(--mono);cursor:pointer">${label}</button>`;
+      }).join('')}
+    </div>` : '';
+
   document.getElementById('pageBody').innerHTML = `
     <div class="brief-shell">
-      <div id="briefSidebar">${_renderBriefSidebar(_briefResult?.logs || [])}</div>
+      <div id="briefSidebar">${_renderBriefSidebar((viewData||_briefResult)?.logs || [])}</div>
       <div class="brief-main">
         <div class="brief-topbar">
           <div>
             <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:3px">Daily Ops Brief</div>
             <div style="font-size:12px;color:var(--ink-3)">${today}</div>
+            ${datePickerHtml}
           </div>
-          <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
-            <span id="briefGenIcon">📋</span> Generate
+          <button class="brief-generate-btn" id="briefGenBtn" onclick="${_briefViewDate?'briefViewDate(\''+_briefTodayKey()+'\')':'generateBrief()'}">
+            <span id="briefGenIcon">📋</span> ${_briefViewDate ? '← Back to Today' : 'Generate'}
           </button>
         </div>
         <div id="briefBody"></div>
@@ -4431,7 +4533,8 @@ function renderDailyBriefPage() {
       </div>
     </div>`;
 
-  if (_briefResult) renderBriefResult(_briefResult);
+  if (viewData) renderBriefResult(viewData);
+  else if (_briefResult) renderBriefResult(_briefResult);
 
   // Always show action list (pending carry-overs visible even before brief generated)
   (async () => {
@@ -4447,6 +4550,12 @@ function renderDailyBriefPage() {
       briefBody.after(sec);
     }
   })();
+}
+
+function briefViewDate(dateKey) {
+  _briefViewDate = (dateKey === _briefTodayKey()) ? null : dateKey;
+  _bcHistory = [];
+  renderDailyBriefPage();
 }
 
 function briefProgress(pct, msg) {
@@ -4482,10 +4591,12 @@ async function generateBrief() {
     const data = await res.json();
     briefProgress(100, 'Done');
     _briefResult = data;
+    _briefSave(data);
     // Only merge actions on a fresh generation (not on re-renders of cached brief)
     const freshActions = data.actions || [];
     if (freshActions.length) _mergeActionsIntoStore(freshActions);
-    renderBriefResult(data);
+    _briefViewDate = null; // viewing today's fresh brief
+    renderDailyBriefPage();
   } catch(e) {
     body.innerHTML = `<div style="color:var(--red);padding:20px 0;font-size:13px">Failed to generate brief: ${e.message}</div>`;
   }
@@ -4509,7 +4620,7 @@ function renderBriefResult(data) {
     'power': '⚡', 'late sign': '🕐', 'kpt': '📊', 'mfr': '📊',
     'outlet ratings': '⭐', 'product': '🍽️',
     'daily recon': '💰', 'mango': '🥭',
-    'ck roster': '🍳', 'priority alerts': '🚨', 'notable': '📈',
+    'checklist': '✅', 'ck roster': '🍳', 'priority alerts': '🚨', 'notable': '📈',
   };
   function secIcon(title) {
     const t = title.toLowerCase();
