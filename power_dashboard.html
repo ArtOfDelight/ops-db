@@ -4472,7 +4472,7 @@ function _renderBriefSidebar(logs) {
 }
 
 function renderDailyBriefPage() {
-  const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const today    = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const todayKey = _briefTodayKey();
 
   // Auto-load saved brief for today if none in memory
@@ -4481,21 +4481,7 @@ function renderDailyBriefPage() {
     if (saved) _briefResult = saved;
   }
 
-  // If viewing a past date, load that
-  const viewKey = _briefViewDate || todayKey;
   const viewData = _briefViewDate ? _briefLoad(_briefViewDate) : _briefResult;
-
-  // Build date history pills
-  const savedDates = _briefDates();
-  const datePickerHtml = savedDates.length > 1 ? `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
-      <span style="font-size:9px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em">History:</span>
-      ${savedDates.map(d => {
-        const isActive = d === viewKey;
-        const label = d === todayKey ? 'Today' : d;
-        return `<button onclick="briefViewDate('${d}')" style="padding:3px 9px;border-radius:12px;border:1px solid ${isActive?'var(--blue)':'var(--border)'};background:${isActive?'var(--blue)':'var(--surface)'};color:${isActive?'#fff':'var(--ink-3)'};font-size:10px;font-family:var(--mono);cursor:pointer">${label}</button>`;
-      }).join('')}
-    </div>` : '';
 
   document.getElementById('pageBody').innerHTML = `
     <div class="brief-shell">
@@ -4505,10 +4491,10 @@ function renderDailyBriefPage() {
           <div>
             <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:3px">Daily Ops Brief</div>
             <div style="font-size:12px;color:var(--ink-3)">${today}</div>
-            ${datePickerHtml}
+            <div id="briefHistoryPills" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
           </div>
-          <button class="brief-generate-btn" id="briefGenBtn" onclick="${_briefViewDate?'briefViewDate(\''+_briefTodayKey()+'\')':'generateBrief()'}">
-            <span id="briefGenIcon">📋</span> ${_briefViewDate ? '← Back to Today' : 'Generate'}
+          <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
+            <span id="briefGenIcon">📋</span> Generate
           </button>
         </div>
         <div id="briefBody"></div>
@@ -4530,8 +4516,9 @@ function renderDailyBriefPage() {
       </div>
     </div>`;
 
+  _briefRenderHistoryPills();
+
   if (viewData) renderBriefResult(viewData);
-  else if (_briefResult) renderBriefResult(_briefResult);
 
   // Always show action list (pending carry-overs visible even before brief generated)
   (async () => {
@@ -4552,7 +4539,9 @@ function renderDailyBriefPage() {
 function briefViewDate(dateKey) {
   _briefViewDate = (dateKey === _briefTodayKey()) ? null : dateKey;
   _bcHistory = [];
-  renderDailyBriefPage();
+  const data = _briefViewDate ? _briefLoad(_briefViewDate) : _briefResult;
+  if (data) renderBriefResult(data);
+  _briefRenderHistoryPills();
 }
 
 function briefProgress(pct, msg) {
@@ -4563,14 +4552,16 @@ function briefProgress(pct, msg) {
 }
 
 async function generateBrief() {
-  const btn = document.getElementById('briefGenBtn');
+  if (_briefViewDate) { briefViewDate(_briefTodayKey()); return; }
+  const btn  = document.getElementById('briefGenBtn');
   const body = document.getElementById('briefBody');
+  if (!btn || !body) return;
   btn.disabled = true;
   document.getElementById('briefGenIcon').textContent = '⏳';
 
   body.innerHTML = `
     <div class="brief-loading">
-      <div id="briefProgressMsg" style="font-size:12px;color:var(--ink-3)">Gathering live data from all sections…</div>
+      <div id="briefProgressMsg" style="font-size:12px;color:var(--ink-3)">Gathering live data…</div>
       <div class="brief-progress"><div class="brief-progress-fill" id="briefProgressFill" style="width:0%"></div></div>
     </div>`;
 
@@ -4584,21 +4575,42 @@ async function generateBrief() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ date: today }),
     });
+    if (!res.ok) {
+      const err = await res.text().catch(() => res.statusText);
+      throw new Error(`Server error ${res.status}: ${err.slice(0,200)}`);
+    }
     briefProgress(90, 'Generating brief with Claude…');
     const data = await res.json();
     briefProgress(100, 'Done');
     _briefResult = data;
     _briefSave(data);
-    // Only merge actions on a fresh generation (not on re-renders of cached brief)
+    _briefViewDate = null;
     const freshActions = data.actions || [];
     if (freshActions.length) _mergeActionsIntoStore(freshActions);
-    _briefViewDate = null; // viewing today's fresh brief
-    renderDailyBriefPage();
+    renderBriefResult(data);
+    _briefRenderHistoryPills();
   } catch(e) {
-    body.innerHTML = `<div style="color:var(--red);padding:20px 0;font-size:13px">Failed to generate brief: ${e.message}</div>`;
+    const b = document.getElementById('briefBody');
+    if (b) b.innerHTML = `<div style="color:var(--red);padding:20px 0;font-size:13px">Failed to generate brief: ${e.message}</div>`;
   }
-  btn.disabled = false;
-  document.getElementById('briefGenIcon').textContent = '📋';
+  const b2 = document.getElementById('briefGenBtn');
+  if (b2) { b2.disabled = false; }
+  const ic = document.getElementById('briefGenIcon');
+  if (ic) ic.textContent = '📋';
+}
+
+function _briefRenderHistoryPills() {
+  const wrap = document.getElementById('briefHistoryPills');
+  if (!wrap) return;
+  const savedDates = _briefDates();
+  const todayKey   = _briefTodayKey();
+  const viewKey    = _briefViewDate || todayKey;
+  if (savedDates.length <= 1) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = savedDates.map(d => {
+    const isActive = d === viewKey;
+    const label    = d === todayKey ? 'Today' : d;
+    return `<button onclick="briefViewDate('${d}')" style="padding:3px 9px;border-radius:12px;border:1px solid ${isActive?'var(--blue)':'var(--border)'};background:${isActive?'var(--blue)':'var(--surface)'};color:${isActive?'#fff':'var(--ink-3)'};font-size:10px;font-family:var(--mono);cursor:pointer">${label}</button>`;
+  }).join('');
 }
 
 function renderBriefResult(data) {
