@@ -1353,6 +1353,7 @@ function renderLog(summaryData) {
     const pd = _platformData[name] || {};
     const cnt = (o.recent_outages || []).length;
     const pcRow = `<div class="oc-stats-row">
+      ${statBlock(o.yesterday_mins||0, o.yesterday_fmt||'0m', 'Yesterday')}
       ${statBlock(o.last_7_days_mins, o.last_7_days_fmt, '7 Days')}
       ${statBlock(o.last_28_days_mins, o.last_28_days_fmt, '28 Days')}
     </div>`;
@@ -2453,7 +2454,7 @@ function prSwitchSubTab(tab, skipState) {
           </div>
           <div class="pr-ctrl-group">
             <span class="pr-ctrl-label">Min Orders</span>
-            <input type="number" id="pr-min-orders" min="0" value="0" class="pr-ctrl-input" style="width:72px" oninput="prDrawTable()"/>
+            <input type="number" id="pr-min-orders" min="0" value="10" class="pr-ctrl-input" style="width:72px" oninput="prDrawTable()"/>
           </div>
           <div class="pr-ctrl-group">
             <span class="pr-ctrl-label">Category</span>
@@ -4320,7 +4321,35 @@ async function loadHomeSummaries() {
   } catch { setStat('roster','—'); }
 
   // ── Products ──
-  setStat('products', 'Top & bottom items by revenue');
+  try {
+    const yStr = isoDate(yesterday);
+    const pr = await fetch(`${API}/api/admin/product-rankings?date_from=${yStr}&date_to=${yStr}`,
+      { headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {} }
+    ).then(r=>r.json());
+    const items = (pr.products || []).filter(p => (p.online_orders||0) >= 10);
+    if (items.length) {
+      const top3 = items.slice(0, 3).map(p => `${p.name} (${p.net_pct??p.high_pct}%)`).join(', ');
+      const bot3 = items.slice(-3).reverse().map(p => `${p.name} (${p.error_pct??0}% err)`).join(', ');
+      setStat('products', `Top: ${top3}`);
+      _homeContext.products = `Product rankings yesterday (≥10 orders, ${items.length} items):\nTop 3 by net rating: ${items.slice(0,3).map(p=>`${p.name}: ${p.online_orders} orders, net ${p.net_pct??p.high_pct}%, high ${p.high_pct}%, error ${p.error_pct}%`).join('; ')}\nBottom 3: ${items.slice(-3).reverse().map(p=>`${p.name}: ${p.online_orders} orders, net ${p.net_pct??p.high_pct}%, error ${p.error_pct}%`).join('; ')}`;
+    } else {
+      setStat('products', 'No product data (yesterday)');
+    }
+  } catch { setStat('products', '—'); }
+
+  // ── Power Yesterday (outage summary) ──
+  try {
+    const ps = await fetch(`${API}/api/power/summary`).then(r=>r.json());
+    const outlets = ps.outlets || {};
+    const withYest = Object.entries(outlets).filter(([,o]) => (o.yesterday_mins||0) > 0);
+    if (withYest.length) {
+      const worst = withYest.sort((a,b) => (b[1].yesterday_mins||0) - (a[1].yesterday_mins||0));
+      const parts = worst.slice(0,3).map(([name,o]) => `${name} ${o.yesterday_fmt}`).join(', ');
+      setStat('power', `Yesterday power cuts: ${parts}${worst.length>3?' +more':''}`, 'var(--amber)');
+      const allYest = worst.map(([name,o]) => `${name}: ${o.yesterday_fmt} (${o.yesterday_mins}m)`).join(', ');
+      _homeContext.power = (_homeContext.power || '') + `\nYesterday power cuts: ${allYest}`;
+    }
+  } catch {}
 }
 
 /* ── CHATBOT ── */
