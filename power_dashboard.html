@@ -4402,7 +4402,7 @@ function scrollChat() {
 let _briefResult = null;
 let _briefViewDate = null; // null = today
 
-const BRIEF_SECTIONS = ['Power Status', 'Daily Recon', 'Checklist'];
+const BRIEF_SECTIONS = ['Power Status', 'Late Sign-ins', 'KPT / MFR', 'Outlet Ratings', 'Product Rankings', 'Daily Recon', 'Mango Tracker', 'Checklist'];
 
 /* ── Brief persistence ── */
 const BRIEF_STORE_KEY = 'zaan_briefs_v1';
@@ -4626,7 +4626,9 @@ function renderBriefResult(data) {
 
   // Parse brief text into named sections
   const SECTION_ICONS = {
-    'power': '⚡', 'daily recon': '💰', 'checklist': '✅',
+    'power': '⚡', 'late sign': '🕐', 'kpt': '📊', 'mfr': '📊',
+    'outlet rating': '⭐', 'product': '🍽️', 'daily recon': '💰',
+    'mango': '🥭', 'checklist': '✅',
   };
   function secIcon(title) {
     const t = title.toLowerCase();
@@ -4717,9 +4719,14 @@ let _bcHistory = [];  // kept to last 6 turns to limit tokens
 
 // Map keywords → which section of the brief to extract
 const _BC_SECTION_KEYS = [
-  { keys: ['power','offline','outage','downtime'],               tag: 'Power Status' },
-  { keys: ['recon','cash','collection','variance','diff','match'], tag: 'Daily Recon' },
-  { keys: ['checklist','slot','submitted','missed'],             tag: 'Checklist' },
+  { keys: ['power','offline','outage','downtime'],                  tag: 'Power Status' },
+  { keys: ['late','sign','signin','absent','missed sign'],          tag: 'Late Sign-In' },
+  { keys: ['kpt','mfr','kitchen prep','menu fill'],                 tag: 'KPT / MFR' },
+  { keys: ['rating','net','review','error rate'],                   tag: 'Outlet Ratings' },
+  { keys: ['product','ranking','error','order count'],              tag: 'Product Rankings' },
+  { keys: ['recon','cash','collection','variance','diff','match'],  tag: 'Daily Recon' },
+  { keys: ['mango','kg','stock','diff'],                            tag: 'Mango Tracker' },
+  { keys: ['checklist','slot','submitted','missed'],                tag: 'Checklist' },
 ];
 
 function _bcPickSections(question) {
