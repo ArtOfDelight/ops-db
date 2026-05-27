@@ -2561,7 +2561,7 @@ function prSetViewTab(tab) {
   // reset sort key to match the new tab's primary column
   if (tab === 'dinein')   _prSort = { key: 'dine_in_orders', dir: -1 };
   else if (tab === 'combined') _prSort = { key: 'rista_orders', dir: -1 };
-  else if (tab === 'kpt') _prSort = { key: 'kpt_avg', dir: -1 };
+  else if (tab === 'kpt') _prSort = { key: 'kpt_8_plus', dir: -1 };
   else                    _prSort = { key: 'online_orders', dir: -1 };
   prDrawTable();
 }
@@ -2718,7 +2718,6 @@ function prDrawTable(el) {
       ${col('Product','product','left')}
       ${col('Category','category','left')}
       ${col('Orders','kpt_total')}
-      ${col('Avg KPT','kpt_avg')}
       ${col('0–3 min','kpt_0_3')}
       ${col('3–5 min','kpt_3_5')}
       ${col('5–8 min','kpt_5_8')}
@@ -2727,21 +2726,19 @@ function prDrawTable(el) {
     </tr></thead>`;
     rowsFn = (p, i) => {
       if (!p.kpt_total) return '';
-      const avgCls = (p.kpt_avg||0) > 8 ? 'bad' : (p.kpt_avg||0) > 5 ? 'warn' : 'good';
       // stacked bar
       const bar = `
         <td style="padding:10px 13px;border-bottom:1px solid var(--border)">
           <div style="display:flex;height:14px;border-radius:4px;overflow:hidden;min-width:160px;gap:1px">
-            ${p.kpt_0_3  ? `<div style="width:${p.kpt_0_3}%;background:#2e7d32;height:100%" title="0–3m: ${p.kpt_0_3}%"></div>` : ''}
-            ${p.kpt_3_5  ? `<div style="width:${p.kpt_3_5}%;background:#66bb6a;height:100%" title="3–5m: ${p.kpt_3_5}%"></div>` : ''}
-            ${p.kpt_5_8  ? `<div style="width:${p.kpt_5_8}%;background:#ffa726;height:100%" title="5–8m: ${p.kpt_5_8}%"></div>` : ''}
+            ${p.kpt_0_3   ? `<div style="width:${p.kpt_0_3}%;background:#2e7d32;height:100%" title="0–3m: ${p.kpt_0_3}%"></div>` : ''}
+            ${p.kpt_3_5   ? `<div style="width:${p.kpt_3_5}%;background:#66bb6a;height:100%" title="3–5m: ${p.kpt_3_5}%"></div>` : ''}
+            ${p.kpt_5_8   ? `<div style="width:${p.kpt_5_8}%;background:#ffa726;height:100%" title="5–8m: ${p.kpt_5_8}%"></div>` : ''}
             ${p.kpt_8_plus ? `<div style="width:${p.kpt_8_plus}%;background:#ef5350;height:100%" title="8+m: ${p.kpt_8_plus}%"></div>` : ''}
           </div>
         </td>`;
       return `<tr>
         ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
         ${tdB(p.kpt_total)}
-        ${td((p.kpt_avg||'—')+'m', avgCls)}
         ${td(p.kpt_0_3+'%','good')}
         ${td(p.kpt_3_5+'%', p.kpt_3_5 > 30 ? 'warn' : '')}
         ${td(p.kpt_5_8+'%', p.kpt_5_8 > 30 ? 'warn' : '')}
