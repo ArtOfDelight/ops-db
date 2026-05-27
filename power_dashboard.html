@@ -354,6 +354,7 @@ td.c { text-align: center; }
   padding: 9px 10px; font-size: 8px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
   background: #f8fafd; white-space: nowrap; text-align: center;
+  position: sticky; top: 0; z-index: 2;
 }
 .pm-table th.outlet-col { width: 130px; text-align: left; }
 .pm-table th.pc-col     { width: 80px;  background: #f3f5fb; }
@@ -521,6 +522,7 @@ td.c { text-align: center; }
   padding: 10px 16px; font-size: 9px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
   background: #f8fafd; white-space: nowrap; text-align: center;
+  position: sticky; top: 0; z-index: 2;
 }
 .met-table th.outlet-col { text-align: left; width: 160px; }
 .met-table th.plat-group { font-size: 10px; font-weight: 800; letter-spacing: 0; text-transform: none; padding: 8px 16px; border-bottom: 1px solid var(--border); }
@@ -568,6 +570,7 @@ td.c { text-align: center; }
   padding: 9px 14px; font-size: 9px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .1em; color: var(--ink-3); background: #f8fafd;
   white-space: nowrap; text-align: center;
+  position: sticky; top: 0; z-index: 2;
 }
 .sc-table th.left { text-align: left; }
 .sc-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
@@ -2712,7 +2715,9 @@ function prDrawTable(el) {
       </tr>`;
     };
   } else if (view === 'kpt') {
-    // Sort by avg KPT descending by default for this view
+    // Each col = (bucket_pct / 100) × bucket_midpoint
+    // Midpoints: 0–3→1.5, 3–5→4, 5–8→6.5, 8+→10
+    const _kv = (pct, mid) => { const v = Math.round(pct / 100 * mid * 100) / 100; return v; };
     thead = `<thead><tr>
       <th style="${thL};color:var(--ink-3)">#</th>
       ${col('Product','product','left')}
@@ -2722,28 +2727,20 @@ function prDrawTable(el) {
       ${col('3–5 min','kpt_3_5')}
       ${col('5–8 min','kpt_5_8')}
       ${col('8+ min','kpt_8_plus')}
-      <th style="${thBase};text-align:left;color:var(--ink-3);min-width:200px">Distribution</th>
     </tr></thead>`;
     rowsFn = (p, i) => {
       if (!p.kpt_total) return '';
-      // stacked bar
-      const bar = `
-        <td style="padding:10px 13px;border-bottom:1px solid var(--border)">
-          <div style="display:flex;height:14px;border-radius:4px;overflow:hidden;min-width:160px;gap:1px">
-            ${p.kpt_0_3   ? `<div style="width:${p.kpt_0_3}%;background:#2e7d32;height:100%" title="0–3m: ${p.kpt_0_3}%"></div>` : ''}
-            ${p.kpt_3_5   ? `<div style="width:${p.kpt_3_5}%;background:#66bb6a;height:100%" title="3–5m: ${p.kpt_3_5}%"></div>` : ''}
-            ${p.kpt_5_8   ? `<div style="width:${p.kpt_5_8}%;background:#ffa726;height:100%" title="5–8m: ${p.kpt_5_8}%"></div>` : ''}
-            ${p.kpt_8_plus ? `<div style="width:${p.kpt_8_plus}%;background:#ef5350;height:100%" title="8+m: ${p.kpt_8_plus}%"></div>` : ''}
-          </div>
-        </td>`;
+      const v03 = _kv(p.kpt_0_3,  1.5);
+      const v35 = _kv(p.kpt_3_5,  4.0);
+      const v58 = _kv(p.kpt_5_8,  6.5);
+      const v8p = _kv(p.kpt_8_plus, 10);
       return `<tr>
         ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
         ${tdB(p.kpt_total)}
-        ${td(p.kpt_0_3+'%','good')}
-        ${td(p.kpt_3_5+'%', p.kpt_3_5 > 30 ? 'warn' : '')}
-        ${td(p.kpt_5_8+'%', p.kpt_5_8 > 30 ? 'warn' : '')}
-        ${td(p.kpt_8_plus+'%', p.kpt_8_plus > 20 ? 'bad' : p.kpt_8_plus > 10 ? 'warn' : '')}
-        ${bar}
+        ${td(v03,'good')}
+        ${td(v35, v35 > 1.2 ? 'warn' : '')}
+        ${td(v58, v58 > 1.5 ? 'warn' : '')}
+        ${td(v8p, v8p > 2 ? 'bad' : v8p > 1 ? 'warn' : '')}
       </tr>`;
     };
   }
@@ -2754,27 +2751,21 @@ function prDrawTable(el) {
   // ── KPT total row ──
   let tfoot = '';
   if (view === 'kpt' && kptFiltered.length) {
-    const tot    = kptFiltered.reduce((s, p) => s + (p.kpt_total || 0), 0);
-    const _r1    = v => Math.round(v * 10) / 10;
-    const w03    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_0_3   || 0) * (p.kpt_total || 0), 0) / tot) : 0;
-    const w35    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_3_5   || 0) * (p.kpt_total || 0), 0) / tot) : 0;
-    const w58    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_5_8   || 0) * (p.kpt_total || 0), 0) / tot) : 0;
-    const w8p    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_8_plus|| 0) * (p.kpt_total || 0), 0) / tot) : 0;
-    const barW   = `<div style="display:flex;height:14px;border-radius:4px;overflow:hidden;min-width:160px;gap:1px">
-      ${w03  ? `<div style="width:${w03}%;background:#2e7d32;height:100%" title="0–3m: ${w03}%"></div>` : ''}
-      ${w35  ? `<div style="width:${w35}%;background:#66bb6a;height:100%" title="3–5m: ${w35}%"></div>` : ''}
-      ${w58  ? `<div style="width:${w58}%;background:#ffa726;height:100%" title="5–8m: ${w58}%"></div>` : ''}
-      ${w8p  ? `<div style="width:${w8p}%;background:#ef5350;height:100%" title="8+m: ${w8p}%"></div>`  : ''}
-    </div>`;
+    const tot  = kptFiltered.reduce((s, p) => s + (p.kpt_total || 0), 0);
+    const _r2  = v => Math.round(v * 100) / 100;
+    const _wp  = (key, mid) => tot ? _r2(kptFiltered.reduce((s,p) => s + (p[key]||0) * (p.kpt_total||0), 0) / tot / 100 * mid) : 0;
+    const t03  = _wp('kpt_0_3',   1.5);
+    const t35  = _wp('kpt_3_5',   4.0);
+    const t58  = _wp('kpt_5_8',   6.5);
+    const t8p  = _wp('kpt_8_plus', 10);
     const ts = 'padding:10px 13px;font-size:12px;font-weight:700;border-top:2px solid var(--border-2);background:var(--bg);font-family:var(--mono)';
     tfoot = `<tfoot><tr>
       <td style="${ts};text-align:left" colspan="3">TOTAL</td>
       <td style="${ts};text-align:right;color:var(--blue)">${tot}</td>
-      <td style="${ts};text-align:right;color:#2e7d32">${w03}%</td>
-      <td style="${ts};text-align:right">${w35}%</td>
-      <td style="${ts};text-align:right;color:${w58>30?'#e65100':''}">${w58}%</td>
-      <td style="${ts};text-align:right;color:${w8p>20?'#c62828':w8p>10?'#e65100':''}">${w8p}%</td>
-      <td style="${ts}">${barW}</td>
+      <td style="${ts};text-align:right;color:#2e7d32">${t03}</td>
+      <td style="${ts};text-align:right">${t35}</td>
+      <td style="${ts};text-align:right;color:${t58>1.5?'#e65100':''}">${t58}</td>
+      <td style="${ts};text-align:right;color:${t8p>2?'#c62828':t8p>1?'#e65100':''}">${t8p}</td>
     </tr></tfoot>`;
   }
 
