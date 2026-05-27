@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Outlet Ratings Summary</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f4f4f4; color: #222; }
+
+    /* LOGIN */
+    #login-screen {
+      max-width: 380px; margin: 80px auto; background: #fff;
+      border-radius: 12px; padding: 32px; box-shadow: 0 2px 16px #0001;
+    }
+    #login-screen h2 { margin-bottom: 24px; font-size: 20px; }
+    #login-screen input {
+      width: 100%; padding: 10px 14px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 15px; margin-bottom: 12px;
+    }
+    #login-screen button {
+      width: 100%; padding: 11px; background: #1a73e8; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; cursor: pointer;
+    }
+    #login-screen button:hover { background: #1558b0; }
+    #login-error { color: red; font-size: 13px; margin-top: 8px; }
+
+    /* MAIN */
+    #main-screen { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 20px; }
+
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 12px;
+      align-items: flex-end; margin-bottom: 20px;
+    }
+    .controls label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; }
+    .controls input[type=date] {
+      padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+    }
+    .btn {
+      padding: 9px 20px; background: #1a73e8; color: #fff;
+      border: none; border-radius: 8px; cursor: pointer; font-size: 14px;
+    }
+    .btn:hover { background: #1558b0; }
+    .btn.preset { background: #f0f4ff; color: #1a73e8; border: 1px solid #c5d5f5; }
+    .btn.preset:hover { background: #dce8ff; }
+    .btn.active-preset { background: #1a73e8; color: #fff; }
+    #logout-btn {
+      margin-left: auto; background: #fff; color: #d32f2f;
+      border: 1px solid #d32f2f; padding: 8px 16px;
+      border-radius: 8px; cursor: pointer; font-size: 14px;
+    }
+
+    #status { margin-bottom: 14px; font-size: 14px; color: #555; }
+
+    table {
+      width: 100%; border-collapse: collapse; background: #fff;
+      border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px #0001;
+    }
+    th {
+      background: #1a73e8; color: #fff; padding: 11px 13px;
+      text-align: right; font-size: 12px; white-space: nowrap;
+    }
+    th:first-child { text-align: left; }
+    td { padding: 10px 13px; border-bottom: 1px solid #f0f0f0; font-size: 13px; text-align: right; }
+    td:first-child { text-align: left; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9f9f9; }
+
+    .good  { color: #2e7d32; font-weight: 600; }
+    .warn  { color: #e65100; font-weight: 600; }
+    .bad   { color: #c62828; font-weight: 600; }
+    .neutral { color: #555; }
+
+    /* TABS */
+    .tab-bar {
+      display: flex; gap: 0; margin-bottom: 24px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .tab-btn {
+      padding: 10px 22px; font-size: 14px; font-weight: 600;
+      background: none; border: none; cursor: pointer;
+      color: #666; border-bottom: 3px solid transparent;
+      margin-bottom: -2px; transition: color .15s;
+    }
+    .tab-btn:hover { color: #1a73e8; }
+    .tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* TOKEN HEALTH */
+    .token-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .token-card {
+      background: #fff; border-radius: 12px; padding: 20px 24px;
+      box-shadow: 0 1px 8px #0001; display: flex; flex-direction: column; gap: 10px;
+    }
+    .token-card h3 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .badge-active  { background: #e8f5e9; color: #2e7d32; }
+    .badge-expired { background: #ffebee; color: #c62828; }
+    .badge-missing { background: #fff3e0; color: #e65100; }
+    .badge-unknown { background: #f3f3f3; color: #555; }
+    .badge-error   { background: #fce4ec; color: #880e4f; }
+    .badge-checking{ background: #e3f2fd; color: #0d47a1; }
+    .token-meta { font-size: 13px; color: #666; line-height: 1.8; }
+    .token-meta strong { color: #222; }
+    .token-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+    .btn-sm {
+      padding: 7px 14px; font-size: 13px; border-radius: 7px;
+      border: 1px solid #ddd; background: #f9f9f9; cursor: pointer;
+    }
+    .btn-sm:hover { background: #eee; }
+    .btn-sm.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .btn-sm.primary:hover { background: #1558b0; }
+    .update-form { margin-top: 8px; display: none; }
+    .update-form textarea {
+      width: 100%; min-height: 80px; padding: 8px; border: 1px solid #ddd;
+      border-radius: 7px; font-size: 12px; font-family: monospace; resize: vertical;
+    }
+    .update-form .form-row { display: flex; gap: 8px; margin-top: 8px; }
+    #health-status { font-size: 13px; color: #888; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <h2>Admin Login</h2>
+  <div id="otp-step-1">
+    <input type="text" id="employee-id" placeholder="Employee ID"/>
+    <input type="tel" id="phone" placeholder="Phone number (10 digits)" maxlength="10"/>
+    <button onclick="sendOTP()">Send OTP</button>
+  </div>
+  <div id="otp-step-2" style="display:none">
+    <input type="text" id="otp" placeholder="Enter OTP" maxlength="6"/>
+    <button onclick="verifyOTP()">Login</button>
+  </div>
+  <div id="login-error"></div>
+</div>
+
+<!-- MAIN -->
+<div id="main-screen">
+  <h1>Ops Dashboard</h1>
+
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('ratings')">📊 Outlet Ratings</button>
+    <button class="tab-btn" onclick="switchTab('tokens')">🔑 Token Health</button>
+  </div>
+
+  <!-- ══ TAB: OUTLET RATINGS ══ -->
+  <div id="tab-ratings" class="tab-pane active">
+  <div class="controls">
+    <button class="btn preset" onclick="setPreset(7)">Last 7 Days</button>
+    <button class="btn preset" onclick="setPreset(28)">Last 28 Days</button>
+    <div>
+      <label>From</label>
+      <input type="date" id="start-date"/>
+    </div>
+    <div>
+      <label>To</label>
+      <input type="date" id="end-date"/>
+    </div>
+    <button class="btn" onclick="loadReport()">Load</button>
+    <button id="logout-btn" onclick="logout()">Logout</button>
+  </div>
+  <div id="status"></div>
+  <table id="report-table" style="display:none">
+    <thead>
+      <tr>
+        <th>Outlet</th>
+        <th>Swiggy ⭐</th>
+        <th>Swiggy 👎</th>
+        <th>Zomato ⭐</th>
+        <th>Zomato 👎</th>
+        <th>Total Rated</th>
+        <th>Rista Orders</th>
+        <th>Total High</th>
+        <th>Total Low</th>
+        <th>IGCC</th>
+        <th>Errors</th>
+        <th>High %</th>
+        <th>Error %</th>
+        <th>Net %</th>
+      </tr>
+    </thead>
+    <tbody id="report-body"></tbody>
+  </table>
+  <div id="no-records" style="display:none; text-align:center; padding:40px; color:#999;">
+    No data found for this range.
+  </div>
+  </div><!-- end tab-ratings -->
+
+  <!-- ══ TAB: TOKEN HEALTH ══ -->
+  <div id="tab-tokens" class="tab-pane">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2 style="font-size:16px; font-weight:700;">API Token Status</h2>
+      <button class="btn" onclick="loadTokenHealth()" style="font-size:13px; padding:7px 16px;">↻ Refresh</button>
+    </div>
+    <div id="health-status">Loading…</div>
+    <div id="token-grid" class="token-grid"></div>
+  </div>
+</div>
+
+<script>
+  const BASE_URL = 'https://aodapp-backend.onrender.com';
+
+  let token = localStorage.getItem('adminToken');
+  let phoneNumber = '';
+
+  fetch(`${BASE_URL}/api/`).catch(() => {});
+  if (token) showMain();
+
+  // ── TABS ─────────────────────────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      if (b.getAttribute('onclick').includes("'" + name + "'")) b.classList.add('active');
+    });
+    if (name === 'tokens') loadTokenHealth();
+  }
+
+  // ── TOKEN HEALTH ──────────────────────────────────────────────────────────
+  async function loadTokenHealth() {
+    document.getElementById('health-status').textContent = 'Checking tokens…';
+    document.getElementById('token-grid').innerHTML = '';
+    try {
+      const r = await fetch(`${BASE_URL}/api/admin/token-health`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (r.status === 401 || r.status === 403) { logout(); return; }
+      const d = await r.json();
+      renderTokenHealth(d.tokens || []);
+      document.getElementById('health-status').textContent =
+        `Last checked: ${new Date().toLocaleTimeString('en-IN')}`;
+    } catch(e) {
+      document.getElementById('health-status').textContent = 'Failed to load token health.';
+    }
+  }
+
+  function renderTokenHealth(tokens) {
+    const grid = document.getElementById('token-grid');
+    grid.innerHTML = '';
+    tokens.forEach(t => {
+      const badgeClass = {
+        active: 'badge-active', expired: 'badge-expired',
+        missing: 'badge-missing', error: 'badge-error', unknown: 'badge-unknown'
+      }[t.status] || 'badge-unknown';
+
+      const statusLabel = {
+        active: '✅ Active', expired: '❌ Expired',
+        missing: '⚠️ Missing', error: '⚠️ Error', unknown: '? Unknown'
+      }[t.status] || t.status;
+
+      const platform = t.platform;
+      const pid = platform.toLowerCase();
+
+      const card = document.createElement('div');
+      card.className = 'token-card';
+      card.innerHTML = `
+        <h3>${platform === 'Zomato' ? '🍕' : '🛵'} ${platform}
+          <span class="badge ${badgeClass}">${statusLabel}</span>
+        </h3>
+        <div class="token-meta">
+          <strong>Last Updated:</strong> ${t.updated_at || '—'}<br>
+          <strong>Updated By:</strong> ${t.updated_by || '—'}<br>
+          ${t.http ? `<strong>HTTP Status:</strong> ${t.http} &nbsp; <strong>Latency:</strong> ${t.latency_ms}ms<br>` : ''}
+          ${t.error ? `<strong>Error:</strong> <span style="color:#c00">${t.error}</span><br>` : ''}
+        </div>
+        <div class="token-actions">
+          <button class="btn-sm primary" onclick="toggleUpdateForm('${pid}')">
+            ${t.status === 'expired' || t.status === 'missing' ? '🔄 Update Token' : '✏️ Update Token'}
+          </button>
+        </div>
+        <div class="update-form" id="form-${pid}">
+          ${platform === 'Zomato'
+            ? `<textarea id="input-${pid}" placeholder="Paste full Zomato cookie string here…"></textarea>`
+            : `<textarea id="input-${pid}" placeholder="Paste Swiggy access_token (UUID) here…" style="min-height:50px"></textarea>`
+          }
+          <div class="form-row">
+            <button class="btn-sm primary" onclick="saveToken('${pid}')">Save</button>
+            <button class="btn-sm" onclick="toggleUpdateForm('${pid}')">Cancel</button>
+          </div>
+          <div id="save-msg-${pid}" style="font-size:12px; margin-top:6px;"></div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function toggleUpdateForm(pid) {
+    const f = document.getElementById('form-' + pid);
+    f.style.display = f.style.display === 'block' ? 'none' : 'block';
+  }
+
+  async function saveToken(pid) {
+    const val = document.getElementById('input-' + pid).value.trim();
+    const msg = document.getElementById('save-msg-' + pid);
+    if (!val) { msg.textContent = 'Please paste a value.'; return; }
+    msg.textContent = 'Saving…';
+    try {
+      const body = pid === 'zomato'
+        ? { cookie: val }
+        : { access_token: val };
+      const r = await fetch(`${BASE_URL}/api/admin/${pid}-auth`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      if (!r.ok) { msg.style.color = 'red'; msg.textContent = d.detail || 'Failed'; return; }
+      msg.style.color = 'green';
+      msg.textContent = '✅ Saved! Re-checking status…';
+      setTimeout(() => { toggleUpdateForm(pid); loadTokenHealth(); }, 1200);
+    } catch(e) {
+      msg.style.color = 'red'; msg.textContent = 'Network error';
+    }
+  }
+
+  function showMain() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'block';
+    switchTab('ratings');
+  }
+
+  function setPreset(days) {
+    const today = new Date();
+    const from  = new Date(); from.setDate(today.getDate() - (days - 1));
+    document.getElementById('end-date').value   = toInputDate(today);
+    document.getElementById('start-date').value = toInputDate(from);
+    loadReport();
+  }
+
+  function toInputDate(d) { return d.toISOString().split('T')[0]; }
+
+  async function sendOTP() {
+    const employeeId = document.getElementById('employee-id').value.trim();
+    phoneNumber = document.getElementById('phone').value.trim();
+    if (!employeeId) { setError('Enter your Employee ID'); return; }
+    if (!/^\d{10}$/.test(phoneNumber)) { setError('Enter a valid 10-digit phone number'); return; }
+    setError('Sending OTP...');
+    try {
+      const r = await fetch(`${BASE_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee_id: employeeId, phone: phoneNumber })
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.detail || 'Failed to send OTP'); return; }
+      setError('OTP sent!');
+      document.getElementById('otp-step-1').style.display = 'none';
+      document.getElementById('otp-step-2').style.display = 'block';
+    } catch(e) { setError('Network error'); }
+  }
+
+  async function verifyOTP() {
+    const otp = document.getElementById('otp').value.trim();
+    setError('Verifying...');
+    try {
+      const r = await fetch(`${BASE_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: document.getElementById('employee-id').value.trim(),
+          phone: phoneNumber, otp
+        })
+      });
+      const d = await r.json();
+      if (!r.ok) { setError(d.detail || 'Invalid OTP'); return; }
+      if (d.role !== 'admin') { setError('This account does not have admin access.'); return; }
+      token = d.token;
+      localStorage.setItem('adminToken', token);
+      showMain();
+    } catch(e) { setError('Network error'); }
+  }
+
+  function logout() {
+    localStorage.removeItem('adminToken');
+    token = null;
+    location.reload();
+  }
+
+  function setError(msg) { document.getElementById('login-error').textContent = msg; }
+
+  async function loadReport() {
+    const from = document.getElementById('start-date').value;
+    const to   = document.getElementById('end-date').value;
+    if (!from || !to) return;
+
+    document.getElementById('status').textContent = 'Loading...';
+    document.getElementById('report-table').style.display = 'none';
+    document.getElementById('no-records').style.display = 'none';
+
+    try {
+      const r = await fetch(
+        `${BASE_URL}/api/admin/outlet-ratings-summary?date_from=${from}&date_to=${to}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (r.status === 401 || r.status === 403) { logout(); return; }
+      const d = await r.json();
+      renderTable(d.outlets || []);
+      document.getElementById('status').textContent =
+        `${(d.outlets||[]).length} outlets — ${d.date_from} to ${d.date_to}`;
+    } catch(e) {
+      document.getElementById('status').textContent = 'Failed to load.';
+    }
+  }
+
+  function colorNet(val) {
+    if (val >= 10)  return 'good';
+    if (val >= 0)   return 'neutral';
+    return 'bad';
+  }
+  function colorErr(val) {
+    if (val < 1)    return 'good';
+    if (val < 2)    return 'warn';
+    return 'bad';
+  }
+  function colorHigh(val) {
+    if (val >= 20)  return 'good';
+    if (val >= 10)  return 'warn';
+    return 'bad';
+  }
+
+  function renderTable(outlets) {
+    const tbody = document.getElementById('report-body');
+    tbody.innerHTML = '';
+    if (!outlets.length) {
+      document.getElementById('no-records').style.display = 'block';
+      return;
+    }
+    outlets.forEach(o => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${o.outlet_code}</td>
+        <td>${o.swiggy_high}</td>
+        <td>${o.swiggy_low}</td>
+        <td>${o.zomato_high}</td>
+        <td>${o.zomato_low}</td>
+        <td>${o.total_rated}</td>
+        <td><strong>${o.rista_orders}</strong></td>
+        <td>${o.total_high}</td>
+        <td>${o.total_low}</td>
+        <td>${o.igcc}</td>
+        <td>${o.total_errors}</td>
+        <td class="${colorHigh(o.high_rate_pct)}">${o.high_rate_pct}%</td>
+        <td class="${colorErr(o.error_rate_pct)}">${o.error_rate_pct}%</td>
+        <td class="${colorNet(o.net_pct)}">${o.net_pct}%</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('report-table').style.display = 'table';
+  }
+</script>
+</body>
+</html>
