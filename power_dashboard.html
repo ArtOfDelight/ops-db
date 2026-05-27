@@ -2748,9 +2748,38 @@ function prDrawTable(el) {
     };
   }
 
-  const rows = sorted.filter(p => view !== 'kpt' || p.kpt_total > 0).map(rowsFn).join('');
+  const kptFiltered = sorted.filter(p => view !== 'kpt' || p.kpt_total > 0);
+  const rows = kptFiltered.map(rowsFn).join('');
+
+  // ── KPT total row ──
+  let tfoot = '';
+  if (view === 'kpt' && kptFiltered.length) {
+    const tot    = kptFiltered.reduce((s, p) => s + (p.kpt_total || 0), 0);
+    const _r1    = v => Math.round(v * 10) / 10;
+    const w03    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_0_3   || 0) * (p.kpt_total || 0), 0) / tot) : 0;
+    const w35    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_3_5   || 0) * (p.kpt_total || 0), 0) / tot) : 0;
+    const w58    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_5_8   || 0) * (p.kpt_total || 0), 0) / tot) : 0;
+    const w8p    = tot ? _r1(kptFiltered.reduce((s,p) => s + (p.kpt_8_plus|| 0) * (p.kpt_total || 0), 0) / tot) : 0;
+    const barW   = `<div style="display:flex;height:14px;border-radius:4px;overflow:hidden;min-width:160px;gap:1px">
+      ${w03  ? `<div style="width:${w03}%;background:#2e7d32;height:100%" title="0–3m: ${w03}%"></div>` : ''}
+      ${w35  ? `<div style="width:${w35}%;background:#66bb6a;height:100%" title="3–5m: ${w35}%"></div>` : ''}
+      ${w58  ? `<div style="width:${w58}%;background:#ffa726;height:100%" title="5–8m: ${w58}%"></div>` : ''}
+      ${w8p  ? `<div style="width:${w8p}%;background:#ef5350;height:100%" title="8+m: ${w8p}%"></div>`  : ''}
+    </div>`;
+    const ts = 'padding:10px 13px;font-size:12px;font-weight:700;border-top:2px solid var(--border-2);background:var(--bg);font-family:var(--mono)';
+    tfoot = `<tfoot><tr>
+      <td style="${ts};text-align:left" colspan="3">TOTAL</td>
+      <td style="${ts};text-align:right;color:var(--blue)">${tot}</td>
+      <td style="${ts};text-align:right;color:#2e7d32">${w03}%</td>
+      <td style="${ts};text-align:right">${w35}%</td>
+      <td style="${ts};text-align:right;color:${w58>30?'#e65100':''}">${w58}%</td>
+      <td style="${ts};text-align:right;color:${w8p>20?'#c62828':w8p>10?'#e65100':''}">${w8p}%</td>
+      <td style="${ts}">${barW}</td>
+    </tr></tfoot>`;
+  }
+
   const minW = view === 'dinein' ? '500px' : view === 'kpt' ? '900px' : view === 'combined' ? '1200px' : '1100px';
-  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:${minW}">${thead}<tbody>${rows}</tbody></table></div>`;
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:${minW}">${thead}<tbody>${rows}</tbody>${tfoot}</table></div>`;
   if (!sorted.length) el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this view.</div>';
 }
 
