@@ -1066,6 +1066,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-customers" onclick="navTo('customers')">
       <span class="sb-icon">👤</span> Customers
     </button>
+    <button class="sb-item" id="sbitem-tokenhealth" onclick="navTo('tokenhealth')">
+      <span class="sb-icon">🔑</span> Token Health
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1101,11 +1104,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist','cashcoll','customers'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1124,7 +1127,8 @@ function navTo(page) {
   if (page === 'mango')      renderMangoPage();
   if (page === 'checklist')  renderChecklistStatusPage();
   if (page === 'cashcoll')   renderCashCollectionPage();
-  if (page === 'customers')  renderCustomersPage();
+  if (page === 'customers')    renderCustomersPage();
+  if (page === 'tokenhealth')  renderTokenHealthPage();
 }
 
 
@@ -6902,6 +6906,91 @@ function custDrawLine(payload) {
       ctx.fillText(payload[i].date, x, H - PAD_B + 14);
     }
   });
+}
+
+/* ── TOKEN HEALTH PAGE ── */
+async function renderTokenHealthPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="padding:24px;max-width:900px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div style="font-size:15px;font-weight:700;color:var(--ink)">API Token Status</div>
+        <button class="btn-sm" onclick="renderTokenHealthPage()" style="padding:7px 16px;font-size:13px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↻ Refresh</button>
+      </div>
+      <div id="th-status" style="font-size:13px;color:var(--ink-3);margin-bottom:16px">Checking tokens…</div>
+      <div id="th-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px"></div>
+    </div>`;
+  try {
+    const r = await fetch(`${API}/api/admin/token-health`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); return; }
+    const d = await r.json();
+    _renderTokenCards(d.tokens || []);
+    document.getElementById('th-status').textContent = `Last checked: ${new Date().toLocaleTimeString('en-IN')}`;
+  } catch(e) {
+    document.getElementById('th-status').textContent = 'Failed to load: ' + e;
+  }
+}
+
+function _renderTokenCards(tokens) {
+  const grid = document.getElementById('th-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  tokens.forEach(t => {
+    const badgeColor = { active:'#2e7d32', expired:'#c62828', missing:'#e65100', error:'#880e4f', unknown:'#555' }[t.status] || '#555';
+    const badgeBg    = { active:'#e8f5e9', expired:'#ffebee', missing:'#fff3e0', error:'#fce4ec', unknown:'#f3f3f3' }[t.status] || '#f3f3f3';
+    const statusLabel = { active:'✅ Active', expired:'❌ Expired', missing:'⚠️ Missing', error:'⚠️ Error', unknown:'? Unknown' }[t.status] || t.status;
+    const pid = t.platform.toLowerCase();
+    const icon = t.platform === 'Zomato' ? '🍕' : '🛵';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface);border-radius:12px;padding:20px 24px;box-shadow:0 1px 8px #0001;display:flex;flex-direction:column;gap:10px;border:1px solid var(--border)';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700">
+        ${icon} ${t.platform}
+        <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;background:${badgeBg};color:${badgeColor}">${statusLabel}</span>
+      </div>
+      <div style="font-size:13px;color:var(--ink-3);line-height:1.9">
+        <b style="color:var(--ink)">Last Updated:</b> ${t.updated_at || '—'}<br>
+        <b style="color:var(--ink)">Updated By:</b> ${t.updated_by || '—'}<br>
+        ${t.http ? `<b style="color:var(--ink)">HTTP:</b> ${t.http} &nbsp; <b style="color:var(--ink)">Latency:</b> ${t.latency_ms}ms<br>` : ''}
+        ${t.error ? `<b style="color:#c00">Error:</b> ${t.error}<br>` : ''}
+      </div>
+      <div>
+        <button onclick="document.getElementById('thform-${pid}').style.display=document.getElementById('thform-${pid}').style.display==='block'?'none':'block'"
+          style="padding:7px 14px;font-size:13px;border-radius:7px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer">
+          ✏️ Update Token
+        </button>
+      </div>
+      <div id="thform-${pid}" style="display:none">
+        <textarea id="thinput-${pid}" placeholder="${t.platform === 'Zomato' ? 'Paste full Zomato cookie string…' : 'Paste Swiggy access_token (UUID)…'}"
+          style="width:100%;min-height:70px;padding:8px;border:1px solid var(--border-2);border-radius:7px;font-size:12px;font-family:var(--mono);resize:vertical;background:var(--surface);color:var(--ink)"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="_thSave('${pid}')" style="padding:7px 14px;font-size:13px;border-radius:7px;border:none;background:var(--blue);color:#fff;cursor:pointer">Save</button>
+          <button onclick="document.getElementById('thform-${pid}').style.display='none'" style="padding:7px 14px;font-size:13px;border-radius:7px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">Cancel</button>
+        </div>
+        <div id="thmsg-${pid}" style="font-size:12px;margin-top:6px"></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+async function _thSave(pid) {
+  const val = document.getElementById('thinput-' + pid)?.value?.trim();
+  const msg = document.getElementById('thmsg-' + pid);
+  if (!val) { msg.textContent = 'Please paste a value.'; return; }
+  msg.style.color = 'var(--ink-3)'; msg.textContent = 'Saving…';
+  try {
+    const body = pid === 'zomato' ? { cookie: val } : { access_token: val };
+    const r = await fetch(`${API}/api/admin/${pid}-auth`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!r.ok) { msg.style.color = '#c00'; msg.textContent = d.detail || 'Failed'; return; }
+    msg.style.color = '#2e7d32'; msg.textContent = '✅ Saved! Re-checking…';
+    setTimeout(() => renderTokenHealthPage(), 1200);
+  } catch(e) { msg.style.color = '#c00'; msg.textContent = 'Network error'; }
 }
 
 </script>
