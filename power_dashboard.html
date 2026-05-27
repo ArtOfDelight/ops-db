@@ -2637,6 +2637,12 @@ function prDrawTable(el) {
   const tdL = (val, bold=false) => `<td style="padding:10px 13px;font-size:12px;${bold?'font-weight:700;':''}border-bottom:1px solid var(--border);color:var(--ink)">${val}</td>`;
   const tdB = (val) => `<td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--blue)">${val}</td>`;
 
+  const kptCell = (p) => {
+    if (p.zomato_avg_kpt == null) return td('—');
+    const cls = p.zomato_avg_kpt > 12 ? 'bad' : p.zomato_avg_kpt > 8 ? 'warn' : 'good';
+    return td(p.zomato_avg_kpt + 'm', cls);
+  };
+
   if (view === 'online') {
     thead = `<thead><tr>
       <th style="${thL};color:var(--ink-3)">#</th>
@@ -2651,6 +2657,7 @@ function prDrawTable(el) {
       ${col('High %','high_pct')}
       ${col('Error %','error_pct')}
       ${col('Net %','net_pct')}
+      ${col('Avg KPT 🍳','zomato_avg_kpt')}
     </tr></thead>`;
     rowsFn = (p, i) => {
       const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
@@ -2661,6 +2668,7 @@ function prDrawTable(el) {
         ${tdB(p.online_orders||'—')} ${tdB(p.total_rated)}
         ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
+        ${kptCell(p)}
       </tr>`;
     };
   } else if (view === 'dinein') {
@@ -2690,6 +2698,7 @@ function prDrawTable(el) {
       ${col('High %','high_pct')}
       ${col('Error %','error_pct')}
       ${col('Net %','net_pct')}
+      ${col('Avg KPT 🍳','zomato_avg_kpt')}
     </tr></thead>`;
     rowsFn = (p, i) => {
       const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
@@ -2701,12 +2710,13 @@ function prDrawTable(el) {
         ${tdB(p.total_rated)}
         ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
+        ${kptCell(p)}
       </tr>`;
     };
   }
 
   const rows = sorted.map(rowsFn).join('');
-  const minW = view === 'dinein' ? '500px' : view === 'combined' ? '1100px' : '1000px';
+  const minW = view === 'dinein' ? '500px' : view === 'combined' ? '1200px' : '1100px';
   el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:${minW}">${thead}<tbody>${rows}</tbody></table></div>`;
   if (!sorted.length) el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this view.</div>';
 }
