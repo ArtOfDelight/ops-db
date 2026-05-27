@@ -2682,7 +2682,7 @@ function prDrawTable(el) {
       ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
       ${tdB(p.dine_in_orders||'—')}
     </tr>`;
-  } else {
+  } else if (view === 'combined') {
     // combined — sorted by online_orders, shows both + ratings
     thead = `<thead><tr>
       <th style="${thL};color:var(--ink-3)">#</th>
