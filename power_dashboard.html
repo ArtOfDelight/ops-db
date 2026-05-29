@@ -3919,8 +3919,9 @@ async function _ckLoadBuild() {
       _ckState.loaded = true;
       const allExisting = existRes.entries || [];
 
-      // CK entries only
-      const existCK = allExisting.filter(e => e.outlet === 'CK' || e.outlet === 'WO');
+      // CK entries only — must be CK outlet or WO for a CK pool employee
+      const ckIds = new Set(_ckState.ck_pool.map(e => e.employee_id));
+      const existCK = allExisting.filter(e => (e.outlet === 'CK' || e.outlet === 'WO') && ckIds.has(e.employee_id));
       const _mapShift = (start) => {
         if (start === '09:00') return 'ck-morning';
         if (start === '13:00') return 'ck-mid';
@@ -4235,7 +4236,8 @@ async function _ckWeeklyLoad() {
     if (!_ckState.weekScheduled || _ckState.weekSatLoaded !== _ckState.weekSat) {
       _ckState.weekScheduled = {};
       weekDates.forEach((date, i) => {
-        const existing = (dayResults[i].entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
+        const ckIds = new Set(_ckState.ck_pool.map(e => e.employee_id));
+        const existing = (dayResults[i].entries || []).filter(e => (e.outlet === 'CK' || e.outlet === 'WO') && ckIds.has(e.employee_id));
         _ckState.weekScheduled[date] = existing.map(e => ({
           employee_id: e.employee_id, employee_name: e.employee_name || '',
           outlet: e.outlet === 'WO' ? 'WO' : 'CK',
