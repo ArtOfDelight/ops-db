@@ -3051,7 +3051,8 @@ function scpRenderCogs(data) {
   const rows = data.rows || [];
   const total = data.total || {};
   const fmt = v => v == null ? '—' : Number(v).toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2});
-  const cogsColor = () => 'color:var(--green);font-weight:700';
+  const fmt1 = v => v == null ? '—' : Number(v).toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2});
+  const cogsColor = pct => pct != null && pct < 40 ? 'color:var(--green);font-weight:700' : pct != null && pct < 50 ? 'color:var(--amber);font-weight:700' : 'color:var(--red);font-weight:700';
 
   const thS = 'padding:9px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);background:#f8fafd;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono)';
   const thSR = thS + ';text-align:right';
@@ -3060,36 +3061,44 @@ function scpRenderCogs(data) {
     <th style="${thS}">Row</th>
     <th style="${thSR}">Combos</th>
     <th style="${thSR}">Gross</th>
-    <th style="${thSR}">Net</th>
-    <th style="${thSR}">Material</th>
-    <th style="${thSR}">Supplies</th>
-    <th style="${thSR}">Pkg Charge</th>
+    <th style="${thSR}">Final Sale (Net+Pkg)</th>
+    <th style="${thSR}">COGS (Mat+Sup)</th>
     <th style="${thSR}">COGS %</th>
+    <th style="${thSR}">Final Sale / Combo</th>
+    <th style="${thSR}">COGS / Combo</th>
   </tr></thead>`;
 
   const tdL = (v, bold=false) => `<td style="padding:9px 14px;font-size:12px;border-bottom:1px solid var(--border);${bold?'font-weight:700':''}color:var(--ink)">${v}</td>`;
   const tdR = (v, extra='') => `<td style="padding:9px 14px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${extra}">${v}</td>`;
 
-  const bodyRows = rows.map(r => `<tr>
-    ${tdL(r.label, true)}
-    ${tdR(r.combos)}
-    ${tdR(fmt(r.gross))}
-    ${tdR(fmt(r.net))}
-    ${tdR(fmt(r.mat))}
-    ${tdR(fmt(r.sup))}
-    ${tdR(fmt(r.pkg))}
-    ${tdR(r.cogs_pct != null ? r.cogs_pct.toFixed(2)+'%' : '—', cogsColor(r.cogs_pct))}
-  </tr>`).join('');
+  const bodyRows = rows.map(r => {
+    const finalSale = (r.net || 0) + (r.pkg || 0);
+    const cogsAmt   = (r.mat || 0) + (r.sup || 0);
+    const combos    = r.combos || 0;
+    return `<tr>
+      ${tdL(r.label, true)}
+      ${tdR(combos)}
+      ${tdR(fmt(r.gross))}
+      ${tdR(fmt(finalSale))}
+      ${tdR(fmt(cogsAmt))}
+      ${tdR(r.cogs_pct != null ? r.cogs_pct.toFixed(2)+'%' : '—', cogsColor(r.cogs_pct))}
+      ${tdR(combos ? fmt1(finalSale / combos) : '—')}
+      ${tdR(combos ? fmt1(cogsAmt   / combos) : '—')}
+    </tr>`;
+  }).join('');
 
+  const tFS   = (total.net||0)+(total.pkg||0);
+  const tCOGS = (total.mat||0)+(total.sup||0);
+  const tC    = total.combos || 0;
   const totalRow = `<tr style="background:#f8fafd">
     ${tdL('<strong>Total</strong>', true)}
-    ${tdR(`<strong>${total.combos ?? ''}</strong>`)}
+    ${tdR(`<strong>${tC}</strong>`)}
     ${tdR(`<strong>${fmt(total.gross)}</strong>`)}
-    ${tdR(`<strong>${fmt(total.net)}</strong>`)}
-    ${tdR(`<strong>${fmt(total.mat)}</strong>`)}
-    ${tdR(`<strong>${fmt(total.sup)}</strong>`)}
-    ${tdR(`<strong>${fmt(total.pkg)}</strong>`)}
+    ${tdR(`<strong>${fmt(tFS)}</strong>`)}
+    ${tdR(`<strong>${fmt(tCOGS)}</strong>`)}
     ${tdR(total.cogs_pct != null ? `<strong>${total.cogs_pct.toFixed(2)}%</strong>` : '—', cogsColor(total.cogs_pct))}
+    ${tdR(tC ? `<strong>${fmt1(tFS/tC)}</strong>` : '—')}
+    ${tdR(tC ? `<strong>${fmt1(tCOGS/tC)}</strong>` : '—')}
   </tr>`;
 
   return `
@@ -3125,11 +3134,26 @@ function renderInventoryPage() {
   el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading inventory data…</div>';
   _invLiveData = null; _invTrackerData = null;
 
+  const authHdr = _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {};
   Promise.all([
-    fetch(API + '/api/inventory/live').then(r => r.json()),
+    fetch(API + '/api/inventory/oos', { headers: authHdr }).then(r => r.json()),
     fetch(`${API}/api/inventory/tracker?days=${_invTrackerDays}`).then(r => r.json()),
   ]).then(([live, tracker]) => {
-    _invLiveData    = live;
+    // Normalise /oos response → same flat items[] shape as /live used to return
+    const flatItems = [];
+    (live.outlets || []).forEach(outlet => {
+      (outlet.oos_items || []).forEach(item => {
+        flatItems.push({
+          sku:          item.sku,
+          item:         item.name,
+          outlet:       outlet.outlet,
+          status:       'OUT',
+          out_since:    '',
+          duration_hrs: null,
+        });
+      });
+    });
+    _invLiveData    = { items: flatItems, generated_at: live.generated_at };
     _invTrackerData = tracker;
     _renderInventory();
   }).catch(() => { el.innerHTML = errBox(''); });
