@@ -3813,8 +3813,30 @@ function renderRosterPage() {
     const now = new Date(); now.setDate(now.getDate() - 1);
     _ckState.date = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
   }
-  body.innerHTML = `<div style="max-width:860px;margin:0 auto;padding:16px"><div id="ckBody">Loading…</div></div>`;
-  _ckLoadBuild();
+  if (!_ckState.mode) _ckState.mode = 'daily';
+  body.innerHTML = `
+    <div style="max-width:900px;margin:0 auto;padding:16px">
+      <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--border);border-radius:10px;padding:4px;width:fit-content">
+        <button onclick="_ckSwitchMode('daily')" id="ck-tab-daily"
+          style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                 background:${_ckState.mode==='daily'?'#fff':'transparent'};
+                 color:${_ckState.mode==='daily'?'var(--ink)':'var(--ink-3)'};
+                 box-shadow:${_ckState.mode==='daily'?'0 1px 4px rgba(0,0,0,.1)':'none'}">Daily</button>
+        <button onclick="_ckSwitchMode('weekly')" id="ck-tab-weekly"
+          style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                 background:${_ckState.mode==='weekly'?'#fff':'transparent'};
+                 color:${_ckState.mode==='weekly'?'var(--ink)':'var(--ink-3)'};
+                 box-shadow:${_ckState.mode==='weekly'?'0 1px 4px rgba(0,0,0,.1)':'none'}">Weekly</button>
+      </div>
+      <div id="ckBody">Loading…</div>
+    </div>`;
+  if (_ckState.mode === 'weekly') _ckWeeklyLoad();
+  else _ckLoadBuild();
+}
+
+function _ckSwitchMode(mode) {
+  _ckState.mode = mode;
+  renderRosterPage();
 }
 
 /* ── BUILD TAB ── */
@@ -3875,26 +3897,11 @@ async function _ckLoadBuild() {
       ...allCK.filter(e => !recentIds.has(e.employee_id)).sort((a,b)=>a.name.localeCompare(b.name)),
     ];
 
-    // Build outlet pools (excluding CK — those are handled separately)
-    const OUTLET_LABELS = { SKN:'Sahakar Nagar', RR:'Residency Road', KOR:'Koramangala', JAY:'Jayanagar', WF:'Whitefield', KLN:'Kalayanagar', BLN:'Bellandur', IND:'Indiranagar', ARK:'Arkavathi' };
-    _ckState.outlet_pools = {};
-    Object.entries(pools).forEach(([code, emps]) => {
-      if (code !== 'CK' && code !== 'OTHER' && emps.length) _ckState.outlet_pools[code] = emps;
-    });
-
-    // Outlet shifts (standard dine-in)
-    _ckState.outlet_shifts = [
-      { shift_id: 'morning',  shift_name: 'Morning',  start_time: '09:00', end_time: '17:00' },
-      { shift_id: 'mid',      shift_name: 'Mid Day',   start_time: '13:00', end_time: '21:00' },
-      { shift_id: 'closing',  shift_name: 'Closing',   start_time: '17:00', end_time: '01:00' },
-    ];
-    _ckState.outlet_labels = OUTLET_LABELS;
-
     if (!_ckState.loaded) {
       _ckState.loaded = true;
       const allExisting = existRes.entries || [];
 
-      // CK entries
+      // CK entries only
       const existCK = allExisting.filter(e => e.outlet === 'CK' || e.outlet === 'WO');
       const _mapShift = (start) => {
         if (start === '09:00') return 'ck-morning';
@@ -3913,22 +3920,6 @@ async function _ckLoadBuild() {
         _ckState.entries = _ckState.ck_pool.filter(emp => recentIds.has(emp.employee_id))
           .map(emp => ({ employee_id: emp.employee_id, outlet: 'CK', shift: 'ck-morning', start_time: '09:00', end_time: '17:00' }));
       }
-
-      // Outlet entries
-      _ckState.outlet_entries = {};
-      Object.keys(_ckState.outlet_pools).forEach(code => {
-        const existing = allExisting.filter(e => e.outlet === code);
-        const _mapOutletShift = (start) => {
-          if (start === '09:00') return 'morning';
-          if (start === '13:00') return 'mid';
-          if (start === '17:00') return 'closing';
-          return 'morning';
-        };
-        _ckState.outlet_entries[code] = existing.map(e => ({
-          employee_id: e.employee_id, outlet: code,
-          shift: _mapOutletShift(e.start_time), start_time: e.start_time || '09:00', end_time: e.end_time || '17:00',
-        }));
-      });
     }
 
     const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -4026,9 +4017,7 @@ function _ckRenderBuild() {
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Available Pool (${available.length})</div>
         <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">${poolRows}</div>
       </div>` : ''}
-    </div>
-    <!-- Outlet Sections -->
-    ${_renderOutletSections()}`;
+    </div>`;
 }
 
 function _renderOutletSections() {
@@ -4149,10 +4138,7 @@ function _ckRemove(idx) {
 async function _ckPublish() {
   const { date, entries, outlet_entries } = _ckState;
 
-  // Combine CK + all outlet entries
-  const ckEntries = entries.filter(e => e.employee_id).map(e => ({ ...e, outlet: e.outlet || 'CK' }));
-  const outletAll = Object.values(outlet_entries || {}).flat().filter(e => e.employee_id);
-  const toPublish = [...ckEntries, ...outletAll];
+  const toPublish = entries.filter(e => e.employee_id).map(e => ({ ...e, outlet: e.outlet || 'CK' }));
 
   if (!toPublish.length) { alert('No entries to publish.'); return; }
   const noShift = toPublish.filter(e => !e.shift && e.outlet !== 'WO');
@@ -4173,6 +4159,283 @@ async function _ckPublish() {
       alert('Publish failed: ' + JSON.stringify(res));
     }
   } catch(e) { alert('Error: ' + e.message); }
+}
+
+
+/* ── WEEKLY ROSTER ── */
+const CK_DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function _ckWeekSat(refDate) {
+  // Returns the Saturday on or before refDate
+  const d = new Date(refDate);
+  const dow = d.getDay(); // 0=Sun … 6=Sat
+  d.setDate(d.getDate() - ((dow + 1) % 7)); // back to Saturday
+  return d;
+}
+
+function _ckFmtDMY(d) {
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function _ckParseDMY(s) {
+  const [dd,mm,yy] = s.split('/');
+  return new Date(+yy, +mm-1, +dd);
+}
+
+async function _ckWeeklyLoad() {
+  if (!_ckState.weekSat) {
+    _ckState.weekSat = _ckFmtDMY(_ckWeekSat(new Date()));
+  }
+  if (typeof _ckState.weekDayIdx !== 'number') _ckState.weekDayIdx = 0;
+
+  document.getElementById('ckBody').innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink-3)">Loading…</div>`;
+
+  const satDate = _ckParseDMY(_ckState.weekSat);
+  const weekDates = Array.from({length:7}, (_,i) => {
+    const d = new Date(satDate); d.setDate(d.getDate()+i); return _ckFmtDMY(d);
+  });
+  _ckState.weekDates = weekDates;
+
+  try {
+    const [empRes, ...dayResults] = await Promise.all([
+      fetch(`${API}/api/ops/roster/employees`).then(r=>r.json()),
+      ...weekDates.map(d => fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(d)}`).then(r=>r.json())),
+    ]);
+
+    const pools = empRes.pools_by_outlet || {};
+    _ckState.ck_pool = (pools['CK'] || []).sort((a,b)=>a.name.localeCompare(b.name));
+
+    _ckState.shifts = [
+      { shift_id: 'ck-morning', shift_name: 'Morning', start_time: '09:00', end_time: '17:00' },
+      { shift_id: 'ck-mid',     shift_name: 'Mid',     start_time: '13:00', end_time: '21:00' },
+      { shift_id: 'ck-evening', shift_name: 'Evening', start_time: '16:00', end_time: '00:00' },
+    ];
+
+    const _mapShift = s => s==='09:00'?'ck-morning':s==='13:00'?'ck-mid':s==='16:00'?'ck-evening':'ck-morning';
+
+    // Build weekScheduled: date -> entries[]
+    if (!_ckState.weekScheduled || _ckState.weekSatLoaded !== _ckState.weekSat) {
+      _ckState.weekScheduled = {};
+      weekDates.forEach((date, i) => {
+        const existing = (dayResults[i].entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
+        _ckState.weekScheduled[date] = existing.map(e => ({
+          employee_id: e.employee_id,
+          outlet: e.outlet === 'WO' ? 'WO' : 'CK',
+          shift: e.outlet==='WO' ? '' : _mapShift(e.start_time),
+          start_time: e.outlet==='WO' ? '' : (e.start_time||'09:00'),
+          end_time:   e.outlet==='WO' ? '' : (e.end_time||'17:00'),
+        }));
+      });
+      _ckState.weekSatLoaded = _ckState.weekSat;
+    }
+
+    _ckWeeklyRender();
+  } catch(e) {
+    document.getElementById('ckBody').innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+  }
+}
+
+function _ckWeeklyRender() {
+  const { weekDates, weekDayIdx, weekScheduled, ck_pool, shifts, weekSat } = _ckState;
+  const satDate = _ckParseDMY(weekSat);
+  const endDate = new Date(satDate); endDate.setDate(endDate.getDate()+6);
+
+  const fmtShort = d => `${CK_DAY_NAMES[d.getDay()].slice(0,3)} ${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+
+  const activeDate = weekDates[weekDayIdx];
+  const entries = weekScheduled[activeDate] || [];
+  const usedIds = new Set(entries.map(e=>e.employee_id));
+  const available = ck_pool.filter(e => !usedIds.has(e.employee_id));
+
+  const empById = {};
+  ck_pool.forEach(e => empById[e.employee_id]=e);
+
+  const shiftOpts = (sel) => shifts.map(s =>
+    `<option value="${s.shift_id}" ${sel===s.shift_id?'selected':''}>${s.shift_name} · ${s.start_time}–${s.end_time}</option>`).join('');
+
+  const scheduledRows = entries.map((row,idx) => {
+    const name = empById[row.employee_id]?.name || row.employee_id;
+    const isWO = row.outlet === 'WO';
+    return `<tr style="border-top:1px solid var(--border-2)${isWO?';background:#f8fbff':''}">
+      <td style="padding:9px 14px;font-size:14px;font-weight:600;color:${isWO?'#1d4ed8':'var(--ink)'}">${name}</td>
+      <td style="padding:9px 14px">
+        ${isWO
+          ? `<span style="font-size:12px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px">Weekly Off</span>`
+          : `<select onchange="_ckWkSetShift(${idx},this.value)"
+               style="border:1.5px solid var(--border-2);border-radius:6px;padding:5px 10px;font-size:13px;font-family:var(--sans);background:var(--surface);min-width:240px">
+               <option value="">— Select shift —</option>${shiftOpts(row.shift)}</select>
+             ${row.start_time?`<span style="font-size:11px;color:var(--ink-3);margin-left:6px">${row.start_time}–${row.end_time}</span>`:''}`}
+      </td>
+      <td style="padding:9px 14px;text-align:right;white-space:nowrap">
+        <button onclick="_ckWkToggleWO(${idx})"
+          style="padding:4px 10px;border:1.5px solid #2196f3;border-radius:6px;color:${isWO?'#fff':'#2196f3'};background:${isWO?'#2196f3':'none'};cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">WO</button>
+        <button onclick="_ckWkRemove(${idx})"
+          style="padding:4px 11px;border:1.5px solid var(--red);border-radius:6px;color:var(--red);background:none;cursor:pointer;font-size:12px;font-weight:600">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const poolRows = available.map(emp => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--border-2)">
+      <span style="font-size:13px;color:var(--ink);font-weight:600">${emp.name}</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="_ckWkAddWO('${emp.employee_id}')"
+          style="padding:4px 12px;border:1.5px solid #2196f3;border-radius:6px;color:#2196f3;background:none;cursor:pointer;font-size:12px;font-weight:600">WO</button>
+        <button onclick="_ckWkAddEmp('${emp.employee_id}')"
+          style="padding:4px 14px;border:1.5px solid ${CK_GREEN};border-radius:6px;color:${CK_GREEN};background:none;cursor:pointer;font-size:12px;font-weight:600">+ Add</button>
+      </div>
+    </div>`).join('');
+
+  // Week summary dots per day
+  const dayTabs = weekDates.map((date,i) => {
+    const d = _ckParseDMY(date);
+    const cnt = (weekScheduled[date]||[]).filter(e=>e.outlet!=='WO').length;
+    const isActive = i === weekDayIdx;
+    return `<button onclick="_ckState.weekDayIdx=${i};_ckWeeklyRender()"
+      style="flex:1;min-width:0;padding:8px 4px;border:1.5px solid ${isActive?'var(--blue)':'var(--border-2)'};
+             border-radius:8px;background:${isActive?'var(--blue-dim)':'#fff'};cursor:pointer;
+             font-family:var(--sans);text-align:center;transition:all .12s">
+      <div style="font-size:10px;font-weight:700;color:${isActive?'var(--blue)':'var(--ink-3)'};">${CK_DAY_NAMES[d.getDay()].slice(0,3)}</div>
+      <div style="font-size:13px;font-weight:700;color:${isActive?'var(--blue)':'var(--ink)'};margin:2px 0">${d.getDate()}</div>
+      <div style="font-size:10px;color:${cnt>0?CK_GREEN:'var(--ink-3)'};">${cnt>0?cnt+'✓':'—'}</div>
+    </button>`;
+  }).join('');
+
+  document.getElementById('ckBody').innerHTML = `
+    <!-- Week nav -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <button onclick="_ckWkShift(-1)" style="padding:6px 14px;border:1.5px solid var(--border-2);border-radius:7px;background:#fff;color:var(--ink-2);font-size:16px;cursor:pointer;font-weight:700">‹</button>
+      <div style="flex:1;text-align:center">
+        <div style="font-size:14px;font-weight:700;color:var(--ink)">${fmtShort(satDate)} — ${fmtShort(endDate)}</div>
+      </div>
+      <button onclick="_ckWkShift(1)" style="padding:6px 14px;border:1.5px solid var(--border-2);border-radius:7px;background:#fff;color:var(--ink-2);font-size:16px;cursor:pointer;font-weight:700">›</button>
+      <button onclick="_ckWkPublishAll()"
+        style="padding:9px 22px;border:none;border-radius:8px;background:${CK_GREEN};color:#fff;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap">
+        ☁ Publish Week
+      </button>
+    </div>
+
+    <!-- Day tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:20px">${dayTabs}</div>
+
+    <!-- Active day label -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">
+      🍳 CK Kitchen · ${CK_DAY_NAMES[_ckParseDMY(activeDate).getDay()]} ${activeDate} — ${entries.length} scheduled
+    </div>
+
+    <!-- Scheduled -->
+    ${entries.length ? `
+      <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface);margin-bottom:16px">
+        <div style="background:#f8f9fb;padding:7px 14px;display:grid;grid-template-columns:160px 1fr 120px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">
+          <span>Employee</span><span>Shift</span><span></span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">${scheduledRows}</table>
+      </div>` :
+      `<div style="font-size:13px;color:var(--ink-3);padding:4px 0 12px">No staff added for this day. Add from pool below.</div>`}
+
+    <!-- Publish day button -->
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button onclick="_ckWkAutoFill()" style="padding:7px 16px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;color:var(--ink-2);font-weight:600;cursor:pointer;font-size:13px">↩ Auto-fill Day</button>
+      <button onclick="_ckWkPublishDay()" style="padding:7px 20px;border:1.5px solid ${CK_GREEN};border-radius:8px;background:#fff;color:${CK_GREEN};font-weight:700;cursor:pointer;font-size:13px">☁ Publish Day</button>
+    </div>
+
+    <!-- Pool -->
+    ${available.length ? `
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Available Pool (${available.length})</div>
+      <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">${poolRows}</div>` : ''}
+  `;
+}
+
+// Weekly helpers
+function _ckWkShift(dir) {
+  const d = _ckParseDMY(_ckState.weekSat);
+  d.setDate(d.getDate() + dir*7);
+  _ckState.weekSat = _ckFmtDMY(d);
+  _ckState.weekScheduled = null;
+  _ckState.weekDayIdx = 0;
+  _ckWeeklyLoad();
+}
+
+function _ckWkSetShift(idx, shiftId) {
+  const sh = _ckState.shifts.find(s=>s.shift_id===shiftId)||{};
+  const e = _ckState.weekScheduled[_ckState.weekDates[_ckState.weekDayIdx]][idx];
+  e.shift=shiftId; e.start_time=sh.start_time||''; e.end_time=sh.end_time||'';
+  _ckWeeklyRender();
+}
+
+function _ckWkToggleWO(idx) {
+  const entries = _ckState.weekScheduled[_ckState.weekDates[_ckState.weekDayIdx]];
+  const e = entries[idx];
+  if (e.outlet==='WO') {
+    e.outlet='CK'; e.shift='ck-morning'; e.start_time='09:00'; e.end_time='17:00';
+  } else {
+    e.outlet='WO'; e.shift=''; e.start_time=''; e.end_time='';
+  }
+  _ckWeeklyRender();
+}
+
+function _ckWkRemove(idx) {
+  _ckState.weekScheduled[_ckState.weekDates[_ckState.weekDayIdx]].splice(idx,1);
+  _ckWeeklyRender();
+}
+
+function _ckWkAddEmp(eid) {
+  const date = _ckState.weekDates[_ckState.weekDayIdx];
+  if (!_ckState.weekScheduled[date]) _ckState.weekScheduled[date]=[];
+  _ckState.weekScheduled[date].push({employee_id:eid,outlet:'CK',shift:'ck-morning',start_time:'09:00',end_time:'17:00'});
+  _ckWeeklyRender();
+}
+
+function _ckWkAddWO(eid) {
+  const date = _ckState.weekDates[_ckState.weekDayIdx];
+  if (!_ckState.weekScheduled[date]) _ckState.weekScheduled[date]=[];
+  _ckState.weekScheduled[date].push({employee_id:eid,outlet:'WO',shift:'',start_time:'',end_time:''});
+  _ckWeeklyRender();
+}
+
+function _ckWkAutoFill() {
+  const date = _ckState.weekDates[_ckState.weekDayIdx];
+  _ckState.weekScheduled[date] = _ckState.ck_pool.map(emp=>({
+    employee_id:emp.employee_id,outlet:'CK',shift:'ck-morning',start_time:'09:00',end_time:'17:00'
+  }));
+  _ckWeeklyRender();
+}
+
+async function _ckWkPublishDay() {
+  const date = _ckState.weekDates[_ckState.weekDayIdx];
+  const toPublish = (_ckState.weekScheduled[date]||[]).filter(e=>e.employee_id).map(e=>({...e,outlet:e.outlet||'CK'}));
+  if (!toPublish.length) { alert('No entries for this day.'); return; }
+  try {
+    const res = await fetch(`${API}/api/ops/roster/publish`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({date, entries:toPublish}),
+    }).then(r=>r.json());
+    if (res.success) _showToast(`Published ${date} — ${res.published_count||res.published} entries ✓`);
+    else alert('Publish failed: ' + JSON.stringify(res));
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function _ckWkPublishAll() {
+  const { weekDates, weekScheduled } = _ckState;
+  const allEmpty = weekDates.every(d=>!(weekScheduled[d]||[]).length);
+  if (allEmpty) { alert('No entries to publish for this week.'); return; }
+  if (!confirm(`Publish roster for all 7 days?`)) return;
+
+  let total=0, errors=[];
+  for (const date of weekDates) {
+    const toPublish = (weekScheduled[date]||[]).filter(e=>e.employee_id).map(e=>({...e,outlet:e.outlet||'CK'}));
+    if (!toPublish.length) continue;
+    try {
+      const res = await fetch(`${API}/api/ops/roster/publish`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({date, entries:toPublish}),
+      }).then(r=>r.json());
+      if (res.success) total += (res.published_count||res.published||0);
+      else errors.push(date);
+    } catch(e) { errors.push(date); }
+  }
+  if (errors.length) _showToast(`Published ${total} entries. Failed days: ${errors.join(', ')}`);
+  else _showToast(`Week published — ${total} entries ✓`);
 }
 
 
