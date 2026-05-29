@@ -2465,6 +2465,12 @@ function prSwitchSubTab(tab, skipState) {
             <input type="number" id="pr-min-orders" min="0" value="10" class="pr-ctrl-input" style="width:72px" oninput="prDrawTable()"/>
           </div>
           <div class="pr-ctrl-group">
+            <span class="pr-ctrl-label">Outlet</span>
+            <select id="pr-outlet" class="pr-ctrl-input" onchange="prLoad()">
+              <option value="">All Outlets</option>
+            </select>
+          </div>
+          <div class="pr-ctrl-group">
             <span class="pr-ctrl-label">Category</span>
             <select id="pr-category" class="pr-ctrl-input" onchange="prDrawTable()">
               <option value="">All</option>
@@ -2570,19 +2576,31 @@ function prSetViewTab(tab) {
 }
 
 async function prLoad() {
-  const from = document.getElementById('pr-start')?.value;
-  const to   = document.getElementById('pr-end')?.value;
+  const from   = document.getElementById('pr-start')?.value;
+  const to     = document.getElementById('pr-end')?.value;
+  const outlet = document.getElementById('pr-outlet')?.value || '';
   if (!from || !to) return;
   const el = document.getElementById('pr-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
   try {
-    const r = await fetch(`${API}/api/admin/product-rankings?date_from=${from}&date_to=${to}`,
-      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    let url = `${API}/api/admin/product-rankings?date_from=${from}&date_to=${to}`;
+    if (outlet) url += `&outlet=${encodeURIComponent(outlet)}`;
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
     if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); return; }
     const d = await r.json();
     const products = d.products || [];
+    // Populate outlet dropdown once (keep existing selection)
+    const outSel = document.getElementById('pr-outlet');
+    if (outSel && d.outlets && outSel.options.length <= 1) {
+      d.outlets.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        outSel.appendChild(opt);
+      });
+      if (outlet) outSel.value = outlet;
+    }
     const statusEl = document.getElementById('pr-status');
-    if (statusEl) statusEl.textContent = products.length ? `${products.length} products · ${d.date_from} → ${d.date_to}` : '';
+    if (statusEl) statusEl.textContent = products.length ? `${products.length} products · ${d.date_from} → ${d.date_to}${outlet ? ' · ' + outlet : ''}` : '';
     prRenderTable(products, el);
   } catch(e) {
     if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
