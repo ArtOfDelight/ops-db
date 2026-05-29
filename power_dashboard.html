@@ -3911,7 +3911,7 @@ async function _ckLoadBuild() {
       };
       if (existCK.length) {
         _ckState.entries = existCK.map(e => ({
-          employee_id: e.employee_id, outlet: e.outlet === 'WO' ? 'WO' : 'CK',
+          employee_id: e.employee_id, employee_name: e.employee_name || '', outlet: e.outlet === 'WO' ? 'WO' : 'CK',
           shift: e.outlet === 'WO' ? '' : _mapShift(e.start_time),
           start_time: e.outlet === 'WO' ? '' : (e.start_time || '09:00'),
           end_time:   e.outlet === 'WO' ? '' : (e.end_time   || '17:00'),
@@ -3955,7 +3955,7 @@ function _ckRenderBuild() {
 
   const scheduledRows = entries.map((row, idx) => {
     const emp  = empById[row.employee_id];
-    const name = emp ? emp.name : row.employee_id;
+    const name = emp ? emp.name : (row.employee_name || row.employee_id);
     const isWO = row.outlet === 'WO';
     const shiftCell = isWO
       ? `<span style="font-size:12px;font-weight:700;background:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:20px">Weekly Off</span>`
@@ -4219,7 +4219,7 @@ async function _ckWeeklyLoad() {
       weekDates.forEach((date, i) => {
         const existing = (dayResults[i].entries || []).filter(e => e.outlet === 'CK' || e.outlet === 'WO');
         _ckState.weekScheduled[date] = existing.map(e => ({
-          employee_id: e.employee_id,
+          employee_id: e.employee_id, employee_name: e.employee_name || '',
           outlet: e.outlet === 'WO' ? 'WO' : 'CK',
           shift: e.outlet==='WO' ? '' : _mapShift(e.start_time),
           start_time: e.outlet==='WO' ? '' : (e.start_time||'09:00'),
@@ -4254,7 +4254,7 @@ function _ckWeeklyRender() {
     `<option value="${s.shift_id}" ${sel===s.shift_id?'selected':''}>${s.shift_name} · ${s.start_time}–${s.end_time}</option>`).join('');
 
   const scheduledRows = entries.map((row,idx) => {
-    const name = empById[row.employee_id]?.name || row.employee_id;
+    const name = empById[row.employee_id]?.name || row.employee_name || row.employee_id;
     const isWO = row.outlet === 'WO';
     return `<tr style="border-top:1px solid var(--border-2)${isWO?';background:#f8fbff':''}">
       <td style="padding:9px 14px;font-size:14px;font-weight:600;color:${isWO?'#1d4ed8':'var(--ink)'}">${name}</td>
