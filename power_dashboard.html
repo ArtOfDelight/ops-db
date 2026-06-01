@@ -1043,7 +1043,7 @@ td.c { text-align: center; }
       <span class="sb-icon">🍽️</span> Product Rankings
     </button>
     <button class="sb-item" id="sbitem-inventory" onclick="navTo('inventory')">
-      <span class="sb-icon">📦</span> Inventory
+      <span class="sb-icon">📦</span> OOS Report
     </button>
     <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
       <span class="sb-icon">💰</span> Daily Recon
@@ -3159,6 +3159,31 @@ function renderInventoryPage() {
   }).catch(() => { el.innerHTML = errBox(''); });
 }
 
+async function triggerOosRefresh() {
+  const btn  = document.getElementById('oosRefreshBtn');
+  const icon = document.getElementById('oosRefreshIcon');
+  const status = document.getElementById('oosRefreshStatus');
+  if (!btn) return;
+  btn.disabled = true;
+  icon.style.animation = 'spin 1s linear infinite';
+  status.textContent = 'Running script…';
+  try {
+    const r = await fetch(API + '/api/inventory/refresh', { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      status.textContent = 'Done! Reloading data…';
+      setTimeout(() => renderInventoryPage(), 1500);
+    } else {
+      status.textContent = 'Error: ' + (d.message || 'unknown');
+    }
+  } catch(e) {
+    status.textContent = 'Failed: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    icon.style.animation = '';
+  }
+}
+
 function _invSetDays(n) {
   _invTrackerDays = n;
   fetch(`${API}/api/inventory/tracker?days=${n}`).then(r => r.json()).then(d => {
@@ -3340,7 +3365,13 @@ function _renderInventory() {
       </div>`;
 
   el.innerHTML = statsHtml + `
-    <div style="font-size:11px;color:var(--ink-3);margin-bottom:18px">Live as of ${live.generated_at||'—'}</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <div style="font-size:11px;color:var(--ink-3)">Live as of ${live.generated_at||'—'}</div>
+      <button id="oosRefreshBtn" class="btn-refresh" style="font-size:11px;padding:4px 12px;display:inline-flex;align-items:center;gap:5px" onclick="triggerOosRefresh()">
+        <span id="oosRefreshIcon">↻</span> Refresh Sheet
+      </button>
+      <span id="oosRefreshStatus" style="font-size:11px;color:var(--ink-3)"></span>
+    </div>
     ${actionsHtml}
     <div class="inv-section-head">📦 Live Out of Stock</div>
     ${liveHtml}
