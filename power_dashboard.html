@@ -4173,11 +4173,17 @@ function renderRosterPage() {
           style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
                  background:${_ckState.mode==='weekly'?'#fff':'transparent'};
                  color:${_ckState.mode==='weekly'?'var(--ink)':'var(--ink-3)'};
-                 box-shadow:${_ckState.mode==='weekly'?'0 1px 4px rgba(0,0,0,.1)':'none'}">Weekly</button>
+                 box-shadow:${_ckState.mode==='weekly'?'0 1px 4px rgba(0,0,0,.1)':'none'}">CK Weekly</button>
+        <button onclick="_ckSwitchMode('fullweek')" id="ck-tab-fullweek"
+          style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                 background:${_ckState.mode==='fullweek'?'#fff':'transparent'};
+                 color:${_ckState.mode==='fullweek'?'var(--ink)':'var(--ink-3)'};
+                 box-shadow:${_ckState.mode==='fullweek'?'0 1px 4px rgba(0,0,0,.1)':'none'}">📋 Full Week</button>
       </div>
       <div id="ckBody">Loading…</div>
     </div>`;
-  if (_ckState.mode === 'weekly') _ckWeeklyLoad();
+  if (_ckState.mode === 'weekly')   _ckWeeklyLoad();
+  else if (_ckState.mode === 'fullweek') _wrWeeklyLoad();
   else _ckLoadBuild();
 }
 
@@ -4787,6 +4793,268 @@ async function _ckWkPublishAll() {
   else _showToast(`Week published — ${total} entries ✓`);
 }
 
+
+/* ── FULL WEEK ROSTER ── */
+let _wrState = {
+  weekStart: null,   // "DD/MM/YYYY" Monday
+  data: null,        // generate-week response
+  shifts: [],        // from /admin/shifts
+  dirty: {},         // { "empId_date": {outlet, shift, shift_name, start_time, end_time} }
+  editCell: null,    // { empId, date }
+};
+
+const _WR_OUTLETS = ['WO','RR','SKN','KOR','WF','KLN','BLN','IND','ARK','JAY','HSR','RAJ','CK','PL','UPL'];
+const _WR_DAY_ABBR = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+function _wrFmtDMY(d) {
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+function _wrParseDMY(s) {
+  const [dd,mm,yy] = s.split('/'); return new Date(+yy,+mm-1,+dd);
+}
+function _wrMonday(ref) {
+  const d = new Date(ref);
+  const dow = d.getDay();
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+  return d;
+}
+function _wrShiftWeek(dir) {
+  const d = _wrParseDMY(_wrState.weekStart);
+  d.setDate(d.getDate() + dir * 7);
+  _wrState.weekStart = _wrFmtDMY(d);
+  _wrState.data = null;
+  _wrState.dirty = {};
+  _wrWeeklyLoad();
+}
+
+async function _wrWeeklyLoad() {
+  if (!_wrState.weekStart) {
+    _wrState.weekStart = _wrFmtDMY(_wrMonday(new Date()));
+  }
+  const el = document.getElementById('ckBody');
+  if (!el) return;
+  el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink-3)"><span style="font-size:20px">⏳</span><br>Loading roster…</div>`;
+
+  try {
+    const [weekRes, shiftRes] = await Promise.all([
+      fetch(`${API}/api/admin/roster/generate-week?week_start=${encodeURIComponent(_wrState.weekStart)}`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json()),
+      fetch(`${API}/api/admin/shifts`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json()),
+    ]);
+    if (!weekRes.success) throw new Error(weekRes.detail || 'Failed to load');
+    _wrState.data   = weekRes;
+    _wrState.shifts = shiftRes.shifts || [];
+    _wrState.dirty  = {};
+    _wrRender();
+  } catch(e) {
+    if (el) el.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+  }
+}
+
+function _wrGetCell(empId, date) {
+  const key = `${empId}_${date}`;
+  if (_wrState.dirty[key]) return _wrState.dirty[key];
+  const day = _wrState.data?.week?.[date];
+  if (!day) return {outlet:'', shift:'', shift_name:'', start_time:'', end_time:''};
+  const entry = day.entries.find(e => e.employee_id === empId);
+  return entry || {outlet:'', shift:'', shift_name:'', start_time:'', end_time:''};
+}
+
+function _wrSetCell(empId, date, outlet, shiftId) {
+  const key = `${empId}_${date}`;
+  const sh = _wrState.shifts.find(s => s.shift_id === shiftId) || {};
+  const day = _wrState.data?.week?.[date];
+  const entry = day?.entries?.find(e => e.employee_id === empId) || {};
+  _wrState.dirty[key] = {
+    employee_id: empId,
+    employee_name: entry.employee_name || '',
+    date, outlet,
+    shift: shiftId,
+    shift_name: sh.shift_name || '',
+    start_time: sh.start_time || '',
+    end_time: sh.end_time || '',
+  };
+  _wrCloseEditor();
+  _wrRender();
+}
+
+function _wrOpenEditor(empId, date) {
+  _wrState.editCell = { empId, date };
+  _wrRender();
+}
+
+function _wrCloseEditor() {
+  _wrState.editCell = null;
+}
+
+function _wrRender() {
+  const el = document.getElementById('ckBody');
+  if (!el || !_wrState.data) return;
+
+  const { week, week_start } = _wrState.data;
+  const dates = Object.keys(week).sort((a,b) => _wrParseDMY(a) - _wrParseDMY(b));
+  const employees = week[dates[0]]?.entries?.map(e => ({id: e.employee_id, name: e.employee_name})) || [];
+  const dirtyCount = Object.keys(_wrState.dirty).length;
+
+  // Week nav header
+  const monDate = _wrParseDMY(dates[0]);
+  const sunDate = _wrParseDMY(dates[6]);
+  const fmtShort = d => `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+  const weekLabel = `${fmtShort(monDate)} – ${fmtShort(sunDate)} ${sunDate.getFullYear()}`;
+
+  // Build shifts grouped by outlet for quick lookup
+  const shiftsByOutlet = {};
+  _wrState.shifts.forEach(s => {
+    const o = s.outlet_name || 'ALL';
+    if (!shiftsByOutlet[o]) shiftsByOutlet[o] = [];
+    shiftsByOutlet[o].push(s);
+  });
+
+  const outletColor = o => {
+    if (!o || o === 'WO') return 'color:#6b7280;background:#f3f4f6';
+    if (o === 'CK') return 'color:#92400e;background:#fef3c7';
+    if (o === 'PL' || o === 'UPL') return 'color:#1e40af;background:#dbeafe';
+    return 'color:#14532d;background:#dcfce7';
+  };
+
+  // Cell renderer
+  const cellHtml = (empId, date) => {
+    const c = _wrGetCell(empId, date);
+    const isDirty = !!_wrState.dirty[`${empId}_${date}`];
+    const isEditing = _wrState.editCell?.empId === empId && _wrState.editCell?.date === date;
+    const outlet = c.outlet || '—';
+    const shiftLabel = c.shift_name ? c.shift_name.replace(/\(.*\)/,'').trim() : (c.start_time ? `${c.start_time?.slice(0,5)}–${c.end_time?.slice(0,5)}` : '');
+
+    if (isEditing) {
+      // Build shift options filtered loosely by outlet
+      const allShifts = _wrState.shifts;
+      const shiftOpts = allShifts.map(s =>
+        `<option value="${s.shift_id}" ${c.shift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
+      ).join('');
+      const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${outlet===o?'selected':''}>${o}</option>`).join('');
+      return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:130px;position:relative">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">${outletOpts}</select>
+          <select onchange="_wrUpdateEdit(this,'shift')" style="font-size:10px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">
+            <option value="">No shift</option>${shiftOpts}
+          </select>
+          <div style="display:flex;gap:3px;margin-top:2px">
+            <button onclick="_wrSaveEdit('${empId}','${date}')" style="flex:1;padding:3px;font-size:10px;font-weight:700;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer">Save</button>
+            <button onclick="_wrCloseEditor();_wrRender()" style="padding:3px 6px;font-size:10px;background:#f3f4f6;color:var(--ink);border:1px solid var(--border-2);border-radius:4px;cursor:pointer">✕</button>
+          </div>
+        </div>
+      </td>`;
+    }
+
+    return `<td onclick="_wrOpenEditor('${empId}','${date}')" style="padding:6px 8px;cursor:pointer;min-width:90px;border:1px solid transparent;border-radius:4px;transition:background .1s;${isDirty?'outline:2px solid #2563eb;':''}">
+      <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;${outletColor(c.outlet)}">${outlet}</span>
+      ${shiftLabel ? `<div style="font-size:9px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:85px">${shiftLabel}</div>` : ''}
+    </td>`;
+  };
+
+  // Table
+  const thStyle = 'padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);white-space:nowrap;border-bottom:2px solid var(--border-2);position:sticky;top:0;background:var(--surface);z-index:2';
+  const dateHeaders = dates.map((d,i) => {
+    const dObj = _wrParseDMY(d);
+    return `<th style="${thStyle};text-align:center">${_WR_DAY_ABBR[i]}<br><span style="font-weight:400;font-size:10px">${dObj.getDate()}/${dObj.getMonth()+1}</span></th>`;
+  }).join('');
+
+  const bodyRows = employees.map(emp => {
+    const cells = dates.map(d => cellHtml(emp.id, d)).join('');
+    return `<tr>
+      <td style="padding:8px 12px;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;border-bottom:1px solid var(--border);position:sticky;left:0;background:var(--surface);z-index:1">
+        <span style="color:var(--ink-3);font-size:10px;margin-right:4px">${emp.id}</span>${emp.name}
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="padding:0 0 24px">
+      <!-- Toolbar -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button onclick="_wrShiftWeek(-1)" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:14px;color:var(--ink-2)">‹</button>
+        <span style="font-size:13px;font-weight:600;color:var(--ink);min-width:180px;text-align:center">${weekLabel}</span>
+        <button onclick="_wrShiftWeek(1)" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:14px;color:var(--ink-2)">›</button>
+        <button onclick="_wrWeeklyLoad()" style="padding:6px 14px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:12px;color:var(--ink-2)">↺ Reload</button>
+        ${dirtyCount > 0 ? `
+        <button onclick="_wrPublish()" style="padding:6px 18px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">
+          💾 Publish ${dirtyCount} change${dirtyCount>1?'s':''}
+        </button>
+        <button onclick="_wrState.dirty={};_wrRender()" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:12px;color:var(--red)">Discard</button>
+        ` : `<span style="font-size:12px;color:var(--ink-3)">Click any cell to edit</span>`}
+      </div>
+      <!-- Grid -->
+      <div style="overflow:auto;border:1px solid var(--border-2);border-radius:10px">
+        <table style="border-collapse:collapse;width:100%;min-width:900px">
+          <thead><tr>
+            <th style="${thStyle};text-align:left;position:sticky;left:0;z-index:3;background:var(--surface)">Employee</th>
+            ${dateHeaders}
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--ink-3)">${employees.length} employees · ${dirtyCount > 0 ? `<span style="color:#2563eb;font-weight:600">${dirtyCount} unsaved change${dirtyCount>1?'s':''}</span>` : 'no unsaved changes'}</div>
+    </div>`;
+}
+
+let _wrEditOutlet = '';
+let _wrEditShift  = '';
+
+function _wrUpdateEdit(sel, field) {
+  if (field === 'outlet') _wrEditOutlet = sel.value;
+  if (field === 'shift')  _wrEditShift  = sel.value;
+}
+
+function _wrSaveEdit(empId, date) {
+  const cell = document.querySelector(`td select[onchange*="outlet"]`);
+  // read current dropdown values from the editing cell
+  const outletSel = document.querySelector(`td select[onchange*="outlet"]`);
+  const shiftSel  = document.querySelector(`td select[onchange*="shift"]`);
+  const outlet = outletSel ? outletSel.value : (_wrState.editCell ? _wrGetCell(empId, date).outlet : '');
+  const shiftId = shiftSel ? shiftSel.value : '';
+  _wrSetCell(empId, date, outlet, shiftId);
+}
+
+async function _wrPublish() {
+  if (!Object.keys(_wrState.dirty).length) return;
+  const { week } = _wrState.data;
+  const dates = Object.keys(week);
+
+  // Build days payload: for each date, merge dirty cells over existing entries
+  const days = {};
+  dates.forEach(date => {
+    const baseEntries = (week[date]?.entries || []).map(e => ({...e}));
+    const merged = baseEntries.map(e => {
+      const key = `${e.employee_id}_${date}`;
+      return _wrState.dirty[key] ? { ...e, ..._wrState.dirty[key] } : e;
+    });
+    days[date] = merged;
+  });
+
+  const btn = document.querySelector('button[onclick="_wrPublish()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+
+  try {
+    const res = await fetch(`${API}/api/admin/roster/publish-week`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ week_start: _wrState.weekStart, days, overwrite: true }),
+    }).then(r => r.json());
+
+    if (res.success) {
+      _showToast(`✅ Roster published — ${res.total_published || ''} entries saved`);
+      _wrState.dirty = {};
+      _wrState.data = null;
+      _wrWeeklyLoad();
+    } else {
+      _showToast('Publish failed: ' + (res.detail || JSON.stringify(res)));
+    }
+  } catch(e) {
+    _showToast('Error: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
 
 /* ── HOME PAGE ── */
 const HOME_TABS = [
