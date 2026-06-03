@@ -2546,36 +2546,53 @@ function prSwitchSubTab(tab, skipState) {
     trSetPreset(7);
   } else if (tab === 'growth') {
     wrap.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-        <!-- Week nav -->
-        <div style="display:flex;align-items:center;gap:6px">
-          <button class="sc-week-btn" onclick="grShiftWeek(-1)">‹</button>
-          <span class="sc-week-label" id="gr-week-label"></span>
-          <button class="sc-week-btn" onclick="grShiftWeek(1)">›</button>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+        <!-- Row 1: date pickers + nav + load -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="sc-week-btn" onclick="grShiftWeek(-1)" title="Previous week">‹</button>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:10px;font-weight:700;color:#fff;background:#7c3aed;padding:2px 8px;border-radius:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Prev</span>
+            <input type="date" id="gr-b-from" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <span style="color:var(--ink-3);font-size:12px">→</span>
+            <input type="date" id="gr-b-to"   style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+          </div>
+          <span style="color:var(--ink-3);font-size:13px">vs</span>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:10px;font-weight:700;color:#fff;background:var(--blue);padding:2px 8px;border-radius:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curr</span>
+            <input type="date" id="gr-a-from" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <span style="color:var(--ink-3);font-size:12px">→</span>
+            <input type="date" id="gr-a-to"   style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+          </div>
+          <button class="sc-week-btn" onclick="grShiftWeek(1)" title="Next week">›</button>
+          <button class="ptab active" onclick="grLoad()" style="padding:5px 16px;font-size:10px">Load</button>
+          <span class="as-of-label" id="gr-status"></span>
         </div>
-        <!-- Channel filter -->
-        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" id="gr-channel-tabs">
-          <button class="ptab active" id="grch-online"   onclick="grSetChannel('online')"          style="padding:4px 12px;font-size:10px">🌐 All Online</button>
-          <button class="ptab"        id="grch-dinein"   onclick="grSetChannel('dinein')"          style="padding:4px 12px;font-size:10px">🪑 Dine In</button>
-          <button class="ptab"        id="grch-swiggy"   onclick="grSetChannel('AOD Swiggy')"      style="padding:4px 12px;font-size:10px">Swiggy</button>
-          <button class="ptab"        id="grch-zomato"   onclick="grSetChannel('AOD Zomato')"      style="padding:4px 12px;font-size:10px">Zomato</button>
-          <button class="ptab"        id="grch-fc"       onclick="grSetChannel('FC Swiggy')"       style="padding:4px 12px;font-size:10px">FC Swiggy</button>
-          <button class="ptab"        id="grch-ownly"    onclick="grSetChannel('Ownly')"           style="padding:4px 12px;font-size:10px">Ownly</button>
-          <button class="ptab"        id="grch-magicpin" onclick="grSetChannel('Magicpin - AOD')"  style="padding:4px 12px;font-size:10px">Magicpin</button>
+        <!-- Row 2: channel filter + outlet + min orders + search -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" id="gr-channel-tabs">
+            <button class="ptab active" id="grch-online"   onclick="grSetChannel('online')"          style="padding:4px 12px;font-size:10px">🌐 All Online</button>
+            <button class="ptab"        id="grch-dinein"   onclick="grSetChannel('dinein')"          style="padding:4px 12px;font-size:10px">🪑 Dine In</button>
+            <button class="ptab"        id="grch-swiggy"   onclick="grSetChannel('AOD Swiggy')"      style="padding:4px 12px;font-size:10px">Swiggy</button>
+            <button class="ptab"        id="grch-zomato"   onclick="grSetChannel('AOD Zomato')"      style="padding:4px 12px;font-size:10px">Zomato</button>
+            <button class="ptab"        id="grch-fc"       onclick="grSetChannel('FC Swiggy')"       style="padding:4px 12px;font-size:10px">FC Swiggy</button>
+            <button class="ptab"        id="grch-ownly"    onclick="grSetChannel('Ownly')"           style="padding:4px 12px;font-size:10px">Ownly</button>
+            <button class="ptab"        id="grch-magicpin" onclick="grSetChannel('Magicpin - AOD')"  style="padding:4px 12px;font-size:10px">Magicpin</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Outlet</label>
+            <select id="gr-outlet" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="grLoad()">
+              <option value="">All</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Min</label>
+            <input type="number" id="gr-min-orders" min="0" value="5" style="width:56px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" oninput="grDraw()"/>
+          </div>
+          <div class="pr-search-wrap">
+            <span class="pr-search-icon">🔍</span>
+            <input type="text" id="gr-search" class="pr-search-input" placeholder="Search product…" oninput="grDraw()"/>
+          </div>
         </div>
-        <!-- Outlet filter -->
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Outlet</label>
-          <select id="gr-outlet" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="grLoad()">
-            <option value="">All</option>
-          </select>
-        </div>
-        <!-- Min orders -->
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Min Orders</label>
-          <input type="number" id="gr-min-orders" min="0" value="5" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" oninput="grDraw()"/>
-        </div>
-        <span class="as-of-label" id="gr-status"></span>
       </div>
       <div id="gr-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     grInit();
@@ -2986,7 +3003,16 @@ function grWeekDates(offset) {
 }
 
 function grShiftWeek(dir) {
-  _grWeekOffset += dir;
+  const s = id => document.getElementById(id);
+  const aFrom = s('gr-a-from')?.value;
+  const aTo   = s('gr-a-to')?.value;
+  const bFrom = s('gr-b-from')?.value;
+  const bTo   = s('gr-b-to')?.value;
+  const shift = n => { const d = new Date(n); d.setDate(d.getDate() + dir * 7); return d.toISOString().split('T')[0]; };
+  if (aFrom && s('gr-a-from')) s('gr-a-from').value = shift(aFrom);
+  if (aTo   && s('gr-a-to'))   s('gr-a-to').value   = shift(aTo);
+  if (bFrom && s('gr-b-from')) s('gr-b-from').value = shift(bFrom);
+  if (bTo   && s('gr-b-to'))   s('gr-b-to').value   = shift(bTo);
   grLoad();
 }
 
@@ -3015,14 +3041,21 @@ function grGetOrders(p, ch) {
 function grInit() {
   _grWeekOffset = 0;
   _grChannel = 'online';
+  const { aFrom, aTo, bFrom, bTo } = grWeekDates(0);
+  const s = id => document.getElementById(id);
+  if (s('gr-a-from')) s('gr-a-from').value = aFrom;
+  if (s('gr-a-to'))   s('gr-a-to').value   = aTo;
+  if (s('gr-b-from')) s('gr-b-from').value = bFrom;
+  if (s('gr-b-to'))   s('gr-b-to').value   = bTo;
   grLoad();
 }
 
 async function grLoad() {
-  const { aFrom, aTo, bFrom, bTo, label } = grWeekDates(_grWeekOffset);
+  const s = id => document.getElementById(id)?.value || '';
+  const aFrom = s('gr-a-from'), aTo = s('gr-a-to');
+  const bFrom = s('gr-b-from'), bTo = s('gr-b-to');
+  if (!aFrom || !aTo || !bFrom || !bTo) return;
   const outlet = document.getElementById('gr-outlet')?.value || '';
-  const labelEl = document.getElementById('gr-week-label');
-  if (labelEl) labelEl.textContent = label;
   const el = document.getElementById('gr-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading both weeks…</div>';
 
@@ -3051,7 +3084,7 @@ async function grLoad() {
     }
 
     const statusEl = document.getElementById('gr-status');
-    if (statusEl) statusEl.textContent = `${_grDataA.length} products · ${aFrom} → ${aTo}`;
+    if (statusEl) statusEl.textContent = `${_grDataA.length} products · ${bFrom}→${bTo} vs ${aFrom}→${aTo}`;
     grDraw();
   } catch(e) {
     if (e.message !== 'auth' && el)
@@ -3087,6 +3120,7 @@ function grDraw() {
     return { name, cat, curr, prev, diff, pct };
   })
   .filter(r => Math.max(r.curr, r.prev) >= minOrders)
+  .filter(r => { const q = (document.getElementById('gr-search')?.value || '').trim().toLowerCase(); return !q || r.name.toLowerCase().includes(q); })
   .sort((a, b) => {
     const av = a[_grSort.key] ?? -Infinity;
     const bv = b[_grSort.key] ?? -Infinity;
@@ -3111,7 +3145,10 @@ function grDraw() {
     return `<span style="color:${col};font-weight:700">${diff > 0 ? '+' : ''}${diff}</span>`;
   };
 
-  const { aFrom, aTo, bFrom, bTo } = grWeekDates(_grWeekOffset);
+  const aFrom = document.getElementById('gr-a-from')?.value || '';
+  const aTo   = document.getElementById('gr-a-to')?.value   || '';
+  const bFrom = document.getElementById('gr-b-from')?.value || '';
+  const bTo   = document.getElementById('gr-b-to')?.value   || '';
   const thBase = 'padding:10px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono);cursor:pointer;user-select:none';
   const th = (label, key, align='right') => {
     const active = _grSort.key === key;
