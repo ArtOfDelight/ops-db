@@ -4707,38 +4707,6 @@ function _ckWeeklyRender() {
       </div>
     </div>`).join('');
 
-  // Weekly summary (Working / WO / PL)
-  const summary = {};
-  ck_pool.forEach(e => { summary[e.employee_id] = { name: e.name, work: 0, wo: 0, pl: 0 }; });
-  weekDates.forEach(date => {
-    (weekScheduled[date] || []).forEach(e => {
-      if (!summary[e.employee_id]) summary[e.employee_id] = { name: e.employee_name || e.employee_id, work: 0, wo: 0, pl: 0 };
-      if (e.outlet === 'WO') summary[e.employee_id].wo++;
-      else if (e.outlet === 'PL' || e.outlet === 'UPL') summary[e.employee_id].pl++;
-      else summary[e.employee_id].work++;
-    });
-  });
-  const summaryRows = Object.entries(summary).map(([id, s]) => `<tr>
-    <td style="padding:7px 12px;font-size:13px;font-weight:600;color:var(--ink)">${s.name}</td>
-    <td style="padding:7px 12px;text-align:center;font-size:13px;color:#15803d;font-weight:700">${s.work}</td>
-    <td style="padding:7px 12px;text-align:center;font-size:13px;color:#6b7280">${s.wo || '—'}</td>
-    <td style="padding:7px 12px;text-align:center;font-size:13px;color:#1d4ed8">${s.pl || '—'}</td>
-  </tr>`).join('');
-  const summaryHtml = `
-    <div style="margin-top:20px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Weekly Summary</div>
-      <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="background:#f8f9fb">
-            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">Employee</th>
-            <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#15803d">Working Days</th>
-            <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280">WOs</th>
-            <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#1d4ed8">PLs</th>
-          </tr></thead>
-          <tbody>${summaryRows}</tbody>
-        </table>
-      </div>
-    </div>`;
 
   // Week summary dots per day
   const dayTabs = weekDates.map((date,i) => {
@@ -4798,7 +4766,6 @@ function _ckWeeklyRender() {
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Available Pool (${available.length})</div>
       <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">${poolRows}</div>` : ''}
 
-    ${summaryHtml}
   `;
 }
 
