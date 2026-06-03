@@ -3581,44 +3581,6 @@ function _renderInventory() {
       </div>
     </div>`;
 
-  // ── Action items ──
-  const actions = [];
-  // Critical: OOS > 4 hours
-  oos.filter(x => (x.duration_hrs||0) > 4)
-     .sort((a,b) => (b.duration_hrs||0) - (a.duration_hrs||0))
-     .forEach(x => actions.push({ priority:'High', outlet: x.outlet, item: x.item, detail: `Out for ${fmtDur(x.duration_hrs)} — restock immediately` }));
-  // Medium: OOS < 4 hrs
-  oos.filter(x => (x.duration_hrs||0) <= 4)
-     .sort((a,b) => (b.duration_hrs||0) - (a.duration_hrs||0))
-     .forEach(x => actions.push({ priority:'Medium', outlet: x.outlet, item: x.item, detail: `Out since ${x.out_since||'—'} — monitor and restock` }));
-  // Repeat offenders from tracker (not currently OOS)
-  Object.entries(repeatByOutlet).sort((a,b) => b[1]-a[1]).slice(0,5).forEach(([outlet, count]) => {
-    if (count >= 3) actions.push({ priority:'Medium', outlet, item: '—', detail: `${count} critical stock-outs in last ${_invTrackerDays}d — review procurement` });
-  });
-
-  const storageKey = 'invActions_' + new Date().toISOString().slice(0,10);
-  let checked = {};
-  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch {}
-
-  const actionsHtml = actions.length ? `
-    <div class="inv-section-head">📌 Actions Required</div>
-    <div class="action-list" style="margin-bottom:24px">
-      ${actions.map((a,i) => {
-        const done = !!checked['inv_'+i];
-        return `<div class="action-item${done?' action-done':''}" id="inv-action-${i}" onclick="toggleInvAction(${i},'${storageKey}')">
-          <div class="action-check${done?' action-check-done':''}">${done?'✓':''}</div>
-          <div class="action-content">
-            <div class="action-top">
-              <span class="pri-${a.priority.toLowerCase()}">${a.priority}</span>
-              <span class="action-area">${a.outlet}</span>
-              ${a.item !== '—' ? `<span style="font-size:11px;color:var(--ink-3);font-family:var(--mono)">${a.item}</span>` : ''}
-            </div>
-            <div class="action-text">${a.detail}</div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>` : `<div style="font-size:12px;color:var(--green);margin-bottom:20px;display:flex;align-items:center;gap:6px"><span>✅</span> No inventory actions required right now.</div>`;
-
   // ── Live OOS table per outlet ──
   const liveHtml = oos.length === 0
     ? `<div class="state-box"><div class="state-icon">✅</div><div class="state-title">All clear</div><div class="state-body">No items currently out of stock.</div></div>`
@@ -3712,25 +3674,12 @@ function _renderInventory() {
       </button>
       <span id="oosRefreshStatus" style="font-size:11px;color:var(--ink-3)"></span>
     </div>
-    ${actionsHtml}
     <div class="inv-section-head">📦 Live Out of Stock</div>
     ${liveHtml}
     <div class="inv-section-head" style="margin-top:24px">📈 Stock-Out History</div>
     ${dayBarHtml}
     ${trackerHtml}
   `;
-}
-
-function toggleInvAction(idx, storageKey) {
-  let checked = {};
-  try { checked = JSON.parse(localStorage.getItem(storageKey)||'{}'); } catch {}
-  const k = 'inv_'+idx;
-  checked[k] = !checked[k];
-  localStorage.setItem(storageKey, JSON.stringify(checked));
-  const item = document.getElementById(`inv-action-${idx}`);
-  const chk  = item && item.querySelector('.action-check');
-  if (item) item.classList.toggle('action-done', !!checked[k]);
-  if (chk)  { chk.classList.toggle('action-check-done', !!checked[k]); chk.textContent = checked[k] ? '✓' : ''; }
 }
 
 /* ── DAILY RECON PAGE ── */
