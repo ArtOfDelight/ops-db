@@ -1052,7 +1052,7 @@ td.c { text-align: center; }
       <span class="sb-icon">🏦</span> RR Recon
     </button>
     <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
-      <span class="sb-icon">🍳</span> CK Roster
+      <span class="sb-icon">🍳</span> Roster
     </button>
     <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
       <span class="sb-icon">🚨</span> Complaints Review
@@ -1111,7 +1111,7 @@ function navTo(page) {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -4239,7 +4239,7 @@ function renderRosterPage() {
           style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
                  background:${_ckState.mode==='daily'?'#fff':'transparent'};
                  color:${_ckState.mode==='daily'?'var(--ink)':'var(--ink-3)'};
-                 box-shadow:${_ckState.mode==='daily'?'0 1px 4px rgba(0,0,0,.1)':'none'}">Daily</button>
+                 box-shadow:${_ckState.mode==='daily'?'0 1px 4px rgba(0,0,0,.1)':'none'}">CK Daily</button>
         <button onclick="_ckSwitchMode('weekly')" id="ck-tab-weekly"
           style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
                  background:${_ckState.mode==='weekly'?'#fff':'transparent'};
@@ -4249,7 +4249,7 @@ function renderRosterPage() {
           style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
                  background:${_ckState.mode==='fullweek'?'#fff':'transparent'};
                  color:${_ckState.mode==='fullweek'?'var(--ink)':'var(--ink-3)'};
-                 box-shadow:${_ckState.mode==='fullweek'?'0 1px 4px rgba(0,0,0,.1)':'none'}">📋 Full Week</button>
+                 box-shadow:${_ckState.mode==='fullweek'?'0 1px 4px rgba(0,0,0,.1)':'none'}">📋 FULL WEEK ALL OUTLETS</button>
       </div>
       <div id="ckBody">Loading…</div>
     </div>`;
