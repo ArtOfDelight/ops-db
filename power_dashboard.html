@@ -1028,7 +1028,7 @@ td.c { text-align: center; }
       <span class="sb-badge" id="sbOfflineBadge" style="display:none">!</span>
     </button>
     <button class="sb-item" id="sbitem-signin" onclick="navTo('signin')">
-      <span class="sb-icon">🕐</span> Late Sign-In
+      <span class="sb-icon">🕐</span> Attendance Report
     </button>
     <button class="sb-item" id="sbitem-metrics" onclick="navTo('metrics')">
       <span class="sb-icon">📊</span> Platform Metrics
@@ -1111,7 +1111,7 @@ function navTo(page) {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Late Sign-In', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 CK Kitchen Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1657,6 +1657,8 @@ function loadAll() {
 let   _lsToken = localStorage.getItem('adminToken');
 let   _lsPhone = '';
 let   _lsWindow = 1;
+let   _lsTypeFilter = 'all'; // 'all' | 'late' | 'missed'
+let   _lsView = 'exceptions'; // 'exceptions' | 'all'
 
 function renderSigninPage() {
   document.getElementById('asOf').textContent = '';
@@ -1696,15 +1698,24 @@ function renderSigninMain(body) {
         <div class="section-head-left">
           <div class="section-icon blue">🕐</div>
           <div>
-            <div class="section-title">Late Sign-In Report</div>
+            <div class="section-title">Attendance Report</div>
             <div class="section-sub">Attendance exceptions by employee — hover counts to see individual incidents</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="lstab-view-exc" onclick="lsSetView('exceptions')" style="padding:4px 12px;font-size:10px">Exceptions</button>
+            <button class="ptab"        id="lstab-view-all" onclick="lsSetView('all')"        style="padding:4px 12px;font-size:10px">All Employees</button>
+          </div>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
             <button class="ptab active" id="lstab-1"  onclick="lsSetWindow(1)"  style="padding:4px 12px;font-size:10px">1 Day</button>
             <button class="ptab"        id="lstab-7"  onclick="lsSetWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
             <button class="ptab"        id="lstab-28" onclick="lsSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+          </div>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="lstab-type-all"    onclick="lsSetType('all')"    style="padding:4px 12px;font-size:10px">All</button>
+            <button class="ptab"        id="lstab-type-late"   onclick="lsSetType('late')"   style="padding:4px 12px;font-size:10px">Late Only</button>
+            <button class="ptab"        id="lstab-type-missed" onclick="lsSetType('missed')" style="padding:4px 12px;font-size:10px">Missed Only</button>
           </div>
           <button class="ls-logout-btn" onclick="lsLogout()">Logout</button>
         </div>
@@ -1746,6 +1757,56 @@ function lsSetWindow(days) {
     if (btn) btn.classList.toggle('active', d === days);
   });
   lsLoadReport();
+}
+
+function lsSetType(type) {
+  _lsTypeFilter = type;
+  ['all','late','missed'].forEach(t => {
+    const btn = document.getElementById('lstab-type-' + t);
+    if (btn) btn.classList.toggle('active', t === type);
+  });
+  // re-render with existing data — no need to re-fetch
+  const contentEl = document.getElementById('ls-content');
+  if (contentEl && window._lsLastRecords) lsRenderTable(window._lsLastRecords, contentEl);
+}
+
+function lsSetView(view) {
+  _lsView = view;
+  ['exceptions','all'].forEach(v => {
+    const btn = document.getElementById('lstab-view-' + v);
+    if (btn) btn.classList.toggle('active', v === view);
+  });
+  if (view === 'all') lsLoadAllEmployees();
+  else lsLoadReport();
+}
+
+async function lsLoadAllEmployees() {
+  const contentEl = document.getElementById('ls-content');
+  const statusEl  = document.getElementById('ls-status');
+  if (!contentEl) return;
+  contentEl.innerHTML = `<div class="loader-box"><div class="loader"></div> Loading all employees…</div>`;
+  try {
+    const r = await fetch(`${API}/api/admin/employees`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); return; }
+    const d = await r.json();
+    const emps = (d.employees || []).filter(e => e.status === 'Active').sort((a,b) => (a.employee_id||'').localeCompare(b.employee_id||''));
+    if (statusEl) statusEl.textContent = `${emps.length} active employees`;
+    const rows = emps.map(e => `<tr>
+      <td><div class="ls-emp-name">${e.short_name || e.full_name || ''}</div><div class="ls-emp-id">${e.employee_id}</div></td>
+      <td class="ls-outlet">${e.outlet_code || e.outlet || '—'}</td>
+      <td>${e.department || '—'}</td>
+      <td>${e.role || '—'}</td>
+      <td>${e.phone || '—'}</td>
+    </tr>`).join('');
+    contentEl.innerHTML = `<table>
+      <thead><tr>
+        <th>Employee</th><th>Outlet</th><th>Department</th><th>Role</th><th>Phone</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch(e) {
+    contentEl.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Error: ${e.message}</div></div>`;
+  }
 }
 
 function lsSetErr(msg, isOk) {
@@ -1890,6 +1951,7 @@ async function lsLoadReport() {
       !/^wo$/i.test((r.outlet||'').trim()) &&
       (r.type||'') !== 'missed_signout'
     );
+    window._lsLastRecords = records;
     if (statusEl) statusEl.textContent = `${records.length} record${records.length!==1?'s':''} — ${label} · ${d.start_date} to ${d.end_date}`;
     lsRenderTable(records, contentEl);
   } catch {
@@ -1940,6 +2002,10 @@ function lsCountCell(incidents, cls, label, popKey) {
 }
 
 function lsRenderTable(records, el) {
+  let filtered = records;
+  if (_lsTypeFilter === 'late')   filtered = records.filter(r => r.type === 'late');
+  if (_lsTypeFilter === 'missed') filtered = records.filter(r => r.type === 'missed_signin');
+  records = filtered;
   if (!records.length) {
     // hide stats row
     const sr = document.getElementById('ls-stats-row');
@@ -4641,6 +4707,39 @@ function _ckWeeklyRender() {
       </div>
     </div>`).join('');
 
+  // Weekly summary (Working / WO / PL)
+  const summary = {};
+  ck_pool.forEach(e => { summary[e.employee_id] = { name: e.name, work: 0, wo: 0, pl: 0 }; });
+  weekDates.forEach(date => {
+    (weekScheduled[date] || []).forEach(e => {
+      if (!summary[e.employee_id]) summary[e.employee_id] = { name: e.employee_name || e.employee_id, work: 0, wo: 0, pl: 0 };
+      if (e.outlet === 'WO') summary[e.employee_id].wo++;
+      else if (e.outlet === 'PL' || e.outlet === 'UPL') summary[e.employee_id].pl++;
+      else summary[e.employee_id].work++;
+    });
+  });
+  const summaryRows = Object.entries(summary).map(([id, s]) => `<tr>
+    <td style="padding:7px 12px;font-size:13px;font-weight:600;color:var(--ink)">${s.name}</td>
+    <td style="padding:7px 12px;text-align:center;font-size:13px;color:#15803d;font-weight:700">${s.work}</td>
+    <td style="padding:7px 12px;text-align:center;font-size:13px;color:#6b7280">${s.wo || '—'}</td>
+    <td style="padding:7px 12px;text-align:center;font-size:13px;color:#1d4ed8">${s.pl || '—'}</td>
+  </tr>`).join('');
+  const summaryHtml = `
+    <div style="margin-top:20px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Weekly Summary</div>
+      <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:#f8f9fb">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3)">Employee</th>
+            <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#15803d">Working Days</th>
+            <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280">WOs</th>
+            <th style="padding:8px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#1d4ed8">PLs</th>
+          </tr></thead>
+          <tbody>${summaryRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
   // Week summary dots per day
   const dayTabs = weekDates.map((date,i) => {
     const d = _ckParseDMY(date);
@@ -4698,6 +4797,8 @@ function _ckWeeklyRender() {
     ${available.length ? `
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin-bottom:8px">Available Pool (${available.length})</div>
       <div style="border:1.5px solid var(--border-2);border-radius:12px;overflow:hidden;background:var(--surface)">${poolRows}</div>` : ''}
+
+    ${summaryHtml}
   `;
 }
 
