@@ -4846,7 +4846,7 @@ async function _wrWeeklyLoad() {
     const [shiftRes, ...dayResults] = await Promise.all([
       fetch(`${API}/api/admin/shifts`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json()),
       ...dates.map(date =>
-        fetch(`${API}/api/admin/roster/date/${encodeURIComponent(date)}`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json())
+        fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(date)}`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json())
       ),
     ]);
 
