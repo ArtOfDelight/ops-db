@@ -5346,7 +5346,7 @@ async function loadHomeSummaries() {
 
   // ── Ratings ──
   try {
-    const d = await fetch(`${API}/api/admin/outlet-ratings-summary`).then(r=>r.json());
+    const d = await fetch(`${API}/api/admin/outlet-ratings-summary`, { headers: { 'Authorization': `Bearer ${_lsToken}` } }).then(r=>r.json());
     const outlets = d.outlets||[];
     const avgs = outlets.map(o=>parseFloat(o.avg_rating||o.rating||0)).filter(v=>v>0);
     const avg = avgs.length ? (avgs.reduce((a,b)=>a+b,0)/avgs.length).toFixed(2) : null;
