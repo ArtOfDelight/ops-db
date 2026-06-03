@@ -2613,23 +2613,27 @@ function prSwitchSubTab(tab, skipState) {
   } else if (tab === 'growth') {
     wrap.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
-        <!-- Row 1: date pickers + nav + load -->
+        <!-- Row 1: presets + date pickers + nav + load -->
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <button class="sc-week-btn" onclick="grShiftWeek(-1)" title="Previous week">‹</button>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" id="gr-range-tabs">
+            <button class="ptab active" id="grr-7"  onclick="grSetRange(7)"  style="padding:4px 12px;font-size:10px">7 days</button>
+            <button class="ptab"        id="grr-28" onclick="grSetRange(28)" style="padding:4px 12px;font-size:10px">28 days</button>
+          </div>
+          <button class="sc-week-btn" onclick="grShiftWeek(-1)" title="Previous period">‹</button>
           <div style="display:flex;align-items:center;gap:5px">
             <span style="font-size:10px;font-weight:700;color:#fff;background:#7c3aed;padding:2px 8px;border-radius:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Prev</span>
-            <input type="date" id="gr-b-from" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <input type="date" id="gr-b-from" onchange="grOnCustomDate()" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
             <span style="color:var(--ink-3);font-size:12px">→</span>
-            <input type="date" id="gr-b-to"   style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <input type="date" id="gr-b-to"   onchange="grOnCustomDate()" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
           </div>
           <span style="color:var(--ink-3);font-size:13px">vs</span>
           <div style="display:flex;align-items:center;gap:5px">
             <span style="font-size:10px;font-weight:700;color:#fff;background:var(--blue);padding:2px 8px;border-radius:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curr</span>
-            <input type="date" id="gr-a-from" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <input type="date" id="gr-a-from" onchange="grOnCustomDate()" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
             <span style="color:var(--ink-3);font-size:12px">→</span>
-            <input type="date" id="gr-a-to"   style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+            <input type="date" id="gr-a-to"   onchange="grOnCustomDate()" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
           </div>
-          <button class="sc-week-btn" onclick="grShiftWeek(1)" title="Next week">›</button>
+          <button class="sc-week-btn" onclick="grShiftWeek(1)" title="Next period">›</button>
           <button class="ptab active" onclick="grLoad()" style="padding:5px 16px;font-size:10px">Load</button>
           <span class="as-of-label" id="gr-status"></span>
         </div>
@@ -3048,38 +3052,57 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
 /* ── ORDER GROWTH TAB ── */
 let _grChannel = 'online'; // 'online' | 'dinein' | channel name
 let _grView = 'product';   // 'product' | 'category'
-let _grWeekOffset = 0;     // 0 = current week (Mon–Sun containing yesterday)
+let _grRange = 7;          // 7 | 28 | 'custom'  — rolling window length in days
+let _grWeekOffset = 0;     // period offset (in range-lengths) from the latest period
 let _grDataA = [];  // current week products
 let _grDataB = [];  // prev week products
 let _grOutlets = [];
 
-function grWeekDates(offset) {
-  // "current week" = week containing yesterday, Monday–Sunday
+// Local YYYY-MM-DD (avoid toISOString's UTC shift in IST)
+function grFmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Rolling window: current = `days` ending yesterday (shifted by offset periods);
+// previous = the `days` immediately before the current window.
+function grRangeDates(offset, days) {
   const today = new Date();
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  // Find last Monday (or today if Monday)
-  const day = yesterday.getDay(); // 0=Sun,1=Mon...
-  const daysToMon = day === 0 ? 6 : day - 1;
-  const monA = new Date(yesterday); monA.setDate(yesterday.getDate() - daysToMon + (offset * 7));
-  const sunA = new Date(monA); sunA.setDate(monA.getDate() + 6);
-  const monB = new Date(monA); monB.setDate(monA.getDate() - 7);
-  const sunB = new Date(monB); sunB.setDate(monB.getDate() + 6);
-  const fmt = d => d.toISOString().split('T')[0];
-  const fmtLabel = d => d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
-  return {
-    aFrom: fmt(monA), aTo: fmt(sunA),
-    bFrom: fmt(monB), bTo: fmt(sunB),
-    label: `${fmtLabel(monB)}–${fmtLabel(sunB)}  vs  ${fmtLabel(monA)}–${fmtLabel(sunA)}`
-  };
+  const aTo = new Date(today); aTo.setDate(today.getDate() - 1 + offset * days);
+  const aFrom = new Date(aTo); aFrom.setDate(aTo.getDate() - (days - 1));
+  const bTo = new Date(aFrom); bTo.setDate(aFrom.getDate() - 1);
+  const bFrom = new Date(bTo); bFrom.setDate(bTo.getDate() - (days - 1));
+  return { aFrom: grFmtDate(aFrom), aTo: grFmtDate(aTo), bFrom: grFmtDate(bFrom), bTo: grFmtDate(bTo) };
+}
+
+function grSetRange(days) {
+  _grRange = days;
+  _grWeekOffset = 0;
+  [7, 28].forEach(d => { const b = document.getElementById('grr-' + d); if (b) b.classList.toggle('active', d === days); });
+  const { aFrom, aTo, bFrom, bTo } = grRangeDates(0, days);
+  const s = id => document.getElementById(id);
+  if (s('gr-a-from')) s('gr-a-from').value = aFrom;
+  if (s('gr-a-to'))   s('gr-a-to').value   = aTo;
+  if (s('gr-b-from')) s('gr-b-from').value = bFrom;
+  if (s('gr-b-to'))   s('gr-b-to').value   = bTo;
+  grLoad();
+}
+
+// User manually edited a date → switch to custom mode and reload
+function grOnCustomDate() {
+  _grRange = 'custom';
+  [7, 28].forEach(d => { const b = document.getElementById('grr-' + d); if (b) b.classList.remove('active'); });
+  grLoad();
 }
 
 function grShiftWeek(dir) {
   const s = id => document.getElementById(id);
-  const aFrom = s('gr-a-from')?.value;
-  const aTo   = s('gr-a-to')?.value;
-  const bFrom = s('gr-b-from')?.value;
-  const bTo   = s('gr-b-to')?.value;
-  const shift = n => { const d = new Date(n); d.setDate(d.getDate() + dir * 7); return d.toISOString().split('T')[0]; };
+  const aFrom = s('gr-a-from')?.value, aTo = s('gr-a-to')?.value;
+  const bFrom = s('gr-b-from')?.value, bTo = s('gr-b-to')?.value;
+  // Shift by the active window length (preset days, or the current custom span)
+  let span = (typeof _grRange === 'number') ? _grRange : 7;
+  if (_grRange === 'custom' && aFrom && aTo)
+    span = Math.round((new Date(aTo) - new Date(aFrom)) / 86400000) + 1;
+  const shift = v => { const d = new Date(v); d.setDate(d.getDate() + dir * span); return grFmtDate(d); };
   if (aFrom && s('gr-a-from')) s('gr-a-from').value = shift(aFrom);
   if (aTo   && s('gr-a-to'))   s('gr-a-to').value   = shift(aTo);
   if (bFrom && s('gr-b-from')) s('gr-b-from').value = shift(bFrom);
@@ -3121,16 +3144,9 @@ function grGetOrders(p, ch) {
 }
 
 function grInit() {
-  _grWeekOffset = 0;
   _grChannel = 'online';
   _grView = 'product';
-  const { aFrom, aTo, bFrom, bTo } = grWeekDates(0);
-  const s = id => document.getElementById(id);
-  if (s('gr-a-from')) s('gr-a-from').value = aFrom;
-  if (s('gr-a-to'))   s('gr-a-to').value   = aTo;
-  if (s('gr-b-from')) s('gr-b-from').value = bFrom;
-  if (s('gr-b-to'))   s('gr-b-to').value   = bTo;
-  grLoad();
+  grSetRange(7);  // default: last 7 days (excl. today) vs prior 7 days — also loads
 }
 
 async function grLoad() {
