@@ -3101,7 +3101,9 @@ function grSortBy(key) {
 
 function grDraw() {
   const el = document.getElementById('gr-content');
-  if (!el || !_grDataA.length) return;
+  if (!el) return;
+  if (!_grDataA.length) { el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this range.</div>'; return; }
+  try {
   const ch = _grChannel;
   const minOrders = parseInt(document.getElementById('gr-min-orders')?.value || '0') || 0;
 
@@ -3124,7 +3126,9 @@ function grDraw() {
   .sort((a, b) => {
     const av = a[_grSort.key] ?? -Infinity;
     const bv = b[_grSort.key] ?? -Infinity;
-    return (bv - av) * _grSort.dir * -1; // dir: -1 = desc
+    if (typeof av === 'string') return av.localeCompare(bv) * (_grSort.dir === -1 ? 1 : -1);
+    const diff = (bv - av);
+    return isNaN(diff) ? 0 : diff * (_grSort.dir === -1 ? 1 : -1);
   });
 
   // Totals
@@ -3187,6 +3191,9 @@ function grDraw() {
   </tr></tfoot>`;
 
   el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${tbody}</tbody>${tfoot}</table></div>`;
+  } catch(err) {
+    el.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Render error</div><div class="state-body">${err}</div></div>`;
+  }
 }
 
 /* ── SCOOP FLAVOUR RANKINGS ── */
