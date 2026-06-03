@@ -2403,7 +2403,7 @@ function orRenderTable(outlets, el) {
 }
 
 /* ── PRODUCT RANKINGS PAGE ── */
-let _prSubTab = 'products'; // 'products' | 'scoops' | 'trends'
+let _prSubTab = 'products'; // 'products' | 'scoops' | 'trends' | 'growth'
 let _prViewTab = 'online';  // 'online' | 'dinein' | 'combined'
 
 function renderProductsPage() {
@@ -2416,6 +2416,7 @@ function renderProductsPage() {
           <button class="ptab ${_prSubTab==='products'?'active':''}" id="pgsub-products" onclick="prSwitchSubTab('products')" style="padding:5px 16px;font-size:11px">All Products</button>
           <button class="ptab ${_prSubTab==='scoops'  ?'active':''}" id="pgsub-scoops"   onclick="prSwitchSubTab('scoops')"   style="padding:5px 16px;font-size:11px">🍦 Scoop Flavours</button>
           <button class="ptab ${_prSubTab==='trends'  ?'active':''}" id="pgsub-trends"   onclick="prSwitchSubTab('trends')"   style="padding:5px 16px;font-size:11px">📈 Rating Trends</button>
+          <button class="ptab ${_prSubTab==='growth'  ?'active':''}" id="pgsub-growth"   onclick="prSwitchSubTab('growth')"   style="padding:5px 16px;font-size:11px">📦 Growth</button>
         </div>
         <button class="ls-logout-btn" onclick="lsLogout();renderProductsPage()">Logout</button>
       </div>
@@ -2426,7 +2427,7 @@ function renderProductsPage() {
 
 function prSwitchSubTab(tab, skipState) {
   if (!skipState) _prSubTab = tab;
-  ['products','scoops','trends'].forEach(t => {
+  ['products','scoops','trends','growth'].forEach(t => {
     const btn = document.getElementById('pgsub-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
@@ -2543,6 +2544,41 @@ function prSwitchSubTab(tab, skipState) {
       </div>
       <div id="tr-content"><div style="color:var(--ink-3);font-size:13px;padding:20px 0">Select date ranges and click Compare.</div></div>`;
     trSetPreset(7);
+  } else if (tab === 'growth') {
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <!-- Week nav -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="sc-week-btn" onclick="grShiftWeek(-1)">‹</button>
+          <span class="sc-week-label" id="gr-week-label"></span>
+          <button class="sc-week-btn" onclick="grShiftWeek(1)">›</button>
+        </div>
+        <!-- Channel filter -->
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" id="gr-channel-tabs">
+          <button class="ptab active" id="grch-online"   onclick="grSetChannel('online')"          style="padding:4px 12px;font-size:10px">🌐 All Online</button>
+          <button class="ptab"        id="grch-dinein"   onclick="grSetChannel('dinein')"          style="padding:4px 12px;font-size:10px">🪑 Dine In</button>
+          <button class="ptab"        id="grch-swiggy"   onclick="grSetChannel('AOD Swiggy')"      style="padding:4px 12px;font-size:10px">Swiggy</button>
+          <button class="ptab"        id="grch-zomato"   onclick="grSetChannel('AOD Zomato')"      style="padding:4px 12px;font-size:10px">Zomato</button>
+          <button class="ptab"        id="grch-fc"       onclick="grSetChannel('FC Swiggy')"       style="padding:4px 12px;font-size:10px">FC Swiggy</button>
+          <button class="ptab"        id="grch-ownly"    onclick="grSetChannel('Ownly')"           style="padding:4px 12px;font-size:10px">Ownly</button>
+          <button class="ptab"        id="grch-magicpin" onclick="grSetChannel('Magicpin - AOD')"  style="padding:4px 12px;font-size:10px">Magicpin</button>
+        </div>
+        <!-- Outlet filter -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Outlet</label>
+          <select id="gr-outlet" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="grLoad()">
+            <option value="">All</option>
+          </select>
+        </div>
+        <!-- Min orders -->
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Min Orders</label>
+          <input type="number" id="gr-min-orders" min="0" value="5" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" oninput="grDraw()"/>
+        </div>
+        <span class="as-of-label" id="gr-status"></span>
+      </div>
+      <div id="gr-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
+    grInit();
   }
 }
 
@@ -2920,6 +2956,200 @@ function trRenderTable(rows, aFrom, aTo, bFrom, bTo, el) {
     <div style="font-size:11px;color:var(--ink-3);margin-top:10px;font-family:var(--mono)">
       Δ Orders/High ▲ = more in A vs B (good). Δ Low ▲ = fewer low ratings in A vs B (good). Sorted by Period A online orders.
     </div>`;
+}
+
+/* ── ORDER GROWTH TAB ── */
+let _grChannel = 'online'; // 'online' | 'dinein' | channel name
+let _grWeekOffset = 0;     // 0 = current week (Mon–Sun containing yesterday)
+let _grDataA = [];  // current week products
+let _grDataB = [];  // prev week products
+let _grOutlets = [];
+
+function grWeekDates(offset) {
+  // "current week" = week containing yesterday, Monday–Sunday
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  // Find last Monday (or today if Monday)
+  const day = yesterday.getDay(); // 0=Sun,1=Mon...
+  const daysToMon = day === 0 ? 6 : day - 1;
+  const monA = new Date(yesterday); monA.setDate(yesterday.getDate() - daysToMon + (offset * 7));
+  const sunA = new Date(monA); sunA.setDate(monA.getDate() + 6);
+  const monB = new Date(monA); monB.setDate(monA.getDate() - 7);
+  const sunB = new Date(monB); sunB.setDate(monB.getDate() + 6);
+  const fmt = d => d.toISOString().split('T')[0];
+  const fmtLabel = d => d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+  return {
+    aFrom: fmt(monA), aTo: fmt(sunA),
+    bFrom: fmt(monB), bTo: fmt(sunB),
+    label: `${fmtLabel(monB)}–${fmtLabel(sunB)}  vs  ${fmtLabel(monA)}–${fmtLabel(sunA)}`
+  };
+}
+
+function grShiftWeek(dir) {
+  _grWeekOffset += dir;
+  grLoad();
+}
+
+function grSetChannel(ch) {
+  _grChannel = ch;
+  ['online','dinein','swiggy','zomato','fc','ownly','magicpin'].forEach(id => {
+    const btn = document.getElementById('grch-' + id);
+    if (btn) btn.classList.remove('active');
+  });
+  const idMap = {
+    'online': 'grch-online', 'dinein': 'grch-dinein',
+    'AOD Swiggy': 'grch-swiggy', 'AOD Zomato': 'grch-zomato',
+    'FC Swiggy': 'grch-fc', 'Ownly': 'grch-ownly', 'Magicpin - AOD': 'grch-magicpin'
+  };
+  const activeId = idMap[ch];
+  if (activeId) { const b = document.getElementById(activeId); if (b) b.classList.add('active'); }
+  grDraw();
+}
+
+function grGetOrders(p, ch) {
+  if (ch === 'online') return p.online_orders || 0;
+  if (ch === 'dinein') return p.dine_in_orders || 0;
+  return (p.channels && p.channels[ch]) || 0;
+}
+
+function grInit() {
+  _grWeekOffset = 0;
+  _grChannel = 'online';
+  grLoad();
+}
+
+async function grLoad() {
+  const { aFrom, aTo, bFrom, bTo, label } = grWeekDates(_grWeekOffset);
+  const outlet = document.getElementById('gr-outlet')?.value || '';
+  const labelEl = document.getElementById('gr-week-label');
+  if (labelEl) labelEl.textContent = label;
+  const el = document.getElementById('gr-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading both weeks…</div>';
+
+  const fetchWeek = async (from, to) => {
+    let url = `${API}/api/admin/product-rankings?date_from=${from}&date_to=${to}`;
+    if (outlet) url += `&outlet=${encodeURIComponent(outlet)}`;
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); throw new Error('auth'); }
+    return await r.json();
+  };
+
+  try {
+    const [dA, dB] = await Promise.all([fetchWeek(aFrom, aTo), fetchWeek(bFrom, bTo)]);
+    _grDataA = dA.products || [];
+    _grDataB = dB.products || [];
+
+    // Populate outlet dropdown once
+    const outSel = document.getElementById('gr-outlet');
+    if (outSel && dA.outlets && outSel.options.length <= 1) {
+      dA.outlets.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        outSel.appendChild(opt);
+      });
+      if (outlet) outSel.value = outlet;
+    }
+
+    const statusEl = document.getElementById('gr-status');
+    if (statusEl) statusEl.textContent = `${_grDataA.length} products · ${aFrom} → ${aTo}`;
+    grDraw();
+  } catch(e) {
+    if (e.message !== 'auth' && el)
+      el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
+  }
+}
+
+let _grSort = { key: 'curr', dir: -1 };
+
+function grSortBy(key) {
+  _grSort = _grSort.key === key ? { key, dir: _grSort.dir * -1 } : { key, dir: -1 };
+  grDraw();
+}
+
+function grDraw() {
+  const el = document.getElementById('gr-content');
+  if (!el || !_grDataA.length) return;
+  const ch = _grChannel;
+  const minOrders = parseInt(document.getElementById('gr-min-orders')?.value || '0') || 0;
+
+  // Build map: product → prev week orders
+  const mapB = {};
+  _grDataB.forEach(p => { mapB[p.product] = grGetOrders(p, ch); });
+
+  const allNames = [...new Set([..._grDataA.map(p=>p.product), ..._grDataB.map(p=>p.product)])];
+  let rows = allNames.map(name => {
+    const pa = _grDataA.find(p=>p.product===name);
+    const curr = pa ? grGetOrders(pa, ch) : 0;
+    const prev = mapB[name] || 0;
+    const diff = curr - prev;
+    const pct  = prev > 0 ? diff / prev * 100 : null;
+    const cat  = pa?.category || _grDataB.find(p=>p.product===name)?.category || '';
+    return { name, cat, curr, prev, diff, pct };
+  })
+  .filter(r => Math.max(r.curr, r.prev) >= minOrders)
+  .sort((a, b) => {
+    const av = a[_grSort.key] ?? -Infinity;
+    const bv = b[_grSort.key] ?? -Infinity;
+    return (bv - av) * _grSort.dir * -1; // dir: -1 = desc
+  });
+
+  // Totals
+  const totCurr = rows.reduce((s,r) => s+r.curr, 0);
+  const totPrev = rows.reduce((s,r) => s+r.prev, 0);
+  const totDiff = totCurr - totPrev;
+  const totPct  = totPrev > 0 ? totDiff / totPrev * 100 : null;
+
+  const pctBadge = (pct, diff) => {
+    if (pct === null) return diff > 0 ? `<span style="background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">NEW</span>` : '—';
+    const col = pct >= 0 ? '#16a34a' : '#dc2626';
+    const bg  = pct >= 0 ? '#dcfce7' : '#fee2e2';
+    const arrow = pct >= 0 ? '▲' : '▼';
+    return `<span style="background:${bg};color:${col};padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+  };
+  const diffCell = (diff) => {
+    const col = diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : 'var(--ink-3)';
+    return `<span style="color:${col};font-weight:700">${diff > 0 ? '+' : ''}${diff}</span>`;
+  };
+
+  const { aFrom, aTo, bFrom, bTo } = grWeekDates(_grWeekOffset);
+  const thBase = 'padding:10px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono);cursor:pointer;user-select:none';
+  const th = (label, key, align='right') => {
+    const active = _grSort.key === key;
+    const arrow = active ? (_grSort.dir === -1 ? ' ↓' : ' ↑') : ' ↕';
+    const col = active ? 'color:var(--blue)' : 'color:var(--ink-3)';
+    return `<th style="${thBase};text-align:${align};${col}" onclick="grSortBy('${key}')">${label}<span style="opacity:.5;font-size:9px">${arrow}</span></th>`;
+  };
+
+  const thead = `<thead><tr>
+    <th style="${thBase};text-align:left;color:var(--ink-3)">#</th>
+    ${th('Product','name','left')}
+    ${th('Category','cat','left')}
+    <th style="${thBase};text-align:right;color:var(--ink-3)">${bFrom}→${bTo}</th>
+    <th style="${thBase};text-align:right;color:var(--ink-3)">${aFrom}→${aTo}</th>
+    ${th('Change','diff')}
+    ${th('% Change','pct')}
+  </tr></thead>`;
+
+  const tbody = rows.map((r, i) => `<tr>
+    <td style="padding:10px 13px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink-3);font-family:var(--mono)">${i+1}</td>
+    <td style="padding:10px 13px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);color:var(--ink)">${r.name}</td>
+    <td style="padding:10px 13px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink-3)">${r.cat||'—'}</td>
+    <td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--ink-2)">${r.prev||'—'}</td>
+    <td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--blue)">${r.curr||'—'}</td>
+    <td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)">${diffCell(r.diff)}</td>
+    <td style="padding:10px 13px;text-align:right;border-bottom:1px solid var(--border)">${pctBadge(r.pct, r.diff)}</td>
+  </tr>`).join('');
+
+  const totPctBadge = totPct !== null ? pctBadge(totPct, totDiff) : '—';
+  const tfoot = `<tfoot><tr>
+    <td colspan="3" style="padding:10px 13px;font-size:12px;font-weight:700;border-top:2px solid var(--border-2);background:var(--bg)">TOTAL (${rows.length} products)</td>
+    <td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-top:2px solid var(--border-2);background:var(--bg);font-family:var(--mono);color:var(--ink-2)">${totPrev}</td>
+    <td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-top:2px solid var(--border-2);background:var(--bg);font-family:var(--mono);color:var(--blue)">${totCurr}</td>
+    <td style="padding:10px 13px;text-align:right;font-size:12px;font-weight:700;border-top:2px solid var(--border-2);background:var(--bg);font-family:var(--mono)">${diffCell(totDiff)}</td>
+    <td style="padding:10px 13px;text-align:right;border-top:2px solid var(--border-2);background:var(--bg)">${totPctBadge}</td>
+  </tr></tfoot>`;
+
+  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px">${thead}<tbody>${tbody}</tbody>${tfoot}</table></div>`;
 }
 
 /* ── SCOOP FLAVOUR RANKINGS ── */
