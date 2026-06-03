@@ -3508,13 +3508,16 @@ async function triggerOosRefresh() {
   icon.style.animation = 'spin 1s linear infinite';
   status.textContent = 'Running script…';
   try {
-    const r = await fetch(API + '/api/inventory/refresh', { method: 'POST' });
-    const d = await r.json();
-    if (d.status === 'ok') {
+    const r = await fetch(API + '/api/inventory/refresh', {
+      method: 'POST',
+      headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {},
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.status === 'ok') {
       status.textContent = 'Done! Reloading data…';
       setTimeout(() => renderInventoryPage(), 1500);
     } else {
-      status.textContent = 'Error: ' + (d.message || 'unknown');
+      status.textContent = 'Error: ' + (d.message || d.detail || `HTTP ${r.status}`);
     }
   } catch(e) {
     status.textContent = 'Failed: ' + e.message;
