@@ -2640,7 +2640,8 @@ function prSwitchSubTab(tab, skipState) {
         <!-- Row 2: channel filter + outlet + min orders + search -->
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" id="gr-channel-tabs">
-            <button class="ptab active" id="grch-online"   onclick="grSetChannel('online')"          style="padding:4px 12px;font-size:10px">🌐 All Online</button>
+            <button class="ptab active" id="grch-all"      onclick="grSetChannel('all')"             style="padding:4px 12px;font-size:10px">📊 All Channels</button>
+            <button class="ptab"        id="grch-online"   onclick="grSetChannel('online')"          style="padding:4px 12px;font-size:10px">🌐 All Online</button>
             <button class="ptab"        id="grch-dinein"   onclick="grSetChannel('dinein')"          style="padding:4px 12px;font-size:10px">🪑 Dine In</button>
             <button class="ptab"        id="grch-swiggy"   onclick="grSetChannel('AOD Swiggy')"      style="padding:4px 12px;font-size:10px">Swiggy</button>
             <button class="ptab"        id="grch-zomato"   onclick="grSetChannel('AOD Zomato')"      style="padding:4px 12px;font-size:10px">Zomato</button>
@@ -3112,12 +3113,12 @@ function grShiftWeek(dir) {
 
 function grSetChannel(ch) {
   _grChannel = ch;
-  ['online','dinein','swiggy','zomato','fc','ownly','magicpin'].forEach(id => {
+  ['all','online','dinein','swiggy','zomato','fc','ownly','magicpin'].forEach(id => {
     const btn = document.getElementById('grch-' + id);
     if (btn) btn.classList.remove('active');
   });
   const idMap = {
-    'online': 'grch-online', 'dinein': 'grch-dinein',
+    'all': 'grch-all', 'online': 'grch-online', 'dinein': 'grch-dinein',
     'AOD Swiggy': 'grch-swiggy', 'AOD Zomato': 'grch-zomato',
     'FC Swiggy': 'grch-fc', 'Ownly': 'grch-ownly', 'Magicpin - AOD': 'grch-magicpin'
   };
@@ -3138,13 +3139,14 @@ function grSetView(v) {
 }
 
 function grGetOrders(p, ch) {
+  if (ch === 'all')    return p.rista_orders ?? ((p.online_orders || 0) + (p.dine_in_orders || 0));
   if (ch === 'online') return p.online_orders || 0;
   if (ch === 'dinein') return p.dine_in_orders || 0;
   return (p.channels && p.channels[ch]) || 0;
 }
 
 function grInit() {
-  _grChannel = 'online';
+  _grChannel = 'all';
   _grView = 'product';
   grSetRange(7);  // default: last 7 days (excl. today) vs prior 7 days — also loads
 }
