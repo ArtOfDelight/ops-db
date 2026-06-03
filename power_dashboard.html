@@ -4836,14 +4836,55 @@ async function _wrWeeklyLoad() {
   el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink-3)"><span style="font-size:20px">⏳</span><br>Loading roster…</div>`;
 
   try {
-    const [weekRes, shiftRes] = await Promise.all([
-      fetch(`${API}/api/admin/roster/generate-week?week_start=${encodeURIComponent(_wrState.weekStart)}`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json()),
+    // Build 7 dates Mon–Sun
+    const monDate = _wrParseDMY(_wrState.weekStart);
+    const dates = Array.from({length:7}, (_,i) => {
+      const d = new Date(monDate); d.setDate(monDate.getDate()+i); return _wrFmtDMY(d);
+    });
+
+    // Fetch actual saved entries for each day + shifts list
+    const [shiftRes, ...dayResults] = await Promise.all([
       fetch(`${API}/api/admin/shifts`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json()),
+      ...dates.map(date =>
+        fetch(`${API}/api/admin/roster/date/${encodeURIComponent(date)}`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json())
+      ),
     ]);
-    if (!weekRes.success) throw new Error(weekRes.detail || 'Failed to load');
-    _wrState.data   = weekRes;
+
     _wrState.shifts = shiftRes.shifts || [];
-    _wrState.dirty  = {};
+
+    // Collect all unique employees across the week
+    const empMap = {}; // id → name
+    dayResults.forEach(res => {
+      (res.entries || []).forEach(e => { empMap[e.employee_id] = e.employee_name || e.employee_id; });
+    });
+
+    // Build week structure matching generate-week shape
+    const week = {};
+    dates.forEach((date, i) => {
+      const entries = (dayResults[i].entries || []);
+      // Index by employee_id for fast lookup
+      const byEmp = {};
+      entries.forEach(e => { byEmp[e.employee_id] = e; });
+      // Build full entry list for all known employees
+      const allEntries = Object.keys(empMap).sort().map(eid => {
+        const e = byEmp[eid] || {};
+        return {
+          employee_id:   eid,
+          employee_name: empMap[eid],
+          date,
+          outlet:      e.outlet      || '',
+          shift:       e.shift       || '',
+          shift_name:  e.shift_name  || '',
+          start_time:  e.start_time  || '',
+          end_time:    e.end_time    || '',
+          already_exists: !!byEmp[eid],
+        };
+      });
+      week[date] = { day: _WR_DAY_ABBR[i], entries: allEntries };
+    });
+
+    _wrState.data  = { success: true, week_start: _wrState.weekStart, week };
+    _wrState.dirty = {};
     _wrRender();
   } catch(e) {
     if (el) el.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
