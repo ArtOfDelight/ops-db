@@ -6537,10 +6537,10 @@ const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House C
 // SKUs shown as a diff calculation instead of raw cards. Each has its OWN metrics
 // (signed terms that feed Calculated Closing); then Difference = Closing − Calculated.
 //   Whole Badami: no Purchased/Sales/Housemade  -> Opening + Transfer In − House Consumed
-//   Cut Badami:   no Purchased/Transfer In       -> Opening + Housemade − Sales − House Consumed
+//   Cut Badami:   no Purchased/Transfer In/House Consumed -> Opening + Housemade − Sales
 const _MG_EQ_SPEC = {
   'Badami Mango':     [['Opening Stock', '+'], ['Transfer In', '+'], ['House Consumed', '−']],
-  'Cut Badami Mango': [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−'], ['House Consumed', '−']],
+  'Cut Badami Mango': [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−']],
 };
 
 async function mgLoad() {
