@@ -6534,9 +6534,10 @@ const _MG_SKUS = [
 ];
 const _MG_CUT_HIDE = ['Purchased', 'Transfer In'];
 const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Closing Stock','Calculated Closing Stock','Difference'];
-// Badami family never has Purchased/Sales — show the diff as a calculation instead of raw cards:
+// Whole Badami never has Purchased/Sales — show its diff as a calculation instead of raw cards:
 // Calculated Closing = Opening + Transfer In − House Consumed;  Difference = Closing − Calculated.
-const _MG_EQ_SKUS = ['Badami Mango', 'Cut Badami Mango'];
+// Cut Badami has different metrics and keeps the normal card layout.
+const _MG_EQ_SKUS = ['Badami Mango'];
 
 async function mgLoad() {
   const date = document.getElementById('mgDate')?.value;
