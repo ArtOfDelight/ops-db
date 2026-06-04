@@ -6405,6 +6405,14 @@ function renderMangoPage() {
 .mg-detail-card:last-child{margin-bottom:0}
 .mg-detail-sku{font-size:13px;font-weight:600;color:#f5a623;margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px}
 .mg-detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.mg-eq{font-family:'JetBrains Mono',monospace;font-size:14px;max-width:380px}
+.mg-eq-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 2px;gap:16px}
+.mg-eq-l{color:#c9d1d9}
+.mg-eq-op{display:inline-block;width:16px;color:#7d8590;font-weight:600}
+.mg-eq-v{color:#e6edf3;font-variant-numeric:tabular-nums}
+.mg-eq-sub{color:#7d8590;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
+.mg-eq-rule{border-top:1px solid rgba(255,255,255,0.14);margin:4px 0}
+.mg-eq-total .mg-eq-l,.mg-eq-total .mg-eq-v{font-weight:700;color:#e6edf3}
 .mg-detail-kv{background:#1c2330;border:1px solid rgba(255,255,255,0.06);border-radius:9px;padding:9px 12px}
 .mg-detail-k{font-size:10px;font-weight:600;color:#7d8590;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
 .mg-detail-v{font-size:15px;font-weight:600;color:#e6edf3;font-family:'JetBrains Mono',monospace}
@@ -6526,6 +6534,9 @@ const _MG_SKUS = [
 ];
 const _MG_CUT_HIDE = ['Purchased', 'Transfer In'];
 const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Closing Stock','Calculated Closing Stock','Difference'];
+// Badami family never has Purchased/Sales — show the diff as a calculation instead of raw cards:
+// Calculated Closing = Opening + Transfer In − House Consumed;  Difference = Closing − Calculated.
+const _MG_EQ_SKUS = ['Badami Mango', 'Cut Badami Mango'];
 
 async function mgLoad() {
   const date = document.getElementById('mgDate')?.value;
@@ -6843,6 +6854,12 @@ function mgShowOutletDetail(outlet) {
       card += `<div class="mg-detail-empty">No data for this outlet.</div></div>`;
       html += card; return;
     }
+    if (_MG_EQ_SKUS.includes(sku.key)) {
+      card += mgEquationHtml(d.headers, row);
+      card += '</div>';
+      html += card;
+      return;
+    }
     const skipCols = sku.cut ? _MG_CUT_HIDE : [];
     card += '<div class="mg-detail-grid">';
     d.headers.forEach((h, i) => {
@@ -6870,6 +6887,35 @@ function mgShowOutletDetail(outlet) {
 
   body.innerHTML = html;
   document.getElementById('mgDetailModal').classList.add('open');
+}
+
+// Badami / Cut Badami: render the diff as a calculation instead of raw cards.
+// Calculated Closing = Opening + Transfer In − House Consumed;  Difference = Closing − Calculated.
+function mgEquationHtml(headers, row) {
+  const numOf = (h) => { const i = headers.indexOf(h); return i >= 0 ? (parseFloat(row[i]) || 0) : 0; };
+  const opening       = numOf('Opening Stock');
+  const transferIn    = numOf('Transfer In');
+  const houseConsumed = numOf('House Consumed');
+  const calc    = Math.round((opening + transferIn - houseConsumed) * 1000) / 1000;
+  const closing = numOf('Closing Stock');
+  const diff    = Math.round((closing - calc) * 1000) / 1000;
+  const diffCls = Math.abs(diff) <= 0.005 ? 'mg-diff-zero' : diff < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
+  const sign    = diff > 0.005 ? '+' : '';
+
+  const r = (op, label, val, cls = '') =>
+    `<div class="mg-eq-row ${cls}"><span class="mg-eq-l"><span class="mg-eq-op">${op}</span>${label}</span><span class="mg-eq-v">${val}</span></div>`;
+
+  return `<div class="mg-eq">
+    ${r('',  'Opening Stock',   mgFmt(opening))}
+    ${r('+', 'Transfer In',     mgFmt(transferIn))}
+    ${r('−', 'House Consumed',  mgFmt(houseConsumed))}
+    <div class="mg-eq-rule"></div>
+    ${r('=', 'Calculated Closing <span class="mg-eq-sub">expected</span>', mgFmt(calc), 'mg-eq-total')}
+    ${r('',  'Closing Stock <span class="mg-eq-sub">actual</span>', mgFmt(closing))}
+    ${r('−', 'Calculated Closing', mgFmt(calc))}
+    <div class="mg-eq-rule"></div>
+    ${r('=', 'Difference', `<span class="${diffCls}">${sign}${mgFmt(diff)}</span>`, 'mg-eq-total')}
+  </div>`;
 }
 
 function mgCloseDetail() {
