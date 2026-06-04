@@ -6534,10 +6534,14 @@ const _MG_SKUS = [
 ];
 const _MG_CUT_HIDE = ['Purchased', 'Transfer In'];
 const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Closing Stock','Calculated Closing Stock','Difference'];
-// Whole Badami never has Purchased/Sales — show its diff as a calculation instead of raw cards:
-// Calculated Closing = Opening + Transfer In − House Consumed;  Difference = Closing − Calculated.
-// Cut Badami has different metrics and keeps the normal card layout.
-const _MG_EQ_SKUS = ['Badami Mango'];
+// SKUs shown as a diff calculation instead of raw cards. Each has its OWN metrics
+// (signed terms that feed Calculated Closing); then Difference = Closing − Calculated.
+//   Whole Badami: no Purchased/Sales/Housemade  -> Opening + Transfer In − House Consumed
+//   Cut Badami:   no Purchased/Transfer In       -> Opening + Housemade − Sales − House Consumed
+const _MG_EQ_SPEC = {
+  'Badami Mango':     [['Opening Stock', '+'], ['Transfer In', '+'], ['House Consumed', '−']],
+  'Cut Badami Mango': [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−'], ['House Consumed', '−']],
+};
 
 async function mgLoad() {
   const date = document.getElementById('mgDate')?.value;
@@ -6855,8 +6859,8 @@ function mgShowOutletDetail(outlet) {
       card += `<div class="mg-detail-empty">No data for this outlet.</div></div>`;
       html += card; return;
     }
-    if (_MG_EQ_SKUS.includes(sku.key)) {
-      card += mgEquationHtml(d.headers, row);
+    if (_MG_EQ_SPEC[sku.key]) {
+      card += mgEquationHtml(d.headers, row, _MG_EQ_SPEC[sku.key]);
       card += '</div>';
       html += card;
       return;
@@ -6890,26 +6894,29 @@ function mgShowOutletDetail(outlet) {
   document.getElementById('mgDetailModal').classList.add('open');
 }
 
-// Badami / Cut Badami: render the diff as a calculation instead of raw cards.
-// Calculated Closing = Opening + Transfer In − House Consumed;  Difference = Closing − Calculated.
-function mgEquationHtml(headers, row) {
+// Render the diff as a calculation instead of raw cards, using a per-SKU term spec.
+// spec = [[field, '+'|'−'], ...] -> Calculated Closing = Σ(signed terms);  Difference = Closing − Calculated.
+function mgEquationHtml(headers, row, spec) {
   const numOf = (h) => { const i = headers.indexOf(h); return i >= 0 ? (parseFloat(row[i]) || 0) : 0; };
-  const opening       = numOf('Opening Stock');
-  const transferIn    = numOf('Transfer In');
-  const houseConsumed = numOf('House Consumed');
-  const calc    = Math.round((opening + transferIn - houseConsumed) * 1000) / 1000;
+
+  const r = (op, label, val, cls = '') =>
+    `<div class="mg-eq-row ${cls}"><span class="mg-eq-l"><span class="mg-eq-op">${op}</span>${label}</span><span class="mg-eq-v">${val}</span></div>`;
+
+  let calc = 0;
+  const termRows = spec.map(([field, op], idx) => {
+    const v = numOf(field);
+    calc += (op === '−' ? -v : v);
+    return r(idx === 0 ? '' : op, field, mgFmt(v));  // first term carries no leading operator
+  }).join('');
+  calc = Math.round(calc * 1000) / 1000;
+
   const closing = numOf('Closing Stock');
   const diff    = Math.round((closing - calc) * 1000) / 1000;
   const diffCls = Math.abs(diff) <= 0.005 ? 'mg-diff-zero' : diff < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
   const sign    = diff > 0.005 ? '+' : '';
 
-  const r = (op, label, val, cls = '') =>
-    `<div class="mg-eq-row ${cls}"><span class="mg-eq-l"><span class="mg-eq-op">${op}</span>${label}</span><span class="mg-eq-v">${val}</span></div>`;
-
   return `<div class="mg-eq">
-    ${r('',  'Opening Stock',   mgFmt(opening))}
-    ${r('+', 'Transfer In',     mgFmt(transferIn))}
-    ${r('−', 'House Consumed',  mgFmt(houseConsumed))}
+    ${termRows}
     <div class="mg-eq-rule"></div>
     ${r('=', 'Calculated Closing <span class="mg-eq-sub">expected</span>', mgFmt(calc), 'mg-eq-total')}
     ${r('',  'Closing Stock <span class="mg-eq-sub">actual</span>', mgFmt(closing))}
