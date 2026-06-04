@@ -6387,6 +6387,28 @@ function renderMangoPage() {
 .mg-diff-pos{color:#39d353;font-weight:600}.mg-diff-neg{color:#f85149;font-weight:600}.mg-diff-zero{color:#7d8590}
 .mg-empty{padding:50px 20px;text-align:center;color:#7d8590}
 .mg-empty-icon{font-size:32px;margin-bottom:10px;opacity:.3;display:block}
+/* combined summary table */
+.mg-tbl tbody tr.mg-row-click{cursor:pointer}
+.mg-tbl tbody tr.mg-row-click:hover{background:rgba(245,166,35,.06)}
+.mg-row-arrow{color:#7d8590;font-size:11px}
+.mg-tbl tbody tr.mg-row-click:hover .mg-row-arrow{color:#f5a623}
+/* outlet detail modal */
+#mgDetailModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;padding:20px}
+#mgDetailModal.open{display:flex}
+.mg-detail-box{background:#161b22;border:1px solid rgba(255,255,255,0.07);border-radius:16px;width:760px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mg-detail-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(255,255,255,0.07);background:#1c2330}
+.mg-detail-title{font-size:17px;font-weight:700;color:#e6edf3}
+.mg-detail-close{background:none;border:none;color:#7d8590;cursor:pointer;font-size:16px;font-family:inherit}
+.mg-detail-close:hover{color:#e6edf3}
+.mg-detail-body{padding:18px 22px;overflow-y:auto}
+.mg-detail-card{margin-bottom:16px}
+.mg-detail-card:last-child{margin-bottom:0}
+.mg-detail-sku{font-size:13px;font-weight:600;color:#f5a623;margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px}
+.mg-detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.mg-detail-kv{background:#1c2330;border:1px solid rgba(255,255,255,0.06);border-radius:9px;padding:9px 12px}
+.mg-detail-k{font-size:10px;font-weight:600;color:#7d8590;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+.mg-detail-v{font-size:15px;font-weight:600;color:#e6edf3;font-family:'JetBrains Mono',monospace}
+.mg-detail-empty{font-size:12px;color:#7d8590;padding:6px 0}
 /* run modal */
 #mgRunModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center}
 #mgRunModal.open{display:flex}
@@ -6451,8 +6473,18 @@ function renderMangoPage() {
   <div class="mg-sum-card" id="mgSum3"><div class="mg-sum-label">Cut Raspuri</div><div class="mg-sum-val" id="mgSumVal3">—</div><div class="mg-sum-sub">rows</div></div>
 </div>
 
-<div class="mg-tabs" id="mgTabs"></div>
-<div id="mgPanels"></div>
+<div id="mgCombined"></div>
+
+<!-- Outlet Detail Modal -->
+<div id="mgDetailModal" onclick="if(event.target===this)mgCloseDetail()">
+  <div class="mg-detail-box">
+    <div class="mg-detail-head">
+      <div class="mg-detail-title" id="mgDetailTitle">Outlet</div>
+      <button class="mg-detail-close" onclick="mgCloseDetail()">✕</button>
+    </div>
+    <div class="mg-detail-body" id="mgDetailBody"></div>
+  </div>
+</div>
 
 <!-- Run Modal -->
 <div id="mgRunModal">
@@ -6485,6 +6517,7 @@ function renderMangoPage() {
 let _mgData = {};
 let _mgActiveTab = 0;
 let _mgSortState = {};
+let _mgCombinedRows = [];
 const _MG_SKUS = [
   { key: 'Badami Mango',      label: 'Badami Mango',  cut: false },
   { key: 'Cut Badami Mango',  label: 'Cut Badami',    cut: true  },
@@ -6506,8 +6539,7 @@ async function mgLoad() {
     _mgData = await res.json();
     mgBuildOutletFilter();
     mgRenderSummary();
-    mgRenderTabs();
-    mgRenderPanels();
+    mgRenderCombined();
     mgSetStatus(`Loaded data for ${date}`, 'ok');
   } catch(e) {
     mgSetStatus('Error: ' + e.message, 'error');
@@ -6585,8 +6617,7 @@ async function mgLoad7Days() {
     _mgData = merged;
     mgBuildOutletFilter();
     mgRenderSummary();
-    mgRenderTabs();
-    mgRenderPanels();
+    mgRenderCombined();
     mgSetStatus(`Loaded last 7 days (${dates[0]} – ${dates[6]})`, 'ok');
   } catch(e) {
     mgSetStatus('Error: ' + e.message, 'error');
@@ -6669,98 +6700,184 @@ function mgSortRows(rows, headers, tabIdx) {
   });
 }
 
-function mgRenderTabs() {
-  const wrap = document.getElementById('mgTabs');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-  _MG_SKUS.forEach((sku, i) => {
-    const d = _mgData[sku.key];
-    const count = d ? mgFilterRows(d.rows, d.headers).length : 0;
-    const tab = document.createElement('div');
-    tab.className = 'mg-tab' + (i === _mgActiveTab ? ' active' : '');
-    tab.innerHTML = `${sku.label}<span class="mg-tab-cnt">${count}</span>`;
-    tab.onclick = () => { _mgActiveTab = i; mgRenderTabs(); mgRenderPanels(); };
-    wrap.appendChild(tab);
+// ── Combined summary table (Outlet | Badami diff | Cut Badami diff) ──
+let _mgCombinedSort = { col: 'outlet', dir: 'asc' };
+
+// Build a map of outlet -> { type, diff } for one SKU, honouring type/outlet/search filters
+// (the Difference filter is applied later at the combined-row level).
+function mgDiffMap(skuKey) {
+  const d = _mgData[skuKey];
+  const map = {};
+  if (!d || !d.headers.length) return map;
+  const outletIdx = d.headers.indexOf('Outlet');
+  const typeIdx   = d.headers.indexOf('Type');
+  const diffIdx   = d.headers.indexOf('Difference');
+  const typeF   = document.getElementById('mgType')?.value || '';
+  const outletF = document.getElementById('mgOutlet')?.value || '';
+  const search  = (document.getElementById('mgSearch')?.value || '').toLowerCase().trim();
+  d.rows.forEach(row => {
+    const outlet = outletIdx >= 0 ? row[outletIdx] : '';
+    if (!outlet) return;
+    const type = typeIdx >= 0 ? row[typeIdx] : '';
+    if (typeF   && type !== typeF) return;
+    if (outletF && outlet !== outletF) return;
+    if (search  && String(outlet).toLowerCase().indexOf(search) === -1) return;
+    map[outlet] = { type, diff: diffIdx >= 0 ? (parseFloat(row[diffIdx]) || 0) : 0 };
+  });
+  return map;
+}
+
+function mgDiffPasses(diffF, ...diffs) {
+  if (!diffF) return true;
+  // pass if ANY of the provided diffs matches the chosen filter
+  return diffs.some(v => {
+    if (v === null || v === undefined) return false;
+    if (diffF === 'neg')  return v <  -0.005;
+    if (diffF === 'pos')  return v >   0.005;
+    if (diffF === 'zero') return Math.abs(v) <= 0.005;
+    return true;
   });
 }
 
-function mgRenderPanels() {
-  const wrap = document.getElementById('mgPanels');
+function mgRenderCombined() {
+  const wrap = document.getElementById('mgCombined');
   if (!wrap) return;
-  wrap.innerHTML = '';
-  _MG_SKUS.forEach((sku, i) => {
-    const panel = document.createElement('div');
-    panel.className = 'mg-panel' + (i === _mgActiveTab ? ' active' : '');
-    const d = _mgData[sku.key];
-    if (!d || !d.headers.length) {
-      panel.innerHTML = `<div class="mg-table-wrap"><div class="mg-empty"><span class="mg-empty-icon">🥭</span>No data for this date.</div></div>`;
-    } else {
-      const filtered = mgFilterRows(d.rows, d.headers);
-      const sorted   = mgSortRows(filtered, d.headers, i);
-      panel.innerHTML = mgBuildTable(d.headers, sorted, sku.label, i, sku.cut);
-    }
-    wrap.appendChild(panel);
-  });
-  document.querySelectorAll('th[data-mg-col]').forEach(th => {
-    th.addEventListener('click', () => {
-      const ti = parseInt(th.dataset.mgTab), col = parseInt(th.dataset.mgCol);
-      const cur = _mgSortState[ti] || {};
-      _mgSortState[ti] = { col, dir: cur.col === col ? (cur.dir === 'asc' ? 'desc' : 'asc') : 'asc' };
-      mgRenderPanels();
-    });
-  });
-}
 
-function mgBuildTable(headers, rows, title, tabIdx, isCut) {
-  const st = _mgSortState[tabIdx] || {};
-  const skipCols = isCut ? _MG_CUT_HIDE : [];
-  let thead = '<thead><tr>';
-  headers.forEach((h, i) => {
-    if (h === 'Date' || skipCols.includes(h)) return;
-    const cls = st.col === i ? (st.dir === 'asc' ? 'sa' : 'sd') : '';
-    thead += `<th class="${cls}" data-mg-col="${i}" data-mg-tab="${tabIdx}">${h}</th>`;
+  const badami = mgDiffMap('Badami Mango');
+  const cut    = mgDiffMap('Cut Badami Mango');
+  const diffF  = document.getElementById('mgDiff')?.value || '';
+
+  // Union of outlets across both SKUs
+  const outlets = new Set([...Object.keys(badami), ...Object.keys(cut)]);
+  let rows = [];
+  outlets.forEach(o => {
+    const b = badami[o] ? badami[o].diff : null;
+    const c = cut[o]    ? cut[o].diff    : null;
+    if (!mgDiffPasses(diffF, b, c)) return;
+    const type = (badami[o] && badami[o].type) || (cut[o] && cut[o].type) || '';
+    rows.push({ outlet: o, type, badami: b, cut: c });
   });
-  thead += '</tr></thead>';
-  const visCount = headers.filter(h => h !== 'Date' && !skipCols.includes(h)).length;
+
+  // Sort
+  const s = _mgCombinedSort;
+  rows.sort((a, b) => {
+    let av = a[s.col], bv = b[s.col];
+    if (s.col === 'outlet') { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); }
+    else { av = av === null ? -Infinity : av; bv = bv === null ? -Infinity : bv; }
+    if (av < bv) return s.dir === 'asc' ? -1 : 1;
+    if (av > bv) return s.dir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  const arrow = col => s.col === col ? (s.dir === 'asc' ? 'sa' : 'sd') : '';
+  const diffCell = v => {
+    if (v === null || v === undefined) return `<td class="mg-td-num mg-diff-zero">—</td>`;
+    const cls = Math.abs(v) <= 0.005 ? 'mg-diff-zero' : v < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
+    const sign = v > 0.005 ? '+' : '';
+    return `<td class="mg-td-num ${cls}">${sign}${mgFmt(v)}</td>`;
+  };
+
+  _mgCombinedRows = rows;
   let tbody = '<tbody>';
   if (rows.length === 0) {
-    tbody += `<tr><td colspan="${visCount}" style="text-align:center;padding:36px;color:#7d8590">No rows match the current filters.</td></tr>`;
+    tbody += `<tr><td colspan="3" style="text-align:center;padding:36px;color:#7d8590">No outlets match the current filters.</td></tr>`;
   } else {
-    rows.forEach(row => {
-      tbody += '<tr>';
-      headers.forEach((h, i) => {
-        if (h === 'Date' || skipCols.includes(h)) return;
-        const val = row[i];
-        if (h === 'Outlet') {
-          tbody += `<td class="mg-td-outlet">${mgEsc(val)}</td>`;
-        } else if (h === 'Type') {
-          const bc = val === 'Dine In' ? 'mg-bdg-dine' : 'mg-bdg-cloud';
-          tbody += `<td><span class="mg-bdg ${bc}">${mgEsc(val)}</span></td>`;
-        } else if (h === 'Difference') {
-          const num = parseFloat(val) || 0;
-          const cls = Math.abs(num) <= 0.005 ? 'mg-diff-zero' : num < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
-          const sign = num > 0.005 ? '+' : '';
-          tbody += `<td class="mg-td-num ${cls}">${sign}${mgFmt(num)}</td>`;
-        } else if (_MG_NUM_COLS.includes(h)) {
-          tbody += `<td class="mg-td-num">${mgFmt(parseFloat(val) || 0)}</td>`;
-        } else {
-          tbody += `<td>${mgEsc(val)}</td>`;
-        }
-      });
-      tbody += '</tr>';
+    rows.forEach((r, idx) => {
+      tbody += `<tr class="mg-row-click" data-mg-outlet-idx="${idx}">
+        <td class="mg-td-outlet">${mgEsc(r.outlet)} <span class="mg-row-arrow">›</span></td>
+        ${diffCell(r.badami)}
+        ${diffCell(r.cut)}
+      </tr>`;
     });
   }
   tbody += '</tbody>';
-  return `<div class="mg-table-wrap">
+
+  wrap.innerHTML = `<div class="mg-table-wrap">
     <div class="mg-table-toolbar">
-      <span class="mg-table-title">${title}</span>
-      <span class="mg-table-meta">${rows.length} outlet${rows.length !== 1 ? 's' : ''}</span>
+      <span class="mg-table-title">Mango Difference by Outlet</span>
+      <span class="mg-table-meta">${rows.length} outlet${rows.length !== 1 ? 's' : ''} · tap a row for full details</span>
     </div>
-    <div class="mg-tbl-scroll"><table class="mg-tbl">${thead}${tbody}</table></div>
+    <div class="mg-tbl-scroll"><table class="mg-tbl">
+      <thead><tr>
+        <th class="${arrow('outlet')}" data-mg-csort="outlet">Outlet</th>
+        <th class="${arrow('badami')}" data-mg-csort="badami">Badami Diff</th>
+        <th class="${arrow('cut')}" data-mg-csort="cut">Cut Badami Diff</th>
+      </tr></thead>
+      ${tbody}
+    </table></div>
   </div>`;
+
+  wrap.querySelectorAll('th[data-mg-csort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.mgCsort;
+      _mgCombinedSort = { col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' };
+      mgRenderCombined();
+    });
+  });
+  wrap.querySelectorAll('tr[data-mg-outlet-idx]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const row = _mgCombinedRows[parseInt(tr.dataset.mgOutletIdx)];
+      if (row) mgShowOutletDetail(row.outlet);
+    });
+  });
 }
 
-function mgApplyFilters() { mgRenderTabs(); mgRenderPanels(); }
+// ── Outlet detail popup: full breakdown across all 4 mango types ──
+function mgShowOutletDetail(outlet) {
+  const body = document.getElementById('mgDetailBody');
+  const title = document.getElementById('mgDetailTitle');
+  if (!body || !title) return;
+  title.textContent = outlet;
+
+  let html = '';
+  _MG_SKUS.forEach(sku => {
+    const d = _mgData[sku.key];
+    let card = `<div class="mg-detail-card"><div class="mg-detail-sku">${mgEsc(sku.label)}</div>`;
+    if (!d || !d.headers.length) {
+      card += `<div class="mg-detail-empty">No data.</div></div>`;
+      html += card; return;
+    }
+    const outletIdx = d.headers.indexOf('Outlet');
+    const row = d.rows.find(r => r[outletIdx] === outlet);
+    if (!row) {
+      card += `<div class="mg-detail-empty">No data for this outlet.</div></div>`;
+      html += card; return;
+    }
+    const skipCols = sku.cut ? _MG_CUT_HIDE : [];
+    card += '<div class="mg-detail-grid">';
+    d.headers.forEach((h, i) => {
+      if (h === 'Date' || h === 'Outlet' || skipCols.includes(h)) return;
+      const val = row[i];
+      let vHtml;
+      if (h === 'Type') {
+        const bc = val === 'Dine In' ? 'mg-bdg-dine' : 'mg-bdg-cloud';
+        vHtml = `<span class="mg-bdg ${bc}">${mgEsc(val)}</span>`;
+      } else if (h === 'Difference') {
+        const num = parseFloat(val) || 0;
+        const cls = Math.abs(num) <= 0.005 ? 'mg-diff-zero' : num < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
+        const sign = num > 0.005 ? '+' : '';
+        vHtml = `<span class="${cls}">${sign}${mgFmt(num)}</span>`;
+      } else if (_MG_NUM_COLS.includes(h)) {
+        vHtml = mgFmt(parseFloat(val) || 0);
+      } else {
+        vHtml = mgEsc(val);
+      }
+      card += `<div class="mg-detail-kv"><div class="mg-detail-k">${mgEsc(h)}</div><div class="mg-detail-v">${vHtml}</div></div>`;
+    });
+    card += '</div></div>';
+    html += card;
+  });
+
+  body.innerHTML = html;
+  document.getElementById('mgDetailModal').classList.add('open');
+}
+
+function mgCloseDetail() {
+  const m = document.getElementById('mgDetailModal');
+  if (m) m.classList.remove('open');
+}
+
+function mgApplyFilters() { mgRenderCombined(); }
 function mgClearFilters() {
   ['mgType','mgOutlet','mgDiff'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   const s = document.getElementById('mgSearch'); if(s) s.value='';
