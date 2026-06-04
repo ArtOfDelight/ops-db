@@ -6413,6 +6413,11 @@ function renderMangoPage() {
 .mg-eq-sub{color:#7d8590;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-left:6px}
 .mg-eq-rule{border-top:1px solid rgba(255,255,255,0.14);margin:4px 0}
 .mg-eq-total .mg-eq-l,.mg-eq-total .mg-eq-v{font-weight:700;color:#e6edf3}
+.mg-eq-reason{margin-top:10px;padding:8px 11px;border-radius:8px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);color:#ffd54f;font-size:12px;font-family:inherit;line-height:1.45}
+.mg-eq-reason-icon{margin-right:6px}
+.mg-reason-cell{white-space:normal;font-size:12px;color:#c9d1d9;max-width:280px}
+.mg-reason-line{padding:1px 0}
+.mg-reason-line b{color:#ffd54f;font-weight:600}
 .mg-detail-kv{background:#1c2330;border:1px solid rgba(255,255,255,0.06);border-radius:9px;padding:9px 12px}
 .mg-detail-k{font-size:10px;font-weight:600;color:#7d8590;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
 .mg-detail-v{font-size:15px;font-weight:600;color:#e6edf3;font-family:'JetBrains Mono',monospace}
@@ -6538,9 +6543,22 @@ const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House C
 // (signed terms that feed Calculated Closing); then Difference = Closing − Calculated.
 //   Whole Badami: no Purchased/Sales/Housemade  -> Opening + Transfer In − House Consumed
 //   Cut Badami:   no Purchased/Transfer In/House Consumed -> Opening + Housemade − Sales
+// reason = inferred cause shown under the Difference, by sign.
 const _MG_EQ_SPEC = {
-  'Badami Mango':     [['Opening Stock', '+'], ['Transfer In', '+'], ['House Consumed', '−']],
-  'Cut Badami Mango': [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−']],
+  'Badami Mango': {
+    terms: [['Opening Stock', '+'], ['Transfer In', '+'], ['House Consumed', '−']],
+    reason: {
+      neg: 'Likely housemade was not entered, or the yield is less.',
+      pos: 'Likely the yield is more.',
+    },
+  },
+  'Cut Badami Mango': {
+    terms: [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−']],
+    reason: {
+      pos: 'Likely housemade was not entered.',
+      neg: 'Likely staff are eating it, or extra portions are being served.',
+    },
+  },
 };
 
 async function mgLoad() {
@@ -6738,9 +6756,30 @@ function mgDiffMap(skuKey) {
     if (typeF   && type !== typeF) return;
     if (outletF && outlet !== outletF) return;
     if (search  && String(outlet).toLowerCase().indexOf(search) === -1) return;
-    map[outlet] = { type, diff: diffIdx >= 0 ? (parseFloat(row[diffIdx]) || 0) : 0 };
+    const cfg = _MG_EQ_SPEC[skuKey];
+    const diff = cfg
+      ? mgCalcDiff(d.headers, row, cfg).diff           // use the per-SKU formula (matches detail popup)
+      : (diffIdx >= 0 ? (parseFloat(row[diffIdx]) || 0) : 0);
+    map[outlet] = { type, diff };
   });
   return map;
+}
+
+// Compute Calculated Closing (Σ signed terms) and Difference (Closing − Calculated) for a SKU.
+function mgCalcDiff(headers, row, cfg) {
+  const numOf = (h) => { const i = headers.indexOf(h); return i >= 0 ? (parseFloat(row[i]) || 0) : 0; };
+  let calc = 0;
+  cfg.terms.forEach(([field, op]) => { const v = numOf(field); calc += (op === '−' ? -v : v); });
+  calc = Math.round(calc * 1000) / 1000;
+  const diff = Math.round((numOf('Closing Stock') - calc) * 1000) / 1000;
+  return { calc, diff };
+}
+
+// Inferred reason for a SKU's difference, by sign (empty if ~zero or no spec).
+function mgReasonText(skuKey, diff) {
+  if (diff === null || diff === undefined || Math.abs(diff) <= 0.005) return '';
+  const reason = (_MG_EQ_SPEC[skuKey] || {}).reason || {};
+  return (diff < 0 ? reason.neg : reason.pos) || '';
 }
 
 function mgDiffPasses(diffF, ...diffs) {
@@ -6792,17 +6831,26 @@ function mgRenderCombined() {
     const sign = v > 0.005 ? '+' : '';
     return `<td class="mg-td-num ${cls}">${sign}${mgFmt(v)}</td>`;
   };
+  const reasonCell = rw => {
+    const parts = [];
+    const br = mgReasonText('Badami Mango', rw.badami);
+    const cr = mgReasonText('Cut Badami Mango', rw.cut);
+    if (br) parts.push(`<div class="mg-reason-line"><b>Badami:</b> ${mgEsc(br)}</div>`);
+    if (cr) parts.push(`<div class="mg-reason-line"><b>Cut:</b> ${mgEsc(cr)}</div>`);
+    return `<td class="mg-reason-cell">${parts.length ? parts.join('') : '<span class="mg-diff-zero">—</span>'}</td>`;
+  };
 
   _mgCombinedRows = rows;
   let tbody = '<tbody>';
   if (rows.length === 0) {
-    tbody += `<tr><td colspan="3" style="text-align:center;padding:36px;color:#7d8590">No outlets match the current filters.</td></tr>`;
+    tbody += `<tr><td colspan="4" style="text-align:center;padding:36px;color:#7d8590">No outlets match the current filters.</td></tr>`;
   } else {
     rows.forEach((r, idx) => {
       tbody += `<tr class="mg-row-click" data-mg-outlet-idx="${idx}">
         <td class="mg-td-outlet">${mgEsc(r.outlet)} <span class="mg-row-arrow">›</span></td>
         ${diffCell(r.badami)}
         ${diffCell(r.cut)}
+        ${reasonCell(r)}
       </tr>`;
     });
   }
@@ -6818,6 +6866,7 @@ function mgRenderCombined() {
         <th class="${arrow('outlet')}" data-mg-csort="outlet">Outlet</th>
         <th class="${arrow('badami')}" data-mg-csort="badami">Badami Diff</th>
         <th class="${arrow('cut')}" data-mg-csort="cut">Cut Badami Diff</th>
+        <th>Likely Reason</th>
       </tr></thead>
       ${tbody}
     </table></div>
@@ -6894,26 +6943,27 @@ function mgShowOutletDetail(outlet) {
   document.getElementById('mgDetailModal').classList.add('open');
 }
 
-// Render the diff as a calculation instead of raw cards, using a per-SKU term spec.
-// spec = [[field, '+'|'−'], ...] -> Calculated Closing = Σ(signed terms);  Difference = Closing − Calculated.
-function mgEquationHtml(headers, row, spec) {
+// Render the diff as a calculation instead of raw cards, using a per-SKU config.
+// cfg = { terms: [[field, '+'|'−'], ...], reason: {neg, pos} }
+// Calculated Closing = Σ(signed terms);  Difference = Closing − Calculated.
+function mgEquationHtml(headers, row, cfg) {
   const numOf = (h) => { const i = headers.indexOf(h); return i >= 0 ? (parseFloat(row[i]) || 0) : 0; };
 
   const r = (op, label, val, cls = '') =>
     `<div class="mg-eq-row ${cls}"><span class="mg-eq-l"><span class="mg-eq-op">${op}</span>${label}</span><span class="mg-eq-v">${val}</span></div>`;
 
-  let calc = 0;
-  const termRows = spec.map(([field, op], idx) => {
-    const v = numOf(field);
-    calc += (op === '−' ? -v : v);
-    return r(idx === 0 ? '' : op, field, mgFmt(v));  // first term carries no leading operator
-  }).join('');
-  calc = Math.round(calc * 1000) / 1000;
+  const termRows = cfg.terms.map(([field, op], idx) =>
+    r(idx === 0 ? '' : op, field, mgFmt(numOf(field)))  // first term carries no leading operator
+  ).join('');
 
+  const { calc, diff } = mgCalcDiff(headers, row, cfg);
   const closing = numOf('Closing Stock');
-  const diff    = Math.round((closing - calc) * 1000) / 1000;
   const diffCls = Math.abs(diff) <= 0.005 ? 'mg-diff-zero' : diff < 0 ? 'mg-diff-neg' : 'mg-diff-pos';
   const sign    = diff > 0.005 ? '+' : '';
+
+  const reason = cfg.reason || {};
+  const msg = Math.abs(diff) <= 0.005 ? '' : (diff < 0 ? reason.neg : reason.pos);
+  const reasonHtml = msg ? `<div class="mg-eq-reason"><span class="mg-eq-reason-icon">💡</span>${msg}</div>` : '';
 
   return `<div class="mg-eq">
     ${termRows}
@@ -6923,6 +6973,7 @@ function mgEquationHtml(headers, row, spec) {
     ${r('−', 'Calculated Closing', mgFmt(calc))}
     <div class="mg-eq-rule"></div>
     ${r('=', 'Difference', `<span class="${diffCls}">${sign}${mgFmt(diff)}</span>`, 'mg-eq-total')}
+    ${reasonHtml}
   </div>`;
 }
 
