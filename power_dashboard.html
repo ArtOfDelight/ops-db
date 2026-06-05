@@ -2566,6 +2566,12 @@ function prSwitchSubTab(tab, skipState) {
           <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">To</label>
           <input type="date" id="scp-end" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
         </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Outlet</label>
+          <select id="scp-outlet" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="scpLoad()">
+            <option value="">All</option>
+          </select>
+        </div>
         <button class="ptab active" onclick="scpLoad()" style="padding:4px 14px;font-size:10px">Load</button>
         <span class="as-of-label" id="scp-status"></span>
       </div>
@@ -3341,12 +3347,14 @@ async function scpLoad() {
   const from = document.getElementById('scp-start')?.value;
   const to   = document.getElementById('scp-end')?.value;
   if (!from || !to) return;
+  const outlet = document.getElementById('scp-outlet')?.value || '';
+  const outletQ = outlet ? `&outlet=${encodeURIComponent(outlet)}` : '';
   const el = document.getElementById('scp-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
   try {
     const [rankRes, cogsRes] = await Promise.all([
-      fetch(`${API}/api/admin/scoop-rankings?date_from=${from}&date_to=${to}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
-      fetch(`${API}/api/admin/scoop-cogs?date_from=${from}&date_to=${to}`,     { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
+      fetch(`${API}/api/admin/scoop-rankings?date_from=${from}&date_to=${to}${outletQ}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
+      fetch(`${API}/api/admin/scoop-cogs?date_from=${from}&date_to=${to}${outletQ}`,     { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
     ]);
     if (rankRes.status === 401 || rankRes.status === 403 || cogsRes.status === 401 || cogsRes.status === 403) { lsLogout(); renderProductsPage(); return; }
     const d    = await rankRes.json();
@@ -3355,8 +3363,18 @@ async function scpLoad() {
     const flavours = d.flavours || [];
     _scpOnlineData = d.flavours_online || [];
     _scpDineinData = d.flavours_dinein || [];
+    // Populate outlet dropdown once (keep existing selection)
+    const outSel = document.getElementById('scp-outlet');
+    if (outSel && d.outlets && outSel.options.length <= 1) {
+      d.outlets.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        outSel.appendChild(opt);
+      });
+      if (outlet) outSel.value = outlet;
+    }
     const statusEl = document.getElementById('scp-status');
-    if (statusEl) statusEl.textContent = flavours.length ? `${flavours.length} flavours · ${d.date_from} → ${d.date_to}` : '';
+    if (statusEl) statusEl.textContent = flavours.length ? `${flavours.length} flavours · ${d.date_from} → ${d.date_to}${outlet ? ' · ' + outlet : ''}` : '';
     scpRenderTable(flavours, el);
   } catch(e) {
     if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
