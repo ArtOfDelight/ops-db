@@ -4276,7 +4276,10 @@ function renderPayoutsPage() {
         <button id="po-dl" onclick="poDownload('annexure')" disabled style="padding:8px 18px;background:#15803d;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;opacity:.5">⬇ Download annexures (zip)</button>
         <button id="po-dl2" onclick="poDownload('taxInvoice')" disabled style="padding:8px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border-2);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">⬇ Tax invoices (PDF)</button>
         <button id="po-dl3" onclick="poDownload('all')" disabled style="padding:8px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border-2);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">⬇ All 3 docs (zip)</button>
+        <button id="po-compile" onclick="poCompile()" style="padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">📊 Compile Summary → Sheet</button>
       </div>
+      <div style="font-size:11px;color:var(--ink-3);margin:-6px 0 4px">Compile builds the full monthly Annexure Summary (all outlets) into the Swiggy tab of the Annexures sheet — exactly like the macro.</div>
+      <div id="po-compile-status" style="font-size:13px;margin-bottom:6px"></div>
       <div id="po-content"><div style="font-size:13px;color:var(--ink-3);padding:8px">Pick an outlet and month, then Load.</div></div>
     </div>`;
 }
@@ -4351,6 +4354,28 @@ async function poDownload(doc) {
     alert('Download failed: ' + e.message);
   } finally {
     btn.textContent = label; btn.disabled = false;
+  }
+}
+
+async function poCompile() {
+  const r = _poRange(); if (!r) return;
+  const btn = document.getElementById('po-compile');
+  const st = document.getElementById('po-compile-status');
+  const lbl = btn.textContent; btn.textContent = '⏳ Compiling…'; btn.disabled = true;
+  st.style.color = 'var(--ink-3)';
+  st.textContent = 'Pulling annexures and compiling the summary… this can take a minute.';
+  try {
+    const res = await fetch(`${API}/api/ops/swiggy-payouts/compile?date_from=${r.from}&date_to=${r.to}`,
+      { method: 'POST', headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || res.status);
+    st.style.color = '#15803d';
+    st.innerHTML = `✅ Compiled ${d.annexures_compiled} annexures (${d.payouts_found} payouts) into the <b>Swiggy</b> tab.`;
+  } catch(e) {
+    st.style.color = 'var(--red)';
+    st.textContent = 'Compile failed: ' + e.message;
+  } finally {
+    btn.textContent = lbl; btn.disabled = false;
   }
 }
 
