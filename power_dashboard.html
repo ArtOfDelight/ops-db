@@ -1051,6 +1051,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-rrrecon" onclick="navTo('rrrecon')">
       <span class="sb-icon">🏦</span> RR Recon
     </button>
+    <button class="sb-item" id="sbitem-payouts" onclick="navTo('payouts')">
+      <span class="sb-icon">💸</span> Swiggy Payouts
+    </button>
     <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
       <span class="sb-icon">🍳</span> Roster
     </button>
@@ -1107,11 +1110,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1125,6 +1128,7 @@ function navTo(page) {
   if (page === 'inventory')  renderInventoryPage();
   if (page === 'recon')      renderReconPage();
   if (page === 'rrrecon')    renderRRReconPage();
+  if (page === 'payouts')    renderPayoutsPage();
   if (page === 'roster')     renderRosterPage();
   if (page === 'complaints') renderComplaintsPage();
   if (page === 'mango')      renderMangoPage();
@@ -4244,6 +4248,105 @@ let _ckState = {
   outlet_labels: {},
   loaded: false,
 };
+
+/* ── SWIGGY PAYOUTS ── */
+const _PAYOUT_OUTLETS = ['RR','SKN','KOR','JAY','KLN','ARK','BLN','IND'];
+let _payoutData = [];
+
+function renderPayoutsPage() {
+  const body = document.getElementById('pageBody');
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const outletOpts = ['<option value="ALL">All outlets</option>']
+    .concat(_PAYOUT_OUTLETS.map(o => `<option value="${o}">${o}</option>`)).join('');
+  body.innerHTML = `
+    <div class="section-card">
+      <div class="section-head"><span>💸 Swiggy Weekly Payouts</span></div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;padding:14px 0">
+        <div><label style="display:block;font-size:11px;color:var(--ink-3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Outlet</label>
+          <select id="po-outlet" style="padding:7px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;background:var(--surface);min-width:150px">${outletOpts}</select></div>
+        <div><label style="display:block;font-size:11px;color:var(--ink-3);font-weight:700;text-transform:uppercase;margin-bottom:4px">Month</label>
+          <input type="month" id="po-month" value="${thisMonth}" style="padding:7px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;background:var(--surface)"></div>
+        <button onclick="poLoad()" style="padding:8px 18px;background:var(--blue,#2563eb);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Load payouts</button>
+        <button id="po-dl" onclick="poDownload('annexure')" disabled style="padding:8px 18px;background:#15803d;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;opacity:.5">⬇ Download annexures (zip)</button>
+        <button id="po-dl2" onclick="poDownload('taxInvoice')" disabled style="padding:8px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border-2);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">⬇ Tax invoices (PDF)</button>
+      </div>
+      <div id="po-content"><div style="font-size:13px;color:var(--ink-3);padding:8px">Pick an outlet and month, then Load.</div></div>
+    </div>`;
+}
+
+function _poRange() {
+  const m = document.getElementById('po-month').value; // YYYY-MM
+  if (!m) return null;
+  const [y, mo] = m.split('-').map(Number);
+  const from = `${m}-01`;
+  const last = new Date(y, mo, 0).getDate();
+  const to = `${m}-${String(last).padStart(2,'0')}`;
+  return { from, to };
+}
+
+async function poLoad() {
+  const r = _poRange(); if (!r) return;
+  const el = document.getElementById('po-content');
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Fetching payouts from Swiggy…</div>';
+  try {
+    const res = await fetch(`${API}/api/ops/swiggy-payouts?date_from=${r.from}&date_to=${r.to}`,
+      { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Failed');
+    const outlet = document.getElementById('po-outlet').value;
+    _payoutData = (d.payouts || []).filter(p => outlet === 'ALL' || p.outlet_code === outlet);
+    if (!_payoutData.length) { el.innerHTML = '<div style="padding:10px;color:var(--ink-3)">No payouts in this period.</div>'; poToggleDl(false); return; }
+    const total = _payoutData.reduce((s,p)=>s+(+p.net_payout||0),0);
+    const rows = _payoutData.map(p => `<tr style="border-top:1px solid var(--border-2)">
+      <td style="padding:7px 12px;font-weight:600">${p.outlet} <span style="color:var(--ink-3);font-size:11px">(${p.outlet_code})</span></td>
+      <td style="padding:7px 12px">${p.week_start} → ${p.week_end}</td>
+      <td style="padding:7px 12px;text-align:right;font-weight:700">₹${(+p.net_payout).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      <td style="padding:7px 12px"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${p.status==='PAID'?'#dcfce7':'#fef3c7'};color:${p.status==='PAID'?'#15803d':'#92400e'}">${p.status}</span> <span style="font-size:11px;color:var(--ink-3)">${p.status_message||''}</span></td>
+      <td style="padding:7px 12px;font-size:11px;color:var(--ink-3)">${p.payout_id}</td></tr>`).join('');
+    el.innerHTML = `
+      <div style="font-size:13px;margin:4px 0 10px">${_payoutData.length} payouts · total net <b>₹${total.toLocaleString('en-IN',{minimumFractionDigits:2})}</b></div>
+      <div style="border:1.5px solid var(--border-2);border-radius:10px;overflow:hidden;background:var(--surface)">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--bg)"><th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink-3);text-transform:uppercase">Outlet</th><th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink-3);text-transform:uppercase">Week</th><th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--ink-3);text-transform:uppercase">Net Payout</th><th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink-3);text-transform:uppercase">Status</th><th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--ink-3);text-transform:uppercase">Payout ID</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    poToggleDl(true);
+  } catch(e) {
+    el.innerHTML = `<div style="padding:10px;color:var(--red)">Error: ${e.message}</div>`;
+    poToggleDl(false);
+  }
+}
+
+function poToggleDl(on) {
+  ['po-dl','po-dl2'].forEach(id => {
+    const b = document.getElementById(id); if (!b) return;
+    b.disabled = !on; b.style.opacity = on ? '1' : '.5'; b.style.cursor = on ? 'pointer' : 'default';
+  });
+}
+
+async function poDownload(doc) {
+  const r = _poRange(); if (!r) return;
+  const outlet = document.getElementById('po-outlet').value;
+  const btn = document.getElementById(doc==='annexure'?'po-dl':'po-dl2');
+  const label = btn.textContent; btn.textContent = '⏳ Preparing…'; btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/api/ops/swiggy-payouts/download?date_from=${r.from}&date_to=${r.to}&outlet=${outlet}&doc=${doc}`,
+      { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail || res.status); }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `swiggy_${doc}_${outlet}_${r.from}_to_${r.to}.zip`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Download failed: ' + e.message);
+  } finally {
+    btn.textContent = label; btn.disabled = false;
+  }
+}
 
 function renderRosterPage() {
   const body = document.getElementById('pageBody');
