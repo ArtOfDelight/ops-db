@@ -4370,7 +4370,7 @@ async function poCompile() {
     const d = await res.json();
     if (!res.ok) throw new Error(d.detail || res.status);
     st.style.color = '#15803d';
-    st.innerHTML = `✅ Compiled ${d.annexures_compiled} annexures (${d.payouts_found} payouts) into the <b>Swiggy</b> tab.`;
+    st.innerHTML = `✅ Compiled ${d.annexures_compiled} annexures (${d.payouts_found} payouts) → <b>Swiggy</b> summary + <b>Swiggy Raw Data</b> (${d.raw_rows} rows).`;
   } catch(e) {
     st.style.color = 'var(--red)';
     st.textContent = 'Compile failed: ' + e.message;
