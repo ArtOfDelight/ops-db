@@ -1624,24 +1624,26 @@ function loadAll() {
   if (logEl)  logEl.innerHTML  = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
   document.getElementById('asOf').textContent = '';
 
+  const stillOnPowerPage = () => !!document.getElementById('scWorst7');
+
   let done = 0;
   const finish = () => { if (++done === 3) setLoading(false); };
 
   fetch(API + '/api/power/live')
     .then(r => r.json())
-    .then(d => { document.getElementById('asOf').textContent = 'As of ' + d.generated_at; renderLive(d); })
-    .catch(() => { if (liveEl) liveEl.innerHTML = errBox(''); })
+    .then(d => { if (!stillOnPowerPage()) return; document.getElementById('asOf').textContent = 'As of ' + d.generated_at; renderLive(d); })
+    .catch(() => { if (liveEl && stillOnPowerPage()) liveEl.innerHTML = errBox(''); })
     .finally(finish);
 
   let _summary = null, _platform = null;
   function tryRenderLog() {
-    if (_summary && _platform) { renderLog(_summary); renderPlatform(_summary, _platform); }
+    if (_summary && _platform && stillOnPowerPage()) { renderLog(_summary); renderPlatform(_summary, _platform); }
   }
 
   fetch(API + '/api/power/summary')
     .then(r => r.json())
     .then(d => { _summary = d; tryRenderLog(); })
-    .catch(() => { if (logEl) logEl.innerHTML = errBox(''); })
+    .catch(() => { if (logEl && stillOnPowerPage()) logEl.innerHTML = errBox(''); })
     .finally(finish);
 
   fetch(API + '/api/power/platform_downtime')
