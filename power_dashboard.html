@@ -4473,7 +4473,9 @@ function _renderOutletSections() {
     const usedIds  = new Set(entries.map(r => r.employee_id));
     const available = pool.filter(e => !usedIds.has(e.employee_id));
     const label    = outlet_labels[code] || code;
-    const shiftOpts = (sel) => outlet_shifts.map(s =>
+    const shiftOpts = (sel) => outlet_shifts
+      .filter(s => !s.outlet_name || s.outlet_name === code)
+      .map(s =>
       `<option value="${s.shift_id}" ${sel===s.shift_id?'selected':''}>${s.shift_name} · ${s.start_time}–${s.end_time}</option>`).join('');
 
     const schedRows = entries.map((row, idx) => {
@@ -5013,6 +5015,9 @@ function _wrSetCell(empId, date, outlet, shiftId) {
 
 function _wrOpenEditor(empId, date) {
   _wrState.editCell = { empId, date };
+  // Seed the editor's outlet so the shift list filters to that outlet immediately.
+  _wrEditOutlet = _wrGetCell(empId, date).outlet || '';
+  _wrEditShift  = _wrGetCell(empId, date).shift || '';
   _wrRender();
 }
 
@@ -5074,12 +5079,15 @@ function _wrRender() {
     const shiftLabel = c.shift_name ? c.shift_name.replace(/\(.*\)/,'').trim() : (c.start_time ? `${c.start_time?.slice(0,5)}–${c.end_time?.slice(0,5)}` : '');
 
     if (isEditing) {
-      // Build shift options filtered loosely by outlet
-      const allShifts = _wrState.shifts;
+      // Shift options filtered to the currently-selected outlet (shifts with no
+      // outlet_name are treated as universal). _wrEditOutlet tracks live edits.
+      const curOutlet = _wrEditOutlet || c.outlet || '';
+      const curShift  = _wrEditShift || c.shift;
+      const allShifts = _wrState.shifts.filter(s => !s.outlet_name || s.outlet_name === curOutlet);
       const shiftOpts = allShifts.map(s =>
-        `<option value="${s.shift_id}" ${c.shift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
+        `<option value="${s.shift_id}" ${curShift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
       ).join('');
-      const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${outlet===o?'selected':''}>${o}</option>`).join('');
+      const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
       return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:130px;position:relative">
         <div style="display:flex;flex-direction:column;gap:3px">
           <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">${outletOpts}</select>
@@ -5160,7 +5168,15 @@ let _wrEditOutlet = '';
 let _wrEditShift  = '';
 
 function _wrUpdateEdit(sel, field) {
-  if (field === 'outlet') _wrEditOutlet = sel.value;
+  if (field === 'outlet') {
+    _wrEditOutlet = sel.value;
+    // Drop a shift that doesn't belong to the newly chosen outlet, then
+    // re-render so the shift dropdown shows only that outlet's shifts.
+    const stillValid = _wrState.shifts.some(s =>
+      s.shift_id === _wrEditShift && (!s.outlet_name || s.outlet_name === _wrEditOutlet));
+    if (!stillValid) _wrEditShift = '';
+    _wrRender();
+  }
   if (field === 'shift')  _wrEditShift  = sel.value;
 }
 
