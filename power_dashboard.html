@@ -4270,6 +4270,7 @@ function renderPayoutsPage() {
         <button onclick="poLoad()" style="padding:8px 18px;background:var(--blue,#2563eb);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px">Load payouts</button>
         <button id="po-dl" onclick="poDownload('annexure')" disabled style="padding:8px 18px;background:#15803d;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;opacity:.5">⬇ Download annexures (zip)</button>
         <button id="po-dl2" onclick="poDownload('taxInvoice')" disabled style="padding:8px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border-2);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">⬇ Tax invoices (PDF)</button>
+        <button id="po-dl3" onclick="poDownload('all')" disabled style="padding:8px 14px;background:var(--surface);color:var(--ink);border:1.5px solid var(--border-2);border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;opacity:.5">⬇ All 3 docs (zip)</button>
       </div>
       <div id="po-content"><div style="font-size:13px;color:var(--ink-3);padding:8px">Pick an outlet and month, then Load.</div></div>
     </div>`;
@@ -4320,7 +4321,7 @@ async function poLoad() {
 }
 
 function poToggleDl(on) {
-  ['po-dl','po-dl2'].forEach(id => {
+  ['po-dl','po-dl2','po-dl3'].forEach(id => {
     const b = document.getElementById(id); if (!b) return;
     b.disabled = !on; b.style.opacity = on ? '1' : '.5'; b.style.cursor = on ? 'pointer' : 'default';
   });
@@ -4329,7 +4330,7 @@ function poToggleDl(on) {
 async function poDownload(doc) {
   const r = _poRange(); if (!r) return;
   const outlet = document.getElementById('po-outlet').value;
-  const btn = document.getElementById(doc==='annexure'?'po-dl':'po-dl2');
+  const btn = document.getElementById(doc==='annexure'?'po-dl':doc==='taxInvoice'?'po-dl2':'po-dl3');
   const label = btn.textContent; btn.textContent = '⏳ Preparing…'; btn.disabled = true;
   try {
     const res = await fetch(`${API}/api/ops/swiggy-payouts/download?date_from=${r.from}&date_to=${r.to}&outlet=${outlet}&doc=${doc}`,
