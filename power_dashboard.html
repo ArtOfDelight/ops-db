@@ -1050,6 +1050,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-inventory" onclick="navTo('inventory')">
       <span class="sb-icon">📦</span> OOS Report
     </button>
+    <button class="sb-item" id="sbitem-master" onclick="navTo('master')">
+      <span class="sb-icon">🗂️</span> OOS Master List
+    </button>
     <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
       <span class="sb-icon">💰</span> Daily Recon
     </button>
@@ -1115,11 +1118,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1131,6 +1134,7 @@ function navTo(page) {
   if (page === 'ratings')    renderRatingsPage();
   if (page === 'products')   renderProductsPage();
   if (page === 'inventory')  renderInventoryPage();
+  if (page === 'master')     renderMasterPage();
   if (page === 'recon')      renderReconPage();
   if (page === 'rrrecon')    renderRRReconPage();
   if (page === 'payouts')    renderPayoutsPage();
@@ -3558,24 +3562,11 @@ function renderInventoryPage() {
 
   const authHdr = _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {};
   Promise.all([
-    fetch(API + '/api/inventory/oos', { headers: authHdr }).then(r => r.json()),
+    fetch(API + '/api/inventory/live', { headers: authHdr }).then(r => r.json()),
     fetch(`${API}/api/inventory/tracker?days=${_invTrackerDays}`).then(r => r.json()),
   ]).then(([live, tracker]) => {
-    // Normalise /oos response → same flat items[] shape as /live used to return
-    const flatItems = [];
-    (live.outlets || []).forEach(outlet => {
-      (outlet.oos_items || []).forEach(item => {
-        flatItems.push({
-          sku:          item.sku,
-          item:         item.name,
-          outlet:       outlet.outlet,
-          status:       'OUT',
-          out_since:    '',
-          duration_hrs: null,
-        });
-      });
-    });
-    _invLiveData    = { items: flatItems, generated_at: live.generated_at };
+    // /inventory/live is sheet-backed and already carries out_since + duration_hrs
+    _invLiveData    = { items: live.items || [], generated_at: live.generated_at };
     _invTrackerData = tracker;
     _renderInventory();
   }).catch(() => { el.innerHTML = errBox(''); });
@@ -3690,7 +3681,7 @@ function _renderInventory() {
               </tr></thead>
               <tbody>
                 ${rows.sort((a,b) => (b.duration_hrs||0)-(a.duration_hrs||0)).map(r => `
-                <tr>
+                <tr title="Went out of stock: ${r.out_since||'—'}" style="cursor:help">
                   <td style="font-weight:600;font-size:13px">${r.item||'—'}</td>
                   <td style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.sku||'—'}</td>
                   <td style="font-size:12px;color:var(--ink-2)">${r.out_since||'—'}</td>
@@ -3761,10 +3752,126 @@ function _renderInventory() {
     </div>
     <div class="inv-section-head">📦 Live Out of Stock</div>
     ${liveHtml}
-    <div class="inv-section-head" style="margin-top:24px">📈 Stock-Out History</div>
-    ${dayBarHtml}
-    ${trackerHtml}
   `;
+}
+
+/* ── OOS MASTER LIST PAGE ── */
+let _masterData = null;
+let _masterFilter = '';
+
+function renderMasterPage() {
+  const el = document.getElementById('pageBody');
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading master list…</div>';
+  const authHdr = _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {};
+  fetch(API + '/api/inventory/master', { headers: authHdr })
+    .then(r => r.json())
+    .then(d => { _masterData = d; _renderMaster(); })
+    .catch(() => { el.innerHTML = errBox(''); });
+}
+
+function _masterSetFilter(v) { _masterFilter = v; _renderMaster(true); }
+
+async function _masterSave(sku, name, critical, statusElId) {
+  const status = statusElId ? document.getElementById(statusElId) : null;
+  if (status) status.textContent = 'Saving…';
+  try {
+    const r = await fetch(API + '/api/inventory/master', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(_lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {}) },
+      body: JSON.stringify({ sku, name, critical }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.status === 'ok') {
+      renderMasterPage();   // reload to reflect server truth
+    } else if (status) {
+      status.textContent = 'Error: ' + (d.detail || `HTTP ${r.status}`);
+    }
+  } catch (e) {
+    if (status) status.textContent = 'Failed: ' + e.message;
+  }
+}
+
+function _masterAdd() {
+  const sku  = (document.getElementById('m-add-sku')  || {}).value || '';
+  const name = (document.getElementById('m-add-name') || {}).value || '';
+  const crit = (document.getElementById('m-add-crit') || {}).checked || false;
+  const status = document.getElementById('m-add-status');
+  if (!sku.trim()) { if (status) status.textContent = 'SKU is required'; return; }
+  _masterSave(sku.trim(), name.trim(), crit, 'm-add-status');
+}
+
+function _renderMaster(filterOnly) {
+  const el = document.getElementById('pageBody');
+  const data  = _masterData || {};
+  const items = data.items || [];
+  const q = _masterFilter.trim().toLowerCase();
+  const shown = q
+    ? items.filter(x => x.sku.toLowerCase().includes(q) || (x.name||'').toLowerCase().includes(q))
+    : items;
+  const critCount = items.filter(x => x.critical).length;
+
+  const rows = shown.map(x => {
+    const safe = safeId(x.sku);
+    return `
+      <tr>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--ink-2)">${x.sku}</td>
+        <td style="font-weight:600;font-size:13px">${x.name||'—'}</td>
+        <td style="text-align:center">
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" ${x.critical?'checked':''}
+              onchange="_masterSave('${x.sku.replace(/'/g,"\\'")}', '${(x.name||'').replace(/'/g,"\\'")}', this.checked, 'mstat-${safe}')">
+            <span style="font-size:11px;font-weight:700;color:${x.critical?'var(--red)':'var(--ink-3)'}">${x.critical?'Critical':'Not critical'}</span>
+          </label>
+          <span id="mstat-${safe}" style="font-size:10px;color:var(--ink-3);margin-left:6px"></span>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const tableCard = `
+    <div class="section-card">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-title">All tracked items</div>
+        <div class="section-sub">${items.length} items · ${critCount} critical · as of ${data.generated_at||'—'}</div>
+      </div></div>
+      <div style="padding:10px 16px">
+        <input id="m-filter" placeholder="Search SKU or name…" value="${_masterFilter.replace(/"/g,'&quot;')}"
+          oninput="_masterSetFilter(this.value)"
+          style="width:100%;max-width:320px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px">
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>SKU</th><th>Item Name</th><th style="text-align:center">Criticality</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="3" style="text-align:center;color:var(--ink-3);padding:16px">No items match.</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  if (filterOnly && document.getElementById('m-filter')) {
+    // Re-render only the table portion to keep the add-form & focus intact
+    document.getElementById('master-table-wrap').innerHTML = tableCard;
+    const f = document.getElementById('m-filter');
+    if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+    return;
+  }
+
+  const addCard = `
+    <div class="section-card" style="margin-bottom:16px">
+      <div class="section-head"><div class="section-head-left">
+        <div class="section-title">➕ Add item to master list</div>
+        <div class="section-sub">New SKUs are tracked; mark Critical to include in OOS alerts &amp; report</div>
+      </div></div>
+      <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <input id="m-add-sku"  placeholder="SKU code"  style="width:130px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px">
+        <input id="m-add-name" placeholder="Item name" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="m-add-crit"> Critical
+        </label>
+        <button class="btn-refresh" style="font-size:12px;padding:7px 16px" onclick="_masterAdd()">Add</button>
+        <span id="m-add-status" style="font-size:11px;color:var(--ink-3)"></span>
+      </div>
+    </div>`;
+
+  el.innerHTML = addCard + `<div id="master-table-wrap">${tableCard}</div>`;
 }
 
 /* ── DAILY RECON PAGE ── */
