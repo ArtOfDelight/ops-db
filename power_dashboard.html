@@ -8595,9 +8595,46 @@ async function renderIncPayoutPage() {
     const d = await r.json();
     _incPayoutData = d.employees || [];
     _renderIncPayoutTable(_incPayoutData);
+    // Auto-poll any PENDING employees
+    _incPayoutData.forEach((e, i) => {
+      if (e.paid && (e.paid_status === 'PENDING' || e.paid_status === 'PROCESSING')) {
+        _incPollStatus(i, e.emp_id);
+      }
+    });
   } catch(e) {
     document.getElementById('inc-body').innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">${e}</div></div>`;
   }
+}
+
+async function _incPollStatus(idx, emp_id) {
+  const cell = document.getElementById('paycell-' + idx);
+  const row  = document.getElementById('inc-row-' + idx);
+  if (cell) cell.innerHTML = `<span style="font-size:11px;color:#92400e;font-weight:600">⏳ PENDING…</span>`;
+
+  let attempts = 0;
+  const poll = async () => {
+    attempts++;
+    try {
+      const r = await fetch(`${API}/api/admin/incentives/payout-status/${emp_id}`, {
+        headers: { 'Authorization': `Bearer ${_lsToken}` }
+      });
+      const d = await r.json();
+      const st = d.status || '';
+      if (st === 'SUCCESS') {
+        if (_incPayoutData[idx]) _incPayoutData[idx].paid_status = 'SUCCESS';
+        if (row) row.style.background = '#f0fdf4';
+        if (cell) cell.innerHTML = `<span style="font-size:11px;color:#166534;font-weight:700">✓ SUCCESS</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${d.txn_id || ''}</div>`;
+        return; // done
+      } else if (st === 'FAILED') {
+        if (row) row.style.background = '#fff7f7';
+        if (cell) cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ FAILED</span>`;
+        return;
+      }
+    } catch(_) {}
+    // Still pending — retry up to 20 times (100s total)
+    if (attempts < 20) setTimeout(poll, 5000);
+  };
+  setTimeout(poll, 5000);
 }
 
 function _renderIncPayoutTable(emps) {
@@ -8696,11 +8733,16 @@ async function _incPayOne(idx) {
       cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ ${d.detail || 'Failed'}</span>`;
       return;
     }
-    const ok = d.status === 'SUCCESS' || d.status === 'PENDING';
+    const ok = d.status === 'SUCCESS' || d.status === 'PENDING' || d.status === 'PROCESSING';
     row.style.background = ok ? '#f0fdf4' : '#fff7f7';
-    cell.innerHTML = ok
-      ? `<span style="font-size:11px;color:#166534;font-weight:700">✓ ${d.status}</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${d.txn_id || ''}</div>`
-      : `<span style="font-size:11px;color:var(--red);font-weight:600">✕ ${d.status}</span>`;
+    if (d.status === 'SUCCESS') {
+      cell.innerHTML = `<span style="font-size:11px;color:#166534;font-weight:700">✓ SUCCESS</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${d.txn_id || ''}</div>`;
+    } else if (d.status === 'PENDING' || d.status === 'PROCESSING') {
+      cell.innerHTML = `<span style="font-size:11px;color:#92400e;font-weight:600">⏳ ${d.status}…</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${d.txn_id || ''}</div>`;
+      if (e && e.emp_id) _incPollStatus(idx, e.emp_id);
+    } else {
+      cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ ${d.status}</span>`;
+    }
   } catch(err) {
     cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ Network error</span>`;
   }
