@@ -4538,6 +4538,10 @@ async function _ckLoadBuild() {
         onchange="const [y,m,d]=this.value.split('-');_ckState.date=d+'/'+m+'/'+y;_ckState.entries=[];_ckState.outlet_entries={};_ckState.loaded=false;_ckLoadBuild();">
       <span id="ckDayLabel" style="font-size:14px;font-weight:700;color:var(--ink)"></span>
       <div style="margin-left:auto;display:flex;gap:8px">
+        <button onclick="_ckAddAllKitchen()"
+          style="padding:8px 16px;border:1.5px solid #7c3aed;border-radius:8px;background:#fff;color:#7c3aed;font-weight:600;cursor:pointer;font-size:13px">
+          🍳 Add All Kitchen
+        </button>
         <button onclick="_ckPrePopulate()"
           style="padding:8px 16px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;color:var(--ink-2);font-weight:600;cursor:pointer;font-size:13px">
           ↩ Auto-fill All
@@ -4564,11 +4568,11 @@ async function _ckLoadBuild() {
       ...pastDates.map(d => fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(d)}`).then(r=>r.json())),
     ]);
 
-    // Hardcoded CK kitchen shifts only
+    // CK kitchen shifts
     _ckState.shifts = [
-      { shift_id: 'ck-morning', shift_name: 'Morning', start_time: '09:00', end_time: '17:00' },
-      { shift_id: 'ck-mid',     shift_name: 'Mid',     start_time: '13:00', end_time: '21:00' },
-      { shift_id: 'ck-evening', shift_name: 'Evening', start_time: '16:00', end_time: '00:00' },
+      { shift_id: '7fae26a6', shift_name: 'Night (9 PM to 6 AM)',   start_time: '21:00', end_time: '06:00' },
+      { shift_id: '5ddc2d91', shift_name: 'Mid (1 PM to 10 PM)',    start_time: '13:00', end_time: '22:00' },
+      { shift_id: 'ae8adf9f', shift_name: 'Evening (3 PM to 12 AM)',start_time: '15:00', end_time: '00:00' },
     ];
 
     // Collect IDs who worked CK in past 2 weeks
@@ -4594,21 +4598,21 @@ async function _ckLoadBuild() {
       const ckIds = new Set(_ckState.ck_pool.map(e => e.employee_id));
       const existCK = allExisting.filter(e => (e.outlet === 'CK' || e.outlet === 'WO') && ckIds.has(e.employee_id));
       const _mapShift = (start) => {
-        if (start === '09:00') return 'ck-morning';
-        if (start === '13:00') return 'ck-mid';
-        if (start === '16:00') return 'ck-evening';
-        return 'ck-morning';
+        if (start === '21:00') return '7fae26a6';
+        if (start === '13:00') return '5ddc2d91';
+        if (start === '15:00') return 'ae8adf9f';
+        return '7fae26a6';
       };
       if (existCK.length) {
         _ckState.entries = existCK.map(e => ({
           employee_id: e.employee_id, employee_name: e.employee_name || '', outlet: e.outlet === 'WO' ? 'WO' : 'CK',
           shift: e.outlet === 'WO' ? '' : _mapShift(e.start_time),
-          start_time: e.outlet === 'WO' ? '' : (e.start_time || '09:00'),
-          end_time:   e.outlet === 'WO' ? '' : (e.end_time   || '17:00'),
+          start_time: e.outlet === 'WO' ? '' : (e.start_time || '21:00'),
+          end_time:   e.outlet === 'WO' ? '' : (e.end_time   || '06:00'),
         }));
       } else {
         _ckState.entries = _ckState.ck_pool.filter(emp => recentIds.has(emp.employee_id))
-          .map(emp => ({ employee_id: emp.employee_id, outlet: 'CK', shift: 'ck-morning', start_time: '09:00', end_time: '17:00' }));
+          .map(emp => ({ employee_id: emp.employee_id, outlet: 'CK', shift: '7fae26a6', start_time: '21:00', end_time: '06:00' }));
       }
     }
 
@@ -4625,9 +4629,9 @@ function _ckPrePopulate() {
   _ckState.entries = _ckState.ck_pool.map(emp => ({
     employee_id: emp.employee_id,
     outlet:      'CK',
-    shift:       'ck-morning',
-    start_time:  '09:00',
-    end_time:    '17:00',
+    shift:       '7fae26a6',
+    start_time:  '21:00',
+    end_time:    '06:00',
   }));
   _ckRenderBuild();
 }
@@ -4810,9 +4814,25 @@ function _ckAddEmp(eid) {
   _ckState.entries.push({
     employee_id: eid,
     outlet:      'CK',
-    shift:       'ck-morning',
-    start_time:  '09:00',
-    end_time:    '17:00',
+    shift:       '7fae26a6',
+    start_time:  '21:00',
+    end_time:    '06:00',
+  });
+  _ckRenderBuild();
+}
+
+function _ckAddAllKitchen() {
+  const usedIds = new Set(_ckState.entries.map(e => e.employee_id));
+  _ckState.ck_pool.forEach(emp => {
+    if (!usedIds.has(emp.employee_id)) {
+      _ckState.entries.push({
+        employee_id: emp.employee_id,
+        outlet:      'CK',
+        shift:       '7fae26a6',
+        start_time:  '21:00',
+        end_time:    '06:00',
+      });
+    }
   });
   _ckRenderBuild();
 }
