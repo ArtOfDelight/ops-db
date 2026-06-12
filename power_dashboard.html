@@ -8579,6 +8579,7 @@ async function renderIncPayoutPage() {
         <div style="display:flex;gap:8px">
           <button onclick="renderIncPayoutPage()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink);font-weight:600">↻ Refresh</button>
           <button id="inc-pay-all-btn" onclick="_incPayAll()" style="padding:7px 20px;font-size:12px;border-radius:8px;border:none;background:#111827;color:#fff;cursor:pointer;font-weight:700">Pay All</button>
+          <button onclick="_incResetWeek()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--red);font-weight:600" title="Clear paid records to start a new week">Reset Week</button>
         </div>
       </div>
       <div id="inc-alert" style="display:none;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:12px;font-weight:600"></div>
@@ -8605,14 +8606,16 @@ function _renderIncPayoutTable(emps) {
   const totalPayout  = emps.reduce((s, e) => s + e.total, 0);
   const withBank     = emps.filter(e => e.has_bank).length;
   const missingBank  = emps.filter(e => !e.has_bank).length;
-  const payable      = emps.filter(e => e.has_bank && e.total > 0);
+  const paidEmps     = emps.filter(e => e.paid);
+  const paidTotal    = paidEmps.reduce((s, e) => s + e.total, 0);
+  const payable      = emps.filter(e => e.has_bank && e.total > 0 && !e.paid);
   const payableTotal = payable.reduce((s, e) => s + e.total, 0);
 
   // Stats
   document.getElementById('inc-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Total Payout</div><div class="stat-value neu" style="font-size:20px">${fmt(totalPayout)}</div><div class="stat-sub">${emps.length} employees</div></div>
-    <div class="stat-card"><div class="stat-label">Payable Now</div><div class="stat-value ok" style="font-size:20px">${fmt(payableTotal)}</div><div class="stat-sub">${payable.length} with bank + amount &gt; 0</div></div>
-    <div class="stat-card"><div class="stat-label">Bank Verified</div><div class="stat-value ok" style="font-size:20px">${withBank}</div><div class="stat-sub">have account + IFSC</div></div>
+    <div class="stat-card"><div class="stat-label">Remaining</div><div class="stat-value ok" style="font-size:20px">${fmt(payableTotal)}</div><div class="stat-sub">${payable.length} unpaid with bank</div></div>
+    <div class="stat-card"><div class="stat-label">Paid</div><div class="stat-value ok" style="font-size:20px">${fmt(paidTotal)}</div><div class="stat-sub">${paidEmps.length} completed</div></div>
     <div class="stat-card"><div class="stat-label">Missing Bank</div><div class="stat-value ${missingBank > 0 ? 'warn' : 'ok'}" style="font-size:20px">${missingBank}</div><div class="stat-sub">cannot pay until fixed</div></div>`;
 
   if (missingBank > 0) {
@@ -8623,7 +8626,7 @@ function _renderIncPayoutTable(emps) {
   }
 
   const rows = emps.map((e, i) => {
-    const canPay  = e.has_bank && e.total > 0;
+    const canPay  = e.has_bank && e.total > 0 && !e.paid;
     const acctDisplay = e.bank_account
       ? (e.bank_account.length > 4 ? '••••' + e.bank_account.slice(-4) : e.bank_account)
       : '—';
@@ -8633,17 +8636,20 @@ function _renderIncPayoutTable(emps) {
           : `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#64748b;font-weight:700">unverified</span>`)
       : `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700">missing</span>`;
     const amtColor = e.total > 0 ? 'color:var(--ink);font-weight:700' : 'color:var(--ink-3)';
-    const payBtn = canPay
-      ? `<button id="paybtn-${i}" onclick="_incPay(${i})" style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:none;background:#111827;color:#fff;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Pay</button>`
-      : `<button disabled style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink-3);cursor:not-allowed">Pay</button>`;
-    return `<tr id="inc-row-${i}">
+    const rowBg = e.paid ? 'background:#f0fdf4' : '';
+    const payCell = e.paid
+      ? `<span style="font-size:11px;color:#166534;font-weight:700">✓ ${e.paid_status || 'Paid'}</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${e.paid_txn_id || ''}</div>`
+      : canPay
+        ? `<button id="paybtn-${i}" onclick="_incPay(${i})" style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:none;background:#111827;color:#fff;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Pay</button>`
+        : `<button disabled style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink-3);cursor:not-allowed">Pay</button>`;
+    return `<tr id="inc-row-${i}" style="${rowBg}">
       <td><div style="font-weight:700;font-size:12px">${e.name}</div><div style="font-family:var(--mono);font-size:9px;color:var(--ink-3);margin-top:1px">${e.emp_id}</div></td>
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${e.incentive > 0 ? fmt(e.incentive) : '<span style="color:var(--ink-3)">—</span>'}</td>
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${e.travel > 0 ? fmt(e.travel) : '<span style="color:var(--ink-3)">—</span>'}</td>
       <td style="font-family:var(--mono);font-size:13px;text-align:right;${amtColor}">${fmt(e.total)}</td>
       <td><div style="font-family:var(--mono);font-size:11px">${acctDisplay}</div><div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.ifsc || '—'}</div></td>
       <td>${bankBadge}</td>
-      <td id="paycell-${i}" style="text-align:right">${payBtn}</td>
+      <td id="paycell-${i}" style="text-align:right">${payCell}</td>
     </tr>`;
   }).join('');
 
@@ -8709,10 +8715,24 @@ async function _incPay(idx) {
   await _incPayOne(idx);
 }
 
+async function _incResetWeek() {
+  if (!confirm('Clear all paid records? Do this when starting a new week\'s payout run.')) return;
+  try {
+    const r = await fetch(`${API}/api/admin/incentives/payout-reset`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json' }
+    });
+    const d = await r.json();
+    if (!r.ok) { alert('Failed: ' + (d.detail || 'Unknown error')); return; }
+    alert(`Cleared ${d.cleared} paid records. Refreshing…`);
+    renderIncPayoutPage();
+  } catch(e) { alert('Network error: ' + e); }
+}
+
 async function _incPayAll() {
   const payable = _incPayoutData
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e.has_bank && e.total > 0);
+    .filter(({ e }) => e.has_bank && e.total > 0 && !e.paid);
 
   if (!payable.length) { alert('No payable employees (need bank account + amount > 0).'); return; }
 
