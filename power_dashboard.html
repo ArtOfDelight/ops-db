@@ -4570,9 +4570,12 @@ async function _ckLoadBuild() {
 
     // CK kitchen shifts
     _ckState.shifts = [
-      { shift_id: '7fae26a6', shift_name: 'Night (9 PM to 6 AM)',   start_time: '21:00', end_time: '06:00' },
-      { shift_id: '5ddc2d91', shift_name: 'Mid (1 PM to 10 PM)',    start_time: '13:00', end_time: '22:00' },
-      { shift_id: 'ae8adf9f', shift_name: 'Evening (3 PM to 12 AM)',start_time: '15:00', end_time: '00:00' },
+      { shift_id: 'ck-9-18',  shift_name: '9 AM to 6 PM',  start_time: '09:00', end_time: '18:00' },
+      { shift_id: 'ck-9-17',  shift_name: '9 AM to 5 PM',  start_time: '09:00', end_time: '17:00' },
+      { shift_id: 'ck-13-22', shift_name: '1 PM to 10 PM', start_time: '13:00', end_time: '22:00' },
+      { shift_id: 'ck-13-21', shift_name: '1 PM to 9 PM',  start_time: '13:00', end_time: '21:00' },
+      { shift_id: 'ck-15-00', shift_name: '3 PM to 12 AM', start_time: '15:00', end_time: '00:00' },
+      { shift_id: 'ck-15-23', shift_name: '3 PM to 11 PM', start_time: '15:00', end_time: '23:00' },
     ];
 
     // Collect IDs who worked CK in past 2 weeks
@@ -4597,18 +4600,21 @@ async function _ckLoadBuild() {
       // CK entries only — must be CK outlet or WO for a CK pool employee
       const ckIds = new Set(_ckState.ck_pool.map(e => e.employee_id));
       const existCK = allExisting.filter(e => (e.outlet === 'CK' || e.outlet === 'WO') && ckIds.has(e.employee_id));
-      const _mapShift = (start) => {
-        if (start === '21:00') return '7fae26a6';
-        if (start === '13:00') return '5ddc2d91';
-        if (start === '15:00') return 'ae8adf9f';
-        return '7fae26a6';
+      const _mapShift = (start, end) => {
+        if (start === '09:00' && end === '18:00') return 'ck-9-18';
+        if (start === '09:00') return 'ck-9-17';
+        if (start === '13:00' && end === '22:00') return 'ck-13-22';
+        if (start === '13:00') return 'ck-13-21';
+        if (start === '15:00' && end === '00:00') return 'ck-15-00';
+        if (start === '15:00') return 'ck-15-23';
+        return 'ck-9-18';
       };
       if (existCK.length) {
         _ckState.entries = existCK.map(e => ({
           employee_id: e.employee_id, employee_name: e.employee_name || '', outlet: e.outlet === 'WO' ? 'WO' : 'CK',
-          shift: e.outlet === 'WO' ? '' : _mapShift(e.start_time),
-          start_time: e.outlet === 'WO' ? '' : (e.start_time || '21:00'),
-          end_time:   e.outlet === 'WO' ? '' : (e.end_time   || '06:00'),
+          shift: e.outlet === 'WO' ? '' : _mapShift(e.start_time, e.end_time),
+          start_time: e.outlet === 'WO' ? '' : (e.start_time || '09:00'),
+          end_time:   e.outlet === 'WO' ? '' : (e.end_time   || '18:00'),
         }));
       } else {
         _ckState.entries = _ckState.ck_pool.filter(emp => recentIds.has(emp.employee_id))
@@ -4828,9 +4834,9 @@ function _ckAddAllKitchen() {
       _ckState.entries.push({
         employee_id: emp.employee_id,
         outlet:      'CK',
-        shift:       '7fae26a6',
-        start_time:  '21:00',
-        end_time:    '06:00',
+        shift:       'ck-9-18',
+        start_time:  '09:00',
+        end_time:    '18:00',
       });
     }
   });
