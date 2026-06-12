@@ -8576,7 +8576,10 @@ async function renderIncPayoutPage() {
           <div style="font-size:15px;font-weight:700;color:var(--ink)">Incentive Payout</div>
           <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Final Summary sheet · latest week · bank accounts from Employee Register</div>
         </div>
-        <button onclick="renderIncPayoutPage()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink);font-weight:600">↻ Refresh</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="renderIncPayoutPage()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink);font-weight:600">↻ Refresh</button>
+          <button id="inc-pay-all-btn" onclick="_incPayAll()" style="padding:7px 20px;font-size:12px;border-radius:8px;border:none;background:#111827;color:#fff;cursor:pointer;font-weight:700">Pay All</button>
+        </div>
       </div>
       <div id="inc-alert" style="display:none;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:12px;font-weight:600"></div>
       <div id="inc-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px"></div>
@@ -8669,19 +8672,13 @@ function _renderIncPayoutTable(emps) {
     </div>`;
 }
 
-async function _incPay(idx) {
+async function _incPayOne(idx) {
   const e   = _incPayoutData[idx];
   const btn = document.getElementById('paybtn-' + idx);
   const cell= document.getElementById('paycell-' + idx);
   const row = document.getElementById('inc-row-' + idx);
   if (!e || !btn) return;
-
-  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const confirmed = confirm(`Pay ${e.name} (${e.emp_id})\nAmount: ${fmt(e.total)}\nAccount: ••••${e.bank_account.slice(-4)}\nIFSC: ${e.ifsc}\n\nThis will initiate a real bank transfer via Bulkpe. Confirm?`);
-  if (!confirmed) return;
-
   btn.disabled = true; btn.textContent = '…';
-
   try {
     const r = await fetch(`${API}/api/admin/incentives/pay-employee`, {
       method: 'POST',
@@ -8701,6 +8698,38 @@ async function _incPay(idx) {
   } catch(err) {
     cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ Network error</span>`;
   }
+}
+
+async function _incPay(idx) {
+  const e   = _incPayoutData[idx];
+  if (!e) return;
+  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const confirmed = confirm(`Pay ${e.name} (${e.emp_id})\nAmount: ${fmt(e.total)}\nAccount: ••••${e.bank_account.slice(-4)}\nIFSC: ${e.ifsc}\n\nThis will initiate a real bank transfer via Bulkpe. Confirm?`);
+  if (!confirmed) return;
+  await _incPayOne(idx);
+}
+
+async function _incPayAll() {
+  const payable = _incPayoutData
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => e.has_bank && e.total > 0);
+
+  if (!payable.length) { alert('No payable employees (need bank account + amount > 0).'); return; }
+
+  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const totalAmt = payable.reduce((s, { e }) => s + e.total, 0);
+  const lines = payable.map(({ e }) => `${e.name} (${e.emp_id}) — ${fmt(e.total)}`).join('\n');
+  const confirmed = confirm(`Pay ALL ${payable.length} employees?\n\nTotal: ${fmt(totalAmt)}\n\n${lines}\n\nThis will initiate ${payable.length} real bank transfers via Bulkpe. Confirm?`);
+  if (!confirmed) return;
+
+  const allBtn = document.getElementById('inc-pay-all-btn');
+  if (allBtn) { allBtn.disabled = true; allBtn.textContent = 'Paying…'; }
+
+  for (const { i } of payable) {
+    await _incPayOne(i);
+  }
+
+  if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Pay All'; }
 }
 
 </script>
