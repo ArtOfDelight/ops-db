@@ -4515,11 +4515,17 @@ function renderRosterPage() {
                  background:${_ckState.mode==='fullweek'?'#fff':'transparent'};
                  color:${_ckState.mode==='fullweek'?'var(--ink)':'var(--ink-3)'};
                  box-shadow:${_ckState.mode==='fullweek'?'0 1px 4px rgba(0,0,0,.1)':'none'}">📋 FULL WEEK ALL OUTLETS</button>
+        <button onclick="_ckSwitchMode('staffview')" id="ck-tab-staffview"
+          style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+                 background:${_ckState.mode==='staffview'?'#fff':'transparent'};
+                 color:${_ckState.mode==='staffview'?'var(--ink)':'var(--ink-3)'};
+                 box-shadow:${_ckState.mode==='staffview'?'0 1px 4px rgba(0,0,0,.1)':'none'}">🏪 OUTLET STAFF VIEW</button>
       </div>
       <div id="ckBody">Loading…</div>
     </div>`;
   if (_ckState.mode === 'weekly')   _ckWeeklyLoad();
   else if (_ckState.mode === 'fullweek') _wrWeeklyLoad();
+  else if (_ckState.mode === 'staffview') _svLoad();
   else _ckLoadBuild();
 }
 
@@ -5191,7 +5197,8 @@ function _wrShiftWeek(dir) {
   _wrState.weekStart = _wrFmtDMY(d);
   _wrState.data = null;
   _wrState.dirty = {};
-  _wrWeeklyLoad();
+  if (_ckState.mode === 'staffview') _svLoad();
+  else _wrWeeklyLoad();
 }
 
 async function _wrWeeklyLoad() {
@@ -5501,6 +5508,135 @@ async function _wrPublish() {
   } finally {
     if (btn) { btn.disabled = false; }
   }
+}
+
+/* ── OUTLET STAFF VIEW ── */
+// Reuses _wrState data (same fetch as Full Week). If not loaded yet, loads it first.
+async function _svLoad() {
+  const el = document.getElementById('ckBody');
+  if (!el) return;
+
+  // If Full Week data isn't loaded, fetch it then render staff view
+  if (!_wrState.data) {
+    el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink-3)"><span style="font-size:20px">⏳</span><br>Loading roster…</div>`;
+    if (!_wrState.weekStart) _wrState.weekStart = _wrFmtDMY(_wrMonday(new Date()));
+    const monDate = _wrParseDMY(_wrState.weekStart);
+    const dates = Array.from({length:7}, (_,i) => {
+      const d = new Date(monDate); d.setDate(monDate.getDate()+i); return _wrFmtDMY(d);
+    });
+    try {
+      const [shiftRes, ...dayResults] = await Promise.all([
+        fetch(`${API}/api/admin/shifts`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json()),
+        ...dates.map(date => fetch(`${API}/api/ops/roster/for-date?date=${encodeURIComponent(date)}`, {headers:{Authorization:`Bearer ${_lsToken}`}}).then(r=>r.json())),
+      ]);
+      _wrState.shifts = shiftRes.shifts || [];
+      const empMap = {};
+      dayResults.forEach(res => { (res.entries||[]).forEach(e => { empMap[e.employee_id] = e.employee_name || e.employee_id; }); });
+      const week = {};
+      dates.forEach((date,i) => {
+        const entries = dayResults[i].entries || [];
+        const byEmp = {};
+        entries.forEach(e => { byEmp[e.employee_id] = e; });
+        week[date] = { day: _WR_DAY_ABBR[i], entries: Object.keys(empMap).sort().map(eid => {
+          const e = byEmp[eid] || {};
+          return { employee_id:eid, employee_name:empMap[eid], date, outlet:e.outlet||'', shift:e.shift||'', shift_name:e.shift_name||'', start_time:e.start_time||'', end_time:e.end_time||'' };
+        })};
+      });
+      _wrState.data = { success:true, week_start:_wrState.weekStart, week };
+    } catch(e) {
+      if (el) el.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+      return;
+    }
+  }
+  _svRender();
+}
+
+function _svRender() {
+  const el = document.getElementById('ckBody');
+  if (!el || !_wrState.data) return;
+
+  const { week } = _wrState.data;
+  const dates = Object.keys(week).sort((a,b) => _wrParseDMY(a) - _wrParseDMY(b));
+
+  const monDate = _wrParseDMY(dates[0]);
+  const sunDate = _wrParseDMY(dates[6]);
+  const fmtShort = d => `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+  const weekLabel = `${fmtShort(monDate)} – ${fmtShort(sunDate)} ${sunDate.getFullYear()}`;
+
+  // Build outlet → date → [staff names]
+  const outletSet = new Set();
+  const outletDayStaff = {}; // outlet → date → [{name, shift_name, start_time, end_time}]
+
+  dates.forEach(date => {
+    (week[date]?.entries || []).forEach(e => {
+      const o = (e.outlet || '').toUpperCase();
+      if (!o || o === 'WO' || o === 'PL' || o === 'UPL') return;
+      outletSet.add(o);
+      if (!outletDayStaff[o]) outletDayStaff[o] = {};
+      if (!outletDayStaff[o][date]) outletDayStaff[o][date] = [];
+      outletDayStaff[o][date].push({ name: e.employee_name || e.employee_id, shift_name: e.shift_name, start_time: e.start_time, end_time: e.end_time });
+    });
+  });
+
+  const outlets = [...outletSet].sort();
+
+  const thStyle = 'padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);white-space:nowrap;border-bottom:2px solid var(--border-2);position:sticky;top:0;background:var(--surface);z-index:2';
+
+  const dateHeaders = dates.map((d,i) => {
+    const dObj = _wrParseDMY(d);
+    return `<th style="${thStyle};text-align:center;min-width:110px">${_WR_DAY_ABBR[i]}<br><span style="font-weight:400;font-size:10px">${dObj.getDate()}/${dObj.getMonth()+1}</span></th>`;
+  }).join('');
+
+  const outletLabel = o => {
+    const map = {WO:'Week Off',RR:'Residency Rd',SKN:'Sahakarnagar',KOR:'Koramangala',WF:'Whitefield',KLN:'Kalyan Nagar',BLN:'Bellandur',IND:'Indiranagar',ARK:'Arekere',JAY:'Jayanagar',HSR:'HSR Layout',RAJ:'Rajajinagar',CK:'Central Kitchen',PL:'Paid Leave',UPL:'Unpaid Leave'};
+    return map[o] || o;
+  };
+
+  const bodyRows = outlets.map(outlet => {
+    const cells = dates.map(date => {
+      const staff = outletDayStaff[outlet]?.[date] || [];
+      if (!staff.length) return `<td style="padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fafafa"><span style="color:var(--ink-3);font-size:11px">—</span></td>`;
+      const chips = staff.map(s => {
+        const shift = s.shift_name ? s.shift_name.replace(/\(.*\)/,'').trim() : (s.start_time ? `${s.start_time.slice(0,5)}–${s.end_time.slice(0,5)}` : '');
+        return `<div style="margin-bottom:3px"><span style="font-size:11px;font-weight:600;color:var(--ink)">${escHtml(s.name)}</span>${shift ? `<span style="font-size:9px;color:var(--ink-3);margin-left:4px">${escHtml(shift)}</span>` : ''}</div>`;
+      }).join('');
+      return `<td style="padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top">${chips}</td>`;
+    }).join('');
+
+    // Total unique staff across the week
+    const allStaff = new Set();
+    dates.forEach(d => (outletDayStaff[outlet]?.[d] || []).forEach(s => allStaff.add(s.name)));
+
+    return `<tr>
+      <td style="padding:8px 12px;font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border-2);position:sticky;left:0;background:var(--surface);z-index:1">
+        <div style="font-size:13px">${escHtml(outlet)}</div>
+        <div style="font-size:10px;color:var(--ink-3);font-weight:400">${escHtml(outletLabel(outlet))}</div>
+        <div style="margin-top:4px"><span style="font-size:10px;background:#dcfce7;color:#14532d;padding:1px 6px;border-radius:10px;font-weight:600">${allStaff.size} staff</span></div>
+      </td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="padding:0 0 24px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button onclick="_wrShiftWeek(-1)" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:14px;color:var(--ink-2)">‹</button>
+        <span style="font-size:13px;font-weight:600;color:var(--ink);min-width:180px;text-align:center">${weekLabel}</span>
+        <button onclick="_wrShiftWeek(1)" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:14px;color:var(--ink-2)">›</button>
+        <button onclick="_wrState.data=null;_svLoad()" style="padding:6px 14px;background:var(--bg);border:1px solid var(--border-2);border-radius:6px;cursor:pointer;font-size:12px;color:var(--ink-2)">↺ Reload</button>
+        <span style="font-size:12px;color:var(--ink-3)">${outlets.length} outlets · read-only view</span>
+      </div>
+      <div style="overflow:auto;border:1px solid var(--border-2);border-radius:10px">
+        <table style="border-collapse:collapse;width:100%;min-width:900px">
+          <thead><tr>
+            <th style="${thStyle};text-align:left;position:sticky;left:0;z-index:3;background:var(--surface);min-width:130px">Outlet</th>
+            ${dateHeaders}
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--ink-3)">${outlets.length} outlets with assigned staff this week</div>
+    </div>`;
 }
 
 /* ── HOME PAGE ── */
