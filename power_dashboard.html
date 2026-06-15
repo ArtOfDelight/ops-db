@@ -6846,7 +6846,7 @@ const _MG_SKUS = [
   { key: 'Raspuri Cut Mango', label: 'Cut Raspuri',   cut: true  },
 ];
 const _MG_CUT_HIDE = ['Purchased', 'Transfer In'];
-const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Closing Stock','Calculated Closing Stock','Difference'];
+const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House Consumed','Housemade','Shrinkage','Closing Stock','Calculated Closing Stock','Difference'];
 // SKUs shown as a diff calculation instead of raw cards. Each has its OWN metrics
 // (signed terms that feed Calculated Closing); then Difference = Closing − Calculated.
 //   Whole Badami: no Purchased/Sales/Housemade  -> Opening + Transfer In − House Consumed
@@ -6854,14 +6854,14 @@ const _MG_NUM_COLS = ['Opening Stock','Purchased','Transfer In','Sales','House C
 // reason = inferred cause shown under the Difference, by sign.
 const _MG_EQ_SPEC = {
   'Badami Mango': {
-    terms: [['Opening Stock', '+'], ['Transfer In', '+'], ['House Consumed', '−']],
+    terms: [['Opening Stock', '+'], ['Transfer In', '+'], ['House Consumed', '−'], ['Shrinkage', '−']],
     reason: {
       neg: 'Likely housemade was not entered, the yield is less, or a transfer entry mistake.',
       pos: 'Likely the yield is more.',
     },
   },
   'Cut Badami Mango': {
-    terms: [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−']],
+    terms: [['Opening Stock', '+'], ['Housemade', '+'], ['Sales', '−'], ['Shrinkage', '−']],
     reason: {
       pos: 'Likely housemade was not entered.',
       neg: 'Likely staff are eating it, or extra portions are being served.',
