@@ -8990,6 +8990,7 @@ async function renderOutletVisitPage() {
         <button id="ovTab-visits" onclick="ovSwitchTab('visits')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid var(--blue);margin-bottom:-2px;color:var(--blue)">All Visits</button>
         <button id="ovTab-actions" onclick="ovSwitchTab('actions')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">⚠️ Action Required</button>
         <button id="ovTab-completed" onclick="ovSwitchTab('completed')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">✅ Completed Actions</button>
+        <button id="ovTab-summary" onclick="ovSwitchTab('summary')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">📊 Question Summary</button>
       </div>
 
       <div id="ovLoading" style="text-align:center;padding:40px;color:var(--ink-3);font-size:13px">Loading…</div>
@@ -9001,7 +9002,7 @@ async function renderOutletVisitPage() {
 
 function ovSwitchTab(tab) {
   _ovTab = tab;
-  ['visits','actions','completed'].forEach(t => {
+  ['visits','actions','completed','summary'].forEach(t => {
     const btn = document.getElementById('ovTab-' + t);
     if (!btn) return;
     if (t === tab) {
@@ -9042,8 +9043,10 @@ function ovRender() {
     ovRenderVisitsList(content);
   } else if (_ovTab === 'actions') {
     ovRenderActionsList(content, false);
-  } else {
+  } else if (_ovTab === 'completed') {
     ovRenderActionsList(content, true);
+  } else {
+    ovRenderSummaryTab(content);
   }
 }
 
@@ -9202,6 +9205,122 @@ async function ovSaveAction(visitId, itemId, inputId, resolved) {
   } catch(e) {
     alert('Failed to save action: ' + e.message);
   }
+}
+
+function ovRenderSummaryTab(container) {
+  if (_ovVisits.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No visits recorded yet.</div>`;
+    return;
+  }
+
+  // Collect all outlets that appear in visits (preserve order of first appearance)
+  const outletOrder = [];
+  const outletSeen = new Set();
+  _ovVisits.forEach(v => {
+    const code = v.outlet_code;
+    if (!outletSeen.has(code)) { outletSeen.add(code); outletOrder.push(code); }
+  });
+
+  // Collect all questions in section order (first appearance wins)
+  const questionOrder = []; // [{id, text, section}]
+  const questionSeen = new Set();
+  _ovVisits.forEach(v => {
+    (v.checklist_items || []).forEach(item => {
+      if (!questionSeen.has(item.id)) {
+        questionSeen.add(item.id);
+        questionOrder.push({ id: item.id, text: item.text || item.id, section: item.section || '' });
+      }
+    });
+  });
+
+  // Build pivot: questionId → outletCode → {visits, nos}
+  const pivot = {};
+  questionOrder.forEach(q => {
+    pivot[q.id] = {};
+    outletOrder.forEach(o => { pivot[q.id][o] = { visits: 0, nos: 0 }; });
+  });
+
+  _ovVisits.forEach(v => {
+    const outlet = v.outlet_code;
+    (v.checklist_items || []).forEach(item => {
+      if (!pivot[item.id] || !pivot[item.id][outlet]) return;
+      pivot[item.id][outlet].visits++;
+      if (item.answer === 'no') pivot[item.id][outlet].nos++;
+    });
+  });
+
+  // Outlet visit counts for header
+  const outletVisitCount = {};
+  outletOrder.forEach(o => { outletVisitCount[o] = _ovVisits.filter(v => v.outlet_code === o).length; });
+
+  // Group questions by section
+  const sections = [];
+  const sectionSeen = new Set();
+  questionOrder.forEach(q => {
+    if (!sectionSeen.has(q.section)) { sectionSeen.add(q.section); sections.push(q.section); }
+  });
+
+  // Color helper: 0% = light green, 100% = deep red
+  function cellColor(pct, visits) {
+    if (visits === 0) return { bg: 'var(--surface)', color: 'var(--ink-3)', label: '—' };
+    if (pct === 0)   return { bg: '#F0FDF4', color: '#16A34A', label: '0%' };
+    if (pct <= 25)   return { bg: '#FEF9C3', color: '#854D0E', label: pct + '%' };
+    if (pct <= 50)   return { bg: '#FED7AA', color: '#9A3412', label: pct + '%' };
+    return                 { bg: '#FEE2E2', color: '#B91C1C', label: pct + '%' };
+  }
+
+  const colW = Math.max(70, Math.floor(520 / outletOrder.length));
+
+  let html = `<div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:${200 + colW * outletOrder.length}px">
+      <thead>
+        <tr style="background:var(--surface-2)">
+          <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border:1px solid var(--border-1);min-width:200px;position:sticky;left:0;background:var(--surface-2);z-index:2">Question</th>`;
+  outletOrder.forEach(o => {
+    html += `<th style="padding:8px 6px;text-align:center;font-weight:700;color:var(--ink);border:1px solid var(--border-1);width:${colW}px">
+      <div>${o}</div>
+      <div style="font-size:10px;font-weight:500;color:var(--ink-3)">${outletVisitCount[o]} visit${outletVisitCount[o] !== 1 ? 's' : ''}</div>
+    </th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  let rowIdx = 0;
+  sections.forEach(sec => {
+    const qs = questionOrder.filter(q => q.section === sec);
+    // Section header row
+    html += `<tr>
+      <td colspan="${outletOrder.length + 1}" style="padding:8px 14px;font-size:10px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.09em;background:var(--surface-2);border:1px solid var(--border-1)">${sec}</td>
+    </tr>`;
+
+    qs.forEach(q => {
+      const rowBg = rowIdx++ % 2 === 0 ? 'var(--surface)' : '#fff';
+      html += `<tr style="background:${rowBg}">
+        <td style="padding:8px 14px;color:var(--ink);border:1px solid var(--border-1);position:sticky;left:0;background:${rowBg};z-index:1;line-height:1.4">${q.text}</td>`;
+      outletOrder.forEach(o => {
+        const cell = pivot[q.id][o];
+        const pct = cell.visits > 0 ? Math.round(cell.nos / cell.visits * 100) : -1;
+        const { bg, color, label } = cellColor(pct < 0 ? -1 : pct, cell.visits);
+        const title = cell.visits > 0 ? `${cell.nos} No / ${cell.visits} visits` : 'No visits';
+        html += `<td title="${title}" style="padding:8px 4px;text-align:center;border:1px solid var(--border-1);background:${bg}">
+          <span style="font-size:12px;font-weight:700;color:${color}">${label}</span>
+          ${cell.visits > 0 ? `<div style="font-size:9px;color:var(--ink-3);margin-top:1px">${cell.nos}/${cell.visits}</div>` : ''}
+        </td>`;
+      });
+      html += `</tr>`;
+    });
+  });
+
+  html += `</tbody></table></div>
+    <div style="margin-top:14px;display:flex;gap:16px;font-size:11px;color:var(--ink-3);align-items:center;flex-wrap:wrap">
+      <span>Legend:</span>
+      <span style="background:#F0FDF4;color:#16A34A;padding:2px 8px;border-radius:4px;font-weight:600">0% — All good</span>
+      <span style="background:#FEF9C3;color:#854D0E;padding:2px 8px;border-radius:4px;font-weight:600">1–25% — Minor</span>
+      <span style="background:#FED7AA;color:#9A3412;padding:2px 8px;border-radius:4px;font-weight:600">26–50% — Moderate</span>
+      <span style="background:#FEE2E2;color:#B91C1C;padding:2px 8px;border-radius:4px;font-weight:600">&gt;50% — Critical</span>
+      <span style="background:var(--surface);color:var(--ink-3);padding:2px 8px;border-radius:4px">— No visits</span>
+    </div>`;
+
+  container.innerHTML = html;
 }
 
 function ovShowDetail(idx) {
