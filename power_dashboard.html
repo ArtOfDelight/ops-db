@@ -8984,10 +8984,10 @@ async function renderKitchenExtraPage() {
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="month" id="keMonthPicker" value="${defaultMonth}"
             style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)" />
-          <select id="keEmpFilter" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+          <select id="keEmpFilter" onchange="keRender()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
             <option value="">All Employees</option>
           </select>
-          <select id="keApprFilter" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+          <select id="keApprFilter" onchange="keRender()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
             <option value="">All Status</option>
             <option value="approved">Approved</option>
             <option value="pending">Pending</option>
