@@ -8962,106 +8962,259 @@ async function _incPayAll() {
 }
 
 /* ── OUTLET VISIT ── */
+let _ovVisits = [];
+let _ovTab = 'visits'; // 'visits' | 'actions' | 'completed'
+
 async function renderOutletVisitPage() {
   const API = 'https://aodapp-backend.onrender.com/api';
   const body = document.getElementById('pageBody');
   body.innerHTML = `
     <div style="padding:24px;max-width:1100px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div>
           <div style="font-size:15px;font-weight:700;color:var(--ink)">Outlet Visit Reports</div>
-          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Submitted by Ops · checklist scores &amp; staff feedback</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Submitted by Ops · Yes/No checklist · action tracking</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <select id="ovOutletFilter" onchange="renderOutletVisitPage()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+          <select id="ovOutletFilter" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
             <option value="">All Outlets</option>
             <option>RR</option><option>KOR</option><option>SKN</option><option>JAY</option>
             <option>WF</option><option>KLN</option><option>BLN</option><option>IND</option><option>ARK</option>
           </select>
-          <button onclick="renderOutletVisitPage()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↺ Refresh</button>
+          <button onclick="ovLoad()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↺ Refresh</button>
         </div>
       </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border-1);margin-bottom:20px">
+        <button id="ovTab-visits" onclick="ovSwitchTab('visits')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid var(--blue);margin-bottom:-2px;color:var(--blue)">All Visits</button>
+        <button id="ovTab-actions" onclick="ovSwitchTab('actions')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">⚠️ Action Required</button>
+        <button id="ovTab-completed" onclick="ovSwitchTab('completed')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">✅ Completed Actions</button>
+      </div>
+
       <div id="ovLoading" style="text-align:center;padding:40px;color:var(--ink-3);font-size:13px">Loading…</div>
       <div id="ovContent" style="display:none"></div>
     </div>`;
 
+  await ovLoad();
+}
+
+function ovSwitchTab(tab) {
+  _ovTab = tab;
+  ['visits','actions','completed'].forEach(t => {
+    const btn = document.getElementById('ovTab-' + t);
+    if (!btn) return;
+    if (t === tab) {
+      btn.style.borderBottomColor = 'var(--blue)'; btn.style.color = 'var(--blue)';
+    } else {
+      btn.style.borderBottomColor = 'transparent'; btn.style.color = 'var(--ink-3)';
+    }
+  });
+  ovRender();
+}
+
+async function ovLoad() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const loading = document.getElementById('ovLoading');
+  const content = document.getElementById('ovContent');
+  if (!loading || !content) return;
+  loading.style.display = ''; content.style.display = 'none';
+
   const outlet = document.getElementById('ovOutletFilter')?.value || '';
   const url = `${API}/outlet-visit/list?limit=100${outlet ? '&outlet_code=' + encodeURIComponent(outlet) : ''}`;
-
   try {
     const res = await fetch(url);
     const data = await res.json();
-    document.getElementById('ovLoading').style.display = 'none';
-    const container = document.getElementById('ovContent');
-    container.style.display = '';
+    _ovVisits = data.visits || [];
+    loading.style.display = 'none';
+    content.style.display = '';
+    ovRender();
+  } catch(e) {
+    loading.textContent = 'Failed to load: ' + e.message;
+  }
+}
 
-    if (!data.visits || data.visits.length === 0) {
-      container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No outlet visits recorded yet.</div>`;
-      return;
-    }
+function ovRender() {
+  const content = document.getElementById('ovContent');
+  if (!content) return;
 
-    let html = `
-      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border-1)">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead>
-            <tr style="background:var(--surface-2)">
-              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Date &amp; Time</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Outlet</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Type</th>
-              <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Score</th>
-              <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Items OK</th>
-              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Submitted By</th>
-              <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Details</th>
-            </tr>
-          </thead>
-          <tbody id="ovTableBody"></tbody>
-        </table>
-      </div>
-      <div id="ovDetailPanel" style="margin-top:24px;display:none"></div>`;
-    container.innerHTML = html;
+  if (_ovTab === 'visits') {
+    ovRenderVisitsList(content);
+  } else if (_ovTab === 'actions') {
+    ovRenderActionsList(content, false);
+  } else {
+    ovRenderActionsList(content, true);
+  }
+}
 
-    const tbody = document.getElementById('ovTableBody');
-    data.visits.forEach((v, i) => {
+function ovRenderVisitsList(container) {
+  if (_ovVisits.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No outlet visits recorded yet.</div>`;
+    return;
+  }
+  let html = `
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border-1)">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--surface-2)">
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Date &amp; Time</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Outlet</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Type</th>
+            <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Score</th>
+            <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Yes / No</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">By</th>
+            <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Detail</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+  _ovVisits.forEach((v, i) => {
+    const dt = v.submitted_at ? new Date(v.submitted_at) : null;
+    const dtStr = dt ? dt.toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true }) : '—';
+    const score = v.score_pct ?? 0;
+    const scoreColor = score >= 80 ? '#16A34A' : score >= 60 ? '#D97706' : '#DC2626';
+    const scoreBg = score >= 80 ? '#F0FDF4' : score >= 60 ? '#FFFBEB' : '#FEF2F2';
+    const typeTag = v.checklist_type === 'physical'
+      ? `<span style="background:#0F766E;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">Physical</span>`
+      : `<span style="background:#2563EB;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">Cloud</span>`;
+    const yes = v.yes_items ?? v.checked_items ?? 0;
+    const no = v.no_items ?? ((v.total_items ?? 0) - yes);
+    const rowBg = i % 2 === 0 ? '' : 'background:var(--surface)';
+    html += `
+      <tr style="${rowBg}">
+        <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">${dtStr}</td>
+        <td style="padding:10px 14px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--border-1)">${v.outlet_name || v.outlet_code}</td>
+        <td style="padding:10px 14px;border-bottom:1px solid var(--border-1)">${typeTag}</td>
+        <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
+          <span style="background:${scoreBg};color:${scoreColor};padding:3px 10px;border-radius:12px;font-weight:700;font-size:13px">${score}%</span>
+        </td>
+        <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
+          <span style="color:#16A34A;font-weight:700">${yes}✓</span> <span style="color:#9CA3AF;margin:0 3px">/</span> <span style="color:#DC2626;font-weight:700">${no}✗</span>
+        </td>
+        <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">${v.submitted_by_name || v.submitted_by}</td>
+        <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
+          <button onclick="ovShowDetail(${i})" style="padding:4px 12px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">View</button>
+        </td>
+      </tr>`;
+  });
+  html += `</tbody></table></div><div id="ovDetailPanel" style="margin-top:24px;display:none"></div>`;
+  container.innerHTML = html;
+}
+
+function ovRenderActionsList(container, showCompleted) {
+  // Collect all NO items across all visits
+  const allNoItems = [];
+  _ovVisits.forEach(v => {
+    (v.checklist_items || []).forEach(item => {
+      if (item.answer === 'no') {
+        const resolved = item.action_resolved === true;
+        if (resolved === showCompleted) {
+          allNoItems.push({ visit: v, item });
+        }
+      }
+    });
+  });
+
+  if (allNoItems.length === 0) {
+    const msg = showCompleted ? 'No completed actions yet.' : 'No open issues — everything is good! ✅';
+    container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">${msg}</div>`;
+    return;
+  }
+
+  // Group by outlet
+  const byOutlet = {};
+  allNoItems.forEach(({ visit: v, item }) => {
+    const key = v.outlet_name || v.outlet_code;
+    if (!byOutlet[key]) byOutlet[key] = [];
+    byOutlet[key].push({ v, item });
+  });
+
+  let html = '';
+  Object.entries(byOutlet).forEach(([outlet, entries]) => {
+    html += `<div style="margin-bottom:28px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border-1)">${outlet} <span style="font-size:11px;font-weight:500;color:var(--ink-3)">(${entries.length} issue${entries.length > 1 ? 's' : ''})</span></div>`;
+
+    entries.forEach(({ v, item }, ei) => {
+      const uid = `${v.visit_id}_${item.id}`;
       const dt = v.submitted_at ? new Date(v.submitted_at) : null;
       const dtStr = dt ? dt.toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true }) : '—';
-      const score = v.score_pct ?? 0;
-      const scoreColor = score >= 80 ? '#16A34A' : score >= 60 ? '#D97706' : '#DC2626';
-      const scoreBg = score >= 80 ? '#F0FDF4' : score >= 60 ? '#FFFBEB' : '#FEF2F2';
-      const typeTag = v.checklist_type === 'physical'
-        ? `<span style="background:#0F766E;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">Physical</span>`
-        : `<span style="background:#2563EB;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">Cloud</span>`;
-      const rowBg = i % 2 === 0 ? '' : 'background:var(--surface)';
-      tbody.innerHTML += `
-        <tr style="${rowBg}" id="ovrow-${i}">
-          <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">${dtStr}</td>
-          <td style="padding:10px 14px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--border-1)">${v.outlet_name || v.outlet_code}</td>
-          <td style="padding:10px 14px;border-bottom:1px solid var(--border-1)">${typeTag}</td>
-          <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
-            <span style="background:${scoreBg};color:${scoreColor};padding:3px 10px;border-radius:12px;font-weight:700;font-size:13px">${score}%</span>
-          </td>
-          <td style="padding:10px 14px;text-align:center;color:var(--ink-2);border-bottom:1px solid var(--border-1)">${v.checked_items}/${v.total_items}</td>
-          <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">${v.submitted_by_name || v.submitted_by}</td>
-          <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
-            <button onclick="ovShowDetail(${i})" style="padding:4px 12px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">View</button>
-          </td>
-        </tr>`;
+
+      if (showCompleted) {
+        html += `
+          <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px;margin-bottom:10px">
+            <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${item.section} · ${dtStr}</div>
+            <div style="font-size:13px;color:var(--ink);margin-bottom:8px">${item.text}</div>
+            ${item.note ? `<div style="font-size:12px;color:#6B7280;font-style:italic;margin-bottom:8px">Observed: ${item.note}</div>` : ''}
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:13px">✅</span>
+              <div style="font-size:13px;color:#16A34A;font-weight:600">${item.action_taken || 'Action taken'}</div>
+            </div>
+            ${item.action_taken_at ? `<div style="font-size:11px;color:#9CA3AF;margin-top:4px">Resolved: ${new Date(item.action_taken_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}</div>` : ''}
+          </div>`;
+      } else {
+        html += `
+          <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px;margin-bottom:10px" id="ovaction-${uid}">
+            <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${item.section} · ${dtStr}</div>
+            <div style="font-size:13px;color:var(--ink);margin-bottom:8px">${item.text}</div>
+            ${item.note ? `<div style="font-size:12px;color:#6B7280;font-style:italic;margin-bottom:8px">Observed: ${item.note}</div>` : ''}
+            <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
+              <input id="ovinput-${uid}" placeholder="What action was taken?" value="${item.action_taken || ''}"
+                style="flex:1;padding:8px 10px;font-size:13px;border-radius:8px;border:1px solid #FCA5A5;outline:none;background:#fff" />
+              <button onclick="ovSaveAction('${v.visit_id}','${item.id}','ovinput-${uid}',false)"
+                style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;border:0;background:#111827;color:#fff;cursor:pointer;white-space:nowrap">Save</button>
+              <button onclick="ovSaveAction('${v.visit_id}','${item.id}','ovinput-${uid}',true)"
+                style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;border:0;background:#16A34A;color:#fff;cursor:pointer;white-space:nowrap">✓ Done</button>
+            </div>
+          </div>`;
+      }
     });
+    html += `</div>`;
+  });
+  container.innerHTML = html;
+}
 
-    window._ovVisits = data.visits;
-
+async function ovSaveAction(visitId, itemId, inputId, resolved) {
+  const input = document.getElementById(inputId);
+  const actionText = input ? input.value.trim() : '';
+  if (!actionText && !resolved) { alert('Please enter what action was taken.'); return; }
+  const API = 'https://aodapp-backend.onrender.com/api';
+  try {
+    const res = await fetch(`${API}/outlet-visit/${encodeURIComponent(visitId)}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: itemId, action_taken: actionText, resolved })
+    });
+    if (!res.ok) throw new Error('Save failed');
+    // Update local cache
+    const visit = _ovVisits.find(v => v.visit_id === visitId);
+    if (visit) {
+      const item = (visit.checklist_items || []).find(i => i.id === itemId);
+      if (item) { item.action_taken = actionText; item.action_resolved = resolved; item.action_taken_at = new Date().toISOString(); }
+    }
+    if (resolved) {
+      // Remove from action required, show in completed
+      const card = document.getElementById(`ovaction-${visitId}_${itemId}`);
+      if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+      setTimeout(() => ovRender(), 600);
+    } else {
+      if (input) input.style.borderColor = '#16A34A';
+    }
   } catch(e) {
-    document.getElementById('ovLoading').textContent = 'Failed to load: ' + e.message;
+    alert('Failed to save action: ' + e.message);
   }
 }
 
 function ovShowDetail(idx) {
-  const v = window._ovVisits[idx];
+  const v = _ovVisits[idx];
   if (!v) return;
   const panel = document.getElementById('ovDetailPanel');
+  if (!panel) return;
   panel.style.display = '';
 
   const score = v.score_pct ?? 0;
   const scoreColor = score >= 80 ? '#16A34A' : score >= 60 ? '#D97706' : '#DC2626';
+  const yes = v.yes_items ?? v.checked_items ?? 0;
+  const no = v.no_items ?? ((v.total_items ?? 0) - yes);
 
   // Group checklist by section
   const sections = {};
@@ -9074,13 +9227,15 @@ function ovShowDetail(idx) {
   Object.entries(sections).forEach(([sec, items]) => {
     checklistHtml += `<div style="margin-top:14px"><div style="font-size:10px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">${sec}</div>`;
     items.forEach(item => {
-      const icon = item.checked ? '✅' : '❌';
+      const isNo = item.answer === 'no';
+      const icon = isNo ? '❌' : '✅';
       checklistHtml += `
-        <div style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border-1)">
+        <div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border-1);${isNo ? 'background:#FEF9F9;border-radius:4px;padding:6px 4px;' : ''}">
           <span style="font-size:13px;flex-shrink:0">${icon}</span>
           <div style="flex:1">
-            <div style="font-size:12px;color:var(--ink)">${item.text}</div>
-            ${item.note ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px;font-style:italic">Note: ${item.note}</div>` : ''}
+            <div style="font-size:12px;color:var(--ink)">${item.text || item.id}</div>
+            ${item.note ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">Issue: ${item.note}</div>` : ''}
+            ${item.action_taken ? `<div style="font-size:11px;color:#16A34A;margin-top:2px">Action: ${item.action_taken}</div>` : ''}
           </div>
         </div>`;
     });
@@ -9115,12 +9270,12 @@ function ovShowDetail(idx) {
         </div>
         <div style="text-align:center">
           <div style="font-size:28px;font-weight:800;color:${scoreColor}">${score}%</div>
-          <div style="font-size:10px;color:var(--ink-3)">${v.checked_items}/${v.total_items} OK</div>
+          <div style="font-size:10px;color:var(--ink-3)"><span style="color:#16A34A">${yes}✓</span> / <span style="color:#DC2626">${no}✗</span></div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
         <div style="padding:20px;border-right:1px solid var(--border-1)">
-          <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">Checklist</div>
+          <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">Checklist Results</div>
           ${checklistHtml}
         </div>
         <div style="padding:20px">
