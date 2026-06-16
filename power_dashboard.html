@@ -8750,6 +8750,7 @@ async function renderIncPayoutPage() {
         <div style="display:flex;gap:8px">
           <button onclick="renderIncPayoutPage()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink);font-weight:600">↻ Refresh</button>
           <button id="inc-pay-all-btn" onclick="_incPayAll()" style="padding:7px 20px;font-size:12px;border-radius:8px;border:none;background:#111827;color:#fff;cursor:pointer;font-weight:700">Pay All</button>
+          <button id="inc-zoho-btn" onclick="_incPushZoho()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700" title="Push salary journal entry to Zoho Books">📒 Push to Zoho</button>
           <button onclick="_incResetWeek()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--red);font-weight:600" title="Clear paid records to start a new week">Reset Week</button>
         </div>
       </div>
@@ -8963,6 +8964,42 @@ async function _incPayAll() {
   }
 
   if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Pay All'; }
+}
+
+async function _incPushZoho() {
+  // Prompt for date
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2,'0');
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const yyyy = today.getFullYear();
+  const defaultDate = `${dd}/${mm}/${yyyy}`;
+
+  const dateInput = prompt('Journal entry date (DD/MM/YYYY):', defaultDate);
+  if (!dateInput) return;
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateInput.trim())) { alert('Invalid date format. Use DD/MM/YYYY.'); return; }
+
+  const btn = document.getElementById('inc-zoho-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Pushing…'; }
+
+  try {
+    const r = await fetch(`${API}/api/admin/incentives/push-zoho-journal`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: dateInput.trim() }),
+    });
+    const d = await r.json();
+    if (!r.ok) { alert(`❌ Failed:\n\n${d.detail || JSON.stringify(d)}`); return; }
+
+    const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const lines = (d.line_items || []).map(l =>
+      `${l.debit_or_credit === 'debit' ? 'DR' : 'CR'}  ${fmt(l.amount)}  ${l.description}`
+    ).join('\n');
+    alert(`✅ Journal entry created in Zoho!\n\nEntry #: ${d.entry_number || 'N/A'}\nDate: ${d.journal_date}\nTotal: ${fmt(d.total)}\n\n${lines}\n\n(Also written to "Zoho Expo Entry" tab in the sheet)`);
+  } catch(e) {
+    alert(`❌ Error: ${e.message}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📒 Push to Zoho'; }
+  }
 }
 
 /* ── KITCHEN EXTRA HOURS ── */
