@@ -1086,6 +1086,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-incpayout" onclick="navTo('incpayout')">
       <span class="sb-icon">🏧</span> Incentive Payout
     </button>
+    <button class="sb-item" id="sbitem-outletvisit" onclick="navTo('outletvisit')">
+      <span class="sb-icon">🏪</span> Outlet Visit Report
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1121,11 +1124,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout' };
+  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1149,6 +1152,7 @@ function navTo(page) {
   if (page === 'customers')    renderCustomersPage();
   if (page === 'tokenhealth')  renderTokenHealthPage();
   if (page === 'incpayout')   renderIncPayoutPage();
+  if (page === 'outletvisit') renderOutletVisitPage();
 }
 
 
@@ -8955,6 +8959,179 @@ async function _incPayAll() {
   }
 
   if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Pay All'; }
+}
+
+/* ── OUTLET VISIT ── */
+async function renderOutletVisitPage() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="padding:24px;max-width:1100px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">Outlet Visit Reports</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Submitted by Ops · checklist scores &amp; staff feedback</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="ovOutletFilter" onchange="renderOutletVisitPage()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+            <option value="">All Outlets</option>
+            <option>RR</option><option>KOR</option><option>SKN</option><option>JAY</option>
+            <option>WF</option><option>KLN</option><option>BLN</option><option>IND</option><option>ARK</option>
+          </select>
+          <button onclick="renderOutletVisitPage()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↺ Refresh</button>
+        </div>
+      </div>
+      <div id="ovLoading" style="text-align:center;padding:40px;color:var(--ink-3);font-size:13px">Loading…</div>
+      <div id="ovContent" style="display:none"></div>
+    </div>`;
+
+  const outlet = document.getElementById('ovOutletFilter')?.value || '';
+  const url = `${API}/outlet-visit/list?limit=100${outlet ? '&outlet_code=' + encodeURIComponent(outlet) : ''}`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    document.getElementById('ovLoading').style.display = 'none';
+    const container = document.getElementById('ovContent');
+    container.style.display = '';
+
+    if (!data.visits || data.visits.length === 0) {
+      container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No outlet visits recorded yet.</div>`;
+      return;
+    }
+
+    let html = `
+      <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border-1)">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--surface-2)">
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Date &amp; Time</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Outlet</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Type</th>
+              <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Score</th>
+              <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Items OK</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Submitted By</th>
+              <th style="padding:10px 14px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Details</th>
+            </tr>
+          </thead>
+          <tbody id="ovTableBody"></tbody>
+        </table>
+      </div>
+      <div id="ovDetailPanel" style="margin-top:24px;display:none"></div>`;
+    container.innerHTML = html;
+
+    const tbody = document.getElementById('ovTableBody');
+    data.visits.forEach((v, i) => {
+      const dt = v.submitted_at ? new Date(v.submitted_at) : null;
+      const dtStr = dt ? dt.toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true }) : '—';
+      const score = v.score_pct ?? 0;
+      const scoreColor = score >= 80 ? '#16A34A' : score >= 60 ? '#D97706' : '#DC2626';
+      const scoreBg = score >= 80 ? '#F0FDF4' : score >= 60 ? '#FFFBEB' : '#FEF2F2';
+      const typeTag = v.checklist_type === 'physical'
+        ? `<span style="background:#0F766E;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">Physical</span>`
+        : `<span style="background:#2563EB;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600">Cloud</span>`;
+      const rowBg = i % 2 === 0 ? '' : 'background:var(--surface)';
+      tbody.innerHTML += `
+        <tr style="${rowBg}" id="ovrow-${i}">
+          <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">${dtStr}</td>
+          <td style="padding:10px 14px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--border-1)">${v.outlet_name || v.outlet_code}</td>
+          <td style="padding:10px 14px;border-bottom:1px solid var(--border-1)">${typeTag}</td>
+          <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
+            <span style="background:${scoreBg};color:${scoreColor};padding:3px 10px;border-radius:12px;font-weight:700;font-size:13px">${score}%</span>
+          </td>
+          <td style="padding:10px 14px;text-align:center;color:var(--ink-2);border-bottom:1px solid var(--border-1)">${v.checked_items}/${v.total_items}</td>
+          <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">${v.submitted_by_name || v.submitted_by}</td>
+          <td style="padding:10px 14px;text-align:center;border-bottom:1px solid var(--border-1)">
+            <button onclick="ovShowDetail(${i})" style="padding:4px 12px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">View</button>
+          </td>
+        </tr>`;
+    });
+
+    window._ovVisits = data.visits;
+
+  } catch(e) {
+    document.getElementById('ovLoading').textContent = 'Failed to load: ' + e.message;
+  }
+}
+
+function ovShowDetail(idx) {
+  const v = window._ovVisits[idx];
+  if (!v) return;
+  const panel = document.getElementById('ovDetailPanel');
+  panel.style.display = '';
+
+  const score = v.score_pct ?? 0;
+  const scoreColor = score >= 80 ? '#16A34A' : score >= 60 ? '#D97706' : '#DC2626';
+
+  // Group checklist by section
+  const sections = {};
+  (v.checklist_items || []).forEach(item => {
+    if (!sections[item.section]) sections[item.section] = [];
+    sections[item.section].push(item);
+  });
+
+  let checklistHtml = '';
+  Object.entries(sections).forEach(([sec, items]) => {
+    checklistHtml += `<div style="margin-top:14px"><div style="font-size:10px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">${sec}</div>`;
+    items.forEach(item => {
+      const icon = item.checked ? '✅' : '❌';
+      checklistHtml += `
+        <div style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border-1)">
+          <span style="font-size:13px;flex-shrink:0">${icon}</span>
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--ink)">${item.text}</div>
+            ${item.note ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px;font-style:italic">Note: ${item.note}</div>` : ''}
+          </div>
+        </div>`;
+    });
+    checklistHtml += `</div>`;
+  });
+
+  let feedbackHtml = '';
+  (v.employee_feedbacks || []).forEach(f => {
+    if (!f.short_name && !f.feedback) return;
+    feedbackHtml += `
+      <div style="background:var(--surface);border:1px solid var(--border-1);border-radius:8px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="width:32px;height:32px;border-radius:8px;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${(f.short_name||'').slice(0,2).toUpperCase()}</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--ink)">${f.short_name}</div>
+            <div style="font-size:11px;color:var(--ink-3)">${f.employee_id}</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--ink-2)">${f.feedback || '<span style="color:var(--ink-3);font-style:italic">No feedback given</span>'}</div>
+      </div>`;
+  });
+
+  const dt = v.submitted_at ? new Date(v.submitted_at) : null;
+  const dtStr = dt ? dt.toLocaleString('en-IN', { weekday:'short', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true }) : '—';
+
+  panel.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border-1);border-radius:12px;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border-1);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">${v.outlet_name || v.outlet_code} — Visit Detail</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">${dtStr} · ${v.submitted_by_name || v.submitted_by}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:800;color:${scoreColor}">${score}%</div>
+          <div style="font-size:10px;color:var(--ink-3)">${v.checked_items}/${v.total_items} OK</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+        <div style="padding:20px;border-right:1px solid var(--border-1)">
+          <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">Checklist</div>
+          ${checklistHtml}
+        </div>
+        <div style="padding:20px">
+          <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">Staff Feedback</div>
+          ${feedbackHtml || '<div style="color:var(--ink-3);font-size:12px;font-style:italic">No feedback recorded.</div>'}
+          ${v.visit_notes ? `<div style="margin-top:16px"><div style="font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Visit Notes</div><div style="font-size:13px;color:var(--ink-2)">${v.visit_notes}</div></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 </script>
