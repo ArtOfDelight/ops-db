@@ -9111,9 +9111,9 @@ function ovRenderActionsList(container, showCompleted) {
     (v.checklist_items || []).forEach(item => {
       if (item.answer === 'no') {
         const resolved = item.action_resolved === true;
-        if (resolved === showCompleted) {
-          allNoItems.push({ visit: v, item });
-        }
+        const cleared = item.action_cleared === true;
+        if (showCompleted && resolved && !cleared) allNoItems.push({ visit: v, item });
+        if (!showCompleted && !resolved) allNoItems.push({ visit: v, item });
       }
     });
   });
@@ -9144,15 +9144,21 @@ function ovRenderActionsList(container, showCompleted) {
 
       if (showCompleted) {
         html += `
-          <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px;margin-bottom:10px">
-            <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${item.section} · ${dtStr}</div>
-            <div style="font-size:13px;color:var(--ink);margin-bottom:8px">${item.text}</div>
-            ${item.note ? `<div style="font-size:12px;color:#6B7280;font-style:italic;margin-bottom:8px">Observed: ${item.note}</div>` : ''}
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:13px">✅</span>
-              <div style="font-size:13px;color:#16A34A;font-weight:600">${item.action_taken || 'Action taken'}</div>
+          <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:14px;margin-bottom:10px" id="ovcomp-${v.visit_id}_${item.id}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div style="flex:1">
+                <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${item.section} · ${dtStr}</div>
+                <div style="font-size:13px;color:var(--ink);margin-bottom:8px">${item.text}</div>
+                ${item.note ? `<div style="font-size:12px;color:#6B7280;font-style:italic;margin-bottom:8px">Observed: ${item.note}</div>` : ''}
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:13px">✅</span>
+                  <div style="font-size:13px;color:#16A34A;font-weight:600">${item.action_taken || 'Action taken'}</div>
+                </div>
+                ${item.action_taken_at ? `<div style="font-size:11px;color:#9CA3AF;margin-top:4px">Resolved: ${new Date(item.action_taken_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}</div>` : ''}
+              </div>
+              <button onclick="ovClearAction('${v.visit_id}','${item.id}')" title="Clear from list"
+                style="margin-left:12px;padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #BBF7D0;background:#fff;color:#6B7280;cursor:pointer;flex-shrink:0">Clear</button>
             </div>
-            ${item.action_taken_at ? `<div style="font-size:11px;color:#9CA3AF;margin-top:4px">Resolved: ${new Date(item.action_taken_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}</div>` : ''}
           </div>`;
       } else {
         html += `
@@ -9205,6 +9211,23 @@ async function ovSaveAction(visitId, itemId, inputId, resolved) {
   } catch(e) {
     alert('Failed to save action: ' + e.message);
   }
+}
+
+async function ovClearAction(visitId, itemId) {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  try {
+    const res = await fetch(`${API}/outlet-visit/${encodeURIComponent(visitId)}/clear-action?item_id=${encodeURIComponent(itemId)}`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed');
+    // Update local cache
+    const visit = _ovVisits.find(v => v.visit_id === visitId);
+    if (visit) {
+      const item = (visit.checklist_items || []).find(i => i.id === itemId);
+      if (item) item.action_cleared = true;
+    }
+    const card = document.getElementById(`ovcomp-${visitId}_${itemId}`);
+    if (card) { card.style.opacity = '0.3'; card.style.pointerEvents = 'none'; }
+    setTimeout(() => ovRender(), 500);
+  } catch(e) { alert('Failed to clear: ' + e.message); }
 }
 
 function ovRenderSummaryTab(container) {
