@@ -1089,6 +1089,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-outletvisit" onclick="navTo('outletvisit')">
       <span class="sb-icon">🏪</span> Outlet Visit Report
     </button>
+    <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
+      <span class="sb-icon">⏱️</span> Kitchen Extra Hours
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1124,11 +1127,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','kitchenextra'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report' };
+  const titles = { kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1153,6 +1156,7 @@ function navTo(page) {
   if (page === 'tokenhealth')  renderTokenHealthPage();
   if (page === 'incpayout')   renderIncPayoutPage();
   if (page === 'outletvisit') renderOutletVisitPage();
+  if (page === 'kitchenextra') renderKitchenExtraPage();
 }
 
 
@@ -8959,6 +8963,301 @@ async function _incPayAll() {
   }
 
   if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Pay All'; }
+}
+
+/* ── KITCHEN EXTRA HOURS ── */
+let _keData = [];   // loaded entries
+let _keMonth = '';  // current loaded month
+
+async function renderKitchenExtraPage() {
+  const body = document.getElementById('pageBody');
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  body.innerHTML = `
+    <div style="padding:24px;max-width:1200px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">Kitchen Extra Hours</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Full month roster · editable sign in/out · extra hours calculation</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="month" id="keMonthPicker" value="${defaultMonth}"
+            style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)" />
+          <select id="keEmpFilter" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+            <option value="">All Employees</option>
+          </select>
+          <select id="keApprFilter" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+            <option value="">All Status</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+          </select>
+          <button onclick="keLoad()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:0;background:var(--blue);color:#fff;cursor:pointer;font-weight:600">Load</button>
+        </div>
+      </div>
+      <div id="keLoading" style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">Select a month and click Load.</div>
+      <div id="keContent" style="display:none"></div>
+    </div>`;
+}
+
+async function keLoad() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const month = document.getElementById('keMonthPicker')?.value;
+  if (!month) return;
+  const loading = document.getElementById('keLoading');
+  const content = document.getElementById('keContent');
+  loading.style.display = ''; loading.textContent = 'Loading…';
+  content.style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/kitchen/extra-hours?month=${encodeURIComponent(month)}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    _keData = data.entries || [];
+    _keMonth = month;
+
+    // Populate employee filter
+    const empFilter = document.getElementById('keEmpFilter');
+    const empSeen = new Set();
+    empFilter.innerHTML = '<option value="">All Employees</option>';
+    _keData.forEach(e => {
+      if (!empSeen.has(e.employee_id)) {
+        empSeen.add(e.employee_id);
+        empFilter.innerHTML += `<option value="${e.employee_id}">${e.employee_name} (${e.employee_id})</option>`;
+      }
+    });
+
+    loading.style.display = 'none';
+    content.style.display = '';
+    keRender();
+  } catch(e) {
+    loading.textContent = 'Failed: ' + e.message;
+  }
+}
+
+function keRender() {
+  const content = document.getElementById('keContent');
+  if (!content) return;
+  const empFilter = document.getElementById('keEmpFilter')?.value || '';
+  const apprFilter = document.getElementById('keApprFilter')?.value || '';
+
+  const rows = _keData.filter(e => {
+    if (empFilter && e.employee_id !== empFilter) return false;
+    if (apprFilter === 'approved' && !e.approved) return false;
+    if (apprFilter === 'pending' && e.approved) return false;
+    return true;
+  });
+
+  if (rows.length === 0) {
+    content.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No entries match the selected filters.</div>`;
+    return;
+  }
+
+  // Summary strip
+  const totalExtra = rows.reduce((s, e) => s + (e.extra_hours || 0), 0);
+  const approvedExtra = rows.filter(e => e.approved).reduce((s, e) => s + (e.extra_hours || 0), 0);
+  const pendingCount = rows.filter(e => !e.approved && (e.extra_hours || 0) > 0).length;
+
+  let html = `
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="background:#F9FAFB;border:1px solid var(--border-1);border-radius:10px;padding:12px 18px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em">Total Rows</div>
+        <div style="font-size:20px;font-weight:700;color:var(--ink);margin-top:4px">${rows.length}</div>
+      </div>
+      <div style="background:#F9FAFB;border:1px solid var(--border-1);border-radius:10px;padding:12px 18px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em">Total Extra Hrs</div>
+        <div style="font-size:20px;font-weight:700;color:#2563EB;margin-top:4px">${totalExtra.toFixed(1)} h</div>
+      </div>
+      <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:12px 18px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:#16A34A;text-transform:uppercase;letter-spacing:.08em">Approved Extra Hrs</div>
+        <div style="font-size:20px;font-weight:700;color:#16A34A;margin-top:4px">${approvedExtra.toFixed(1)} h</div>
+      </div>
+      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:12px 18px;flex:1;min-width:120px">
+        <div style="font-size:11px;color:#B45309;text-transform:uppercase;letter-spacing:.08em">Pending Approval</div>
+        <div style="font-size:20px;font-weight:700;color:#D97706;margin-top:4px">${pendingCount}</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border-1)">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px">
+        <thead>
+          <tr style="background:var(--surface-2)">
+            <th style="padding:10px 12px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Employee</th>
+            <th style="padding:10px 12px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Date</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Outlet</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Shift</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Sign In</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Sign Out</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Extra Hrs</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Status</th>
+            <th style="padding:10px 12px;text-align:center;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Actions</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+  rows.forEach((e, i) => {
+    // Determine displayed sign in/out: override > actual > blank
+    const signIn = e.sign_in_override || keExtractTime(e.sign_in_time);
+    const signOut = e.sign_out_override || keExtractTime(e.sign_out_time);
+    const extraH = e.extra_hours != null ? e.extra_hours : keCalcExtra(e.shift_start, e.shift_end, signIn, signOut);
+    const rowId = `ke-${e.roster_id.replace(/[^a-zA-Z0-9]/g,'_')}`;
+    const rowBg = i % 2 === 0 ? '' : 'background:var(--surface)';
+    const noSignIn = !signIn;
+    const noSignOut = !signOut;
+    const extraColor = extraH > 0 ? '#2563EB' : 'var(--ink-3)';
+    const extraDisplay = noSignIn || noSignOut ? '—' : extraH.toFixed(2) + ' h';
+
+    const statusBadge = e.approved
+      ? `<span style="background:#F0FDF4;color:#16A34A;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">Approved</span>`
+      : extraH > 0
+        ? `<span style="background:#FFFBEB;color:#D97706;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">Pending</span>`
+        : `<span style="background:var(--surface-2);color:var(--ink-3);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">—</span>`;
+
+    html += `
+      <tr style="${rowBg}" id="${rowId}">
+        <td style="padding:9px 12px;border-bottom:1px solid var(--border-1)">
+          <div style="font-weight:600;color:var(--ink)">${e.employee_name}</div>
+          <div style="font-size:10px;color:var(--ink-3)">${e.employee_id}</div>
+        </td>
+        <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);color:var(--ink)">${keFmtDate(e.date)}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);text-align:center;color:var(--ink-2)">${e.outlet}</td>
+        <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);text-align:center;color:var(--ink-2);font-size:11px">${e.shift_start||'—'} – ${e.shift_end||'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border-1);text-align:center">
+          <input type="time" id="${rowId}-in" value="${signIn}" ${e.approved ? 'disabled' : ''}
+            onchange="keRecalc('${e.roster_id}')"
+            style="font-size:12px;border:1px solid ${noSignIn ? '#FCA5A5' : 'var(--border-2)'};border-radius:6px;padding:4px 6px;background:${e.approved ? 'var(--surface-2)' : '#fff'};color:var(--ink);width:90px;text-align:center" />
+        </td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border-1);text-align:center">
+          <input type="time" id="${rowId}-out" value="${signOut}" ${e.approved ? 'disabled' : ''}
+            onchange="keRecalc('${e.roster_id}')"
+            style="font-size:12px;border:1px solid ${noSignOut ? '#FCA5A5' : 'var(--border-2)'};border-radius:6px;padding:4px 6px;background:${e.approved ? 'var(--surface-2)' : '#fff'};color:var(--ink);width:90px;text-align:center" />
+        </td>
+        <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);text-align:center" id="${rowId}-extra">
+          <span style="font-weight:700;color:${extraColor}">${extraDisplay}</span>
+        </td>
+        <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);text-align:center" id="${rowId}-status">${statusBadge}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid var(--border-1);text-align:center">
+          ${e.approved
+            ? `<button onclick="keUnapprove('${e.roster_id}')" style="padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink-2)">Undo</button>`
+            : `<div style="display:flex;gap:4px;justify-content:center">
+                <button onclick="keSave('${e.roster_id}',false)" style="padding:5px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">Save</button>
+                <button onclick="keSave('${e.roster_id}',true)" style="padding:5px 10px;font-size:11px;border-radius:6px;border:0;background:#16A34A;color:#fff;cursor:pointer;font-weight:600">Approve</button>
+              </div>`
+          }
+        </td>
+      </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  content.innerHTML = html;
+}
+
+// Extract HH:MM from "YYYY-MM-DD HH:MM:SS" or return "" if empty
+function keExtractTime(ts) {
+  if (!ts) return '';
+  // Format: "YYYY-MM-DD HH:MM:SS"
+  const m = ts.match(/(\d{2}:\d{2})(?::\d{2})?/);
+  return m ? m[1] : '';
+}
+
+// Format DD/MM/YYYY → "Mon DD"
+function keFmtDate(d) {
+  if (!d) return '—';
+  const parts = d.split('/');
+  if (parts.length !== 3) return d;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[parseInt(parts[1])-1] || ''} ${parts[0]}`;
+}
+
+// Calculate extra hours: actual - shift, floor at 0
+function keCalcExtra(shiftStart, shiftEnd, signIn, signOut) {
+  try {
+    if (!signIn || !signOut || !shiftStart || !shiftEnd) return 0;
+    const toMins = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+    let shift = toMins(shiftEnd) - toMins(shiftStart);
+    if (shift < 0) shift += 24*60; // overnight shift
+    let actual = toMins(signOut) - toMins(signIn);
+    if (actual < 0) actual += 24*60;
+    const extra = Math.max(0, actual - shift);
+    return Math.round(extra) / 60;
+  } catch { return 0; }
+}
+
+// Live-recalculate extra hours when time inputs change
+function keRecalc(rosterId) {
+  const entry = _keData.find(e => e.roster_id === rosterId);
+  if (!entry) return;
+  const rowId = `ke-${rosterId.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const signIn = document.getElementById(rowId + '-in')?.value || '';
+  const signOut = document.getElementById(rowId + '-out')?.value || '';
+  const extra = keCalcExtra(entry.shift_start, entry.shift_end, signIn, signOut);
+  const extraCell = document.getElementById(rowId + '-extra');
+  if (extraCell) {
+    const display = (!signIn || !signOut) ? '—' : extra.toFixed(2) + ' h';
+    const color = extra > 0 ? '#2563EB' : 'var(--ink-3)';
+    extraCell.innerHTML = `<span style="font-weight:700;color:${color}">${display}</span>`;
+  }
+}
+
+async function keSave(rosterId, approve) {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const entry = _keData.find(e => e.roster_id === rosterId);
+  if (!entry) return;
+  const rowId = `ke-${rosterId.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const signIn = document.getElementById(rowId + '-in')?.value || '';
+  const signOut = document.getElementById(rowId + '-out')?.value || '';
+  const extra = keCalcExtra(entry.shift_start, entry.shift_end, signIn, signOut);
+
+  try {
+    const res = await fetch(`${API}/kitchen/extra-hours/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roster_id: rosterId,
+        employee_id: entry.employee_id,
+        date: entry.date,
+        sign_in_override: signIn,
+        sign_out_override: signOut,
+        extra_hours: extra,
+        notes: '',
+        approved: approve,
+        approved_by: approve ? 'ops' : '',
+      })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    // Update local cache
+    entry.sign_in_override = signIn;
+    entry.sign_out_override = signOut;
+    entry.extra_hours = extra;
+    if (approve) { entry.approved = true; entry.approved_by = 'ops'; }
+    // Re-render just this row by refreshing full table
+    keRender();
+  } catch(e) { alert('Save failed: ' + e.message); }
+}
+
+async function keUnapprove(rosterId) {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const entry = _keData.find(e => e.roster_id === rosterId);
+  if (!entry) return;
+  try {
+    await fetch(`${API}/kitchen/extra-hours/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roster_id: rosterId,
+        employee_id: entry.employee_id,
+        date: entry.date,
+        sign_in_override: entry.sign_in_override || '',
+        sign_out_override: entry.sign_out_override || '',
+        extra_hours: entry.extra_hours || 0,
+        notes: entry.notes || '',
+        approved: false,
+        approved_by: '',
+      })
+    });
+    entry.approved = false;
+    entry.approved_by = '';
+    keRender();
+  } catch(e) { alert('Failed: ' + e.message); }
 }
 
 /* ── OUTLET VISIT ── */
