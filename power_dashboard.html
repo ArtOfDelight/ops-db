@@ -3574,42 +3574,20 @@ function renderInventoryPage() {
 
   const authHdr = _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {};
   Promise.all([
-    fetch(API + '/api/inventory/live', { headers: authHdr }).then(r => r.json()),
+    fetch(API + '/api/inventory/oos', { headers: authHdr }).then(r => r.json()),
     fetch(`${API}/api/inventory/tracker?days=${_invTrackerDays}`).then(r => r.json()),
   ]).then(([live, tracker]) => {
-    // /inventory/live is sheet-backed and already carries out_since + duration_hrs
-    _invLiveData    = { items: live.items || [], generated_at: live.generated_at };
+    // /inventory/oos returns live Rista sold-out data filtered to critical SKUs
+    _invLiveData    = live || { outlets: [], generated_at: '' };
     _invTrackerData = tracker;
     _renderInventory();
   }).catch(() => { el.innerHTML = errBox(''); });
 }
 
 async function triggerOosRefresh() {
-  const btn  = document.getElementById('oosRefreshBtn');
-  const icon = document.getElementById('oosRefreshIcon');
   const status = document.getElementById('oosRefreshStatus');
-  if (!btn) return;
-  btn.disabled = true;
-  icon.style.animation = 'spin 1s linear infinite';
-  status.textContent = 'Running script…';
-  try {
-    const r = await fetch(API + '/api/inventory/refresh', {
-      method: 'POST',
-      headers: _lsToken ? { 'Authorization': `Bearer ${_lsToken}` } : {},
-    });
-    const d = await r.json().catch(() => ({}));
-    if (r.ok && d.status === 'ok') {
-      status.textContent = 'Done! Reloading data…';
-      setTimeout(() => renderInventoryPage(), 1500);
-    } else {
-      status.textContent = 'Error: ' + (d.message || d.detail || `HTTP ${r.status}`);
-    }
-  } catch(e) {
-    status.textContent = 'Failed: ' + e.message;
-  } finally {
-    btn.disabled = false;
-    icon.style.animation = '';
-  }
+  if (status) status.textContent = 'Fetching live Rista data…';
+  renderInventoryPage();
 }
 
 function _invSetDays(n) {
@@ -3625,10 +3603,22 @@ function _renderInventory() {
   const live    = _invLiveData    || {};
   const tracker = _invTrackerData || {};
 
-  const items   = live.items   || [];
-  const events  = tracker.events || [];
-  const oos     = items.filter(x => (x.status||'').toUpperCase().includes('OUT'));
-  const inStock = items.filter(x => (x.status||'').toUpperCase().includes('IN'));
+  // Live data comes from /api/inventory/oos (real-time Rista sold-out, filtered to critical SKUs)
+  const outlets = live.outlets || [];
+  const oos = [];
+  const fetchErrors = [];
+  outlets.forEach(o => {
+    if (o.error) fetchErrors.push(o.outlet);
+    (o.oos_items || []).forEach(it => {
+      oos.push({
+        outlet: o.outlet,
+        sku:    it.sku,
+        item:   it.name,
+      });
+    });
+  });
+
+  const events = tracker.events || [];
 
   const byOutlet = {};
   oos.forEach(x => { (byOutlet[x.outlet] = byOutlet[x.outlet] || []).push(x); });
@@ -3638,24 +3628,18 @@ function _renderInventory() {
   events.forEach(e => { repeatByOutlet[e.outlet] = (repeatByOutlet[e.outlet] || 0) + 1; });
   const worstOutlet = Object.entries(repeatByOutlet).sort((a,b) => b[1]-a[1])[0];
 
-  const fmtDur = hrs => {
-    if (hrs == null || hrs === '') return '—';
-    const h = Math.floor(hrs), m = Math.round((hrs - h) * 60);
-    return h === 0 ? `${m}m` : `${h}h ${m > 0 ? ' '+m+'m' : ''}`;
-  };
-
   // ── Stat cards ──
   const statsHtml = `
     <div class="stat-row">
       <div class="stat-card">
         <div class="stat-label">Live OOS Items</div>
-        <div class="stat-value" style="color:${oos.length>0?'var(--red)':'var(--green)'}">${oos.length}</div>
-        <div class="stat-sub">Right now</div>
+        <div class="stat-value" style="color:${(live.total_oos||0)>0?'var(--red)':'var(--green)'}">${live.total_oos||0}</div>
+        <div class="stat-sub">Critical SKUs sold out now</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Outlets Affected</div>
-        <div class="stat-value" style="color:${Object.keys(byOutlet).length>0?'var(--amber)':'var(--green)'}">${Object.keys(byOutlet).length}</div>
-        <div class="stat-sub">At least 1 OOS item</div>
+        <div class="stat-value" style="color:${(live.outlets_affected||0)>0?'var(--amber)':'var(--green)'}">${live.outlets_affected||0}</div>
+        <div class="stat-sub">At least 1 critical OOS item</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Events (${_invTrackerDays}d)</div>
@@ -3669,19 +3653,21 @@ function _renderInventory() {
       </div>
     </div>`;
 
+  const errorBanner = fetchErrors.length
+    ? `<div class="alert-banner show"><div class="alert-pulse"></div><div>Could not fetch live Rista data for: ${fetchErrors.join(', ')}</div></div>`
+    : '';
+
   // ── Live OOS table per outlet ──
   const liveHtml = oos.length === 0
-    ? `<div class="state-box"><div class="state-icon">✅</div><div class="state-title">All clear</div><div class="state-body">No items currently out of stock.</div></div>`
+    ? `<div class="state-box"><div class="state-icon">✅</div><div class="state-title">All clear</div><div class="state-body">No critical items currently out of stock.</div></div>`
     : Object.entries(byOutlet).sort((a,b) => b[1].length - a[1].length).map(([outlet, rows]) => {
-        const maxDur = Math.max(...rows.map(r => r.duration_hrs||0));
-        const urgentColor = maxDur > 4 ? 'var(--red)' : maxDur > 1 ? 'var(--amber)' : 'var(--ink-3)';
         return `
         <div class="section-card" style="margin-bottom:14px">
           <div class="section-head" style="padding:12px 16px">
             <div class="section-head-left" style="gap:10px">
               <div>
                 <div class="section-title" style="font-size:14px">${outlet}</div>
-                <div class="section-sub">${rows.length} item${rows.length>1?'s':''} out of stock · longest out: <span style="color:${urgentColor};font-weight:700">${fmtDur(maxDur)}</span></div>
+                <div class="section-sub">${rows.length} critical item${rows.length>1?'s':''} sold out</div>
               </div>
             </div>
             <span style="background:var(--red-dim);color:var(--red);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px">${rows.length} OOS</span>
@@ -3689,15 +3675,13 @@ function _renderInventory() {
           <div style="overflow-x:auto">
             <table>
               <thead><tr>
-                <th>Item</th><th>SKU</th><th>Out Since</th><th>Duration</th><th>Status</th>
+                <th>Item</th><th>SKU</th><th>Status</th>
               </tr></thead>
               <tbody>
-                ${rows.sort((a,b) => (b.duration_hrs||0)-(a.duration_hrs||0)).map(r => `
-                <tr title="Went out of stock: ${r.out_since||'—'}" style="cursor:help">
+                ${rows.sort((a,b) => (a.item||'').localeCompare(b.item||'')).map(r => `
+                <tr>
                   <td style="font-weight:600;font-size:13px">${r.item||'—'}</td>
                   <td style="font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.sku||'—'}</td>
-                  <td style="font-size:12px;color:var(--ink-2)">${r.out_since||'—'}</td>
-                  <td style="font-family:var(--mono);font-size:12px;font-weight:700;color:${(r.duration_hrs||0)>4?'var(--red)':(r.duration_hrs||0)>1?'var(--amber)':'var(--ink-3)'}">${fmtDur(r.duration_hrs)}</td>
                   <td><span style="background:var(--red-dim);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px">OUT</span></td>
                 </tr>`).join('')}
               </tbody>
@@ -3754,16 +3738,19 @@ function _renderInventory() {
         </div>
       </div>`;
 
-  el.innerHTML = statsHtml + `
+  el.innerHTML = statsHtml + errorBanner + `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
       <div style="font-size:11px;color:var(--ink-3)">Live as of ${live.generated_at||'—'}</div>
       <button id="oosRefreshBtn" class="btn-refresh" style="font-size:11px;padding:4px 12px;display:inline-flex;align-items:center;gap:5px" onclick="triggerOosRefresh()">
-        <span id="oosRefreshIcon">↻</span> Refresh Sheet
+        <span id="oosRefreshIcon">↻</span> Refresh Live
       </button>
       <span id="oosRefreshStatus" style="font-size:11px;color:var(--ink-3)"></span>
     </div>
     <div class="inv-section-head">📦 Live Out of Stock</div>
     ${liveHtml}
+    <div class="inv-section-head" style="margin-top:24px">📈 Tracker History</div>
+    ${dayBarHtml}
+    ${trackerHtml}
   `;
 }
 
@@ -5806,10 +5793,15 @@ async function loadHomeSummaries() {
     _homeContext.ratings = `Outlet ratings: avg ${avg} across ${outlets.length} outlets. Per outlet: ${outlets.map(o=>`${o.outlet||o.name} ${o.avg_rating||o.rating}`).join(', ')}.`;
   } catch { setStat('ratings','—'); }
 
-  // ── OOS — same outlet+product ──
+  // ── OOS — live Rista sold-out (critical SKUs only) ──
   try {
-    const d = await fetch(`${API}/api/inventory/live`).then(r=>r.json());
-    const items = (d.items||[]).filter(i=>(i.status||'').toUpperCase().includes('OUT'));
+    const d = await fetch(`${API}/api/inventory/oos`).then(r=>r.json());
+    const items = [];
+    (d.outlets||[]).forEach(o => {
+      (o.oos_items||[]).forEach(it => {
+        items.push({ outlet: o.outlet, item: it.name, sku: it.sku });
+      });
+    });
     // group by outlet+item
     const groups = {};
     items.forEach(i => {
