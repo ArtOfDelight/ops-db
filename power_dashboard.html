@@ -1089,6 +1089,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-outletvisit" onclick="navTo('outletvisit')">
       <span class="sb-icon">🏪</span> Outlet Visit Report
     </button>
+    <button class="sb-item" id="sbitem-stafffeedback" onclick="navTo('stafffeedback')">
+      <span class="sb-icon">💬</span> Staff Feedback
+    </button>
     <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
       <span class="sb-icon">⏱️</span> Kitchen Extra Hours
     </button>
@@ -1127,11 +1130,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','kitchenextra'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report' };
+  const titles = { kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1156,6 +1159,7 @@ function navTo(page) {
   if (page === 'tokenhealth')  renderTokenHealthPage();
   if (page === 'incpayout')   renderIncPayoutPage();
   if (page === 'outletvisit') renderOutletVisitPage();
+  if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
 }
 
@@ -5475,10 +5479,45 @@ async function _wrPublish() {
   const days = {};
   dates.forEach(date => {
     const baseEntries = (week[date]?.entries || []).map(e => ({...e}));
-    const merged = baseEntries.map(e => {
+    const merged = [];
+    const removedIds = new Set();
+    
+    // First pass: identify removed entries and apply updates
+    baseEntries.forEach(e => {
       const key = `${e.employee_id}_${date}`;
-      return _wrState.dirty[key] ? { ...e, ..._wrState.dirty[key] } : e;
+      const dirty = _wrState.dirty[key];
+      
+      if (dirty) {
+        if (dirty._action === 'remove') {
+          removedIds.add(e.employee_id);
+          return; // Skip this entry (remove it)
+        }
+        // Apply update (merge dirty over existing)
+        merged.push({ ...e, ...dirty });
+      } else {
+        merged.push(e);
+      }
     });
+    
+    // Second pass: add new entries
+    Object.entries(_wrState.dirty).forEach(([key, dirty]) => {
+      if (dirty._action === 'add' && dirty.date === date) {
+        // Check if this employee already exists in merged (shouldn't happen if removed properly)
+        if (!removedIds.has(dirty.employee_id) && !merged.find(e => e.employee_id === dirty.employee_id)) {
+          merged.push({
+            employee_id: dirty.employee_id,
+            employee_name: dirty.employee_name || dirty.employee_id,
+            date: date,
+            outlet: dirty.outlet,
+            shift: dirty.shift,
+            shift_name: dirty.shift_name,
+            start_time: dirty.start_time,
+            end_time: dirty.end_time,
+          });
+        }
+      }
+    });
+    
     days[date] = merged;
   });
 
@@ -5574,7 +5613,48 @@ function _svRender() {
   const outletDayStaff = {}; // outlet → date → [{employee_id, name, shift_name, start_time, end_time}]
 
   dates.forEach(date => {
-    (week[date]?.entries || []).forEach(e => {
+    // Start with base entries
+    const baseEntries = (week[date]?.entries || []).map(e => ({...e}));
+    
+    // Apply dirty changes
+    const mergedEntries = [];
+    const removedIds = new Set();
+    
+    baseEntries.forEach(e => {
+      const key = `${e.employee_id}_${date}`;
+      const dirty = _wrState.dirty[key];
+      
+      if (dirty) {
+        if (dirty._action === 'remove') {
+          removedIds.add(e.employee_id);
+          return;
+        }
+        // Apply update
+        mergedEntries.push({ ...e, ...dirty });
+      } else {
+        mergedEntries.push(e);
+      }
+    });
+    
+    // Add new entries from dirty
+    Object.entries(_wrState.dirty).forEach(([key, dirty]) => {
+      if (dirty._action === 'add' && dirty.date === date) {
+        if (!removedIds.has(dirty.employee_id) && !mergedEntries.find(e => e.employee_id === dirty.employee_id)) {
+          mergedEntries.push({
+            employee_id: dirty.employee_id,
+            employee_name: dirty.employee_name || dirty.employee_id,
+            date: date,
+            outlet: dirty.outlet,
+            shift: dirty.shift,
+            shift_name: dirty.shift_name,
+            start_time: dirty.start_time,
+            end_time: dirty.end_time,
+          });
+        }
+      }
+    });
+    
+    mergedEntries.forEach(e => {
       const o = (e.outlet || '').toUpperCase();
       if (!o || o === 'WO' || o === 'PL' || o === 'UPL') return;
       outletSet.add(o);
@@ -5599,6 +5679,17 @@ function _svRender() {
     return map[o] || o;
   };
 
+  // Get all employees for add dropdown
+  const allEmployees = [];
+  dates.forEach(date => {
+    (week[date]?.entries || []).forEach(e => {
+      if (!allEmployees.find(emp => emp.employee_id === e.employee_id)) {
+        allEmployees.push({ employee_id: e.employee_id, name: e.employee_name || e.employee_id });
+      }
+    });
+  });
+  allEmployees.sort((a,b) => a.name.localeCompare(b.name));
+
   // Cell renderer for outlet staff view
   const cellHtml = (outlet, date) => {
     const staff = outletDayStaff[outlet]?.[date] || [];
@@ -5612,14 +5703,42 @@ function _svRender() {
         `<option value="${s.shift_id}" ${curShift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
       ).join('');
       const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
-      return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:130px;position:relative;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">
+      
+      // Build staff list with remove buttons
+      const staffList = staff.map((s, idx) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:11px;font-weight:600">${escHtml(s.name)}</span>
+          <button onclick="_svRemoveStaff('${outlet}','${date}','${s.employee_id}')" style="padding:2px 6px;font-size:10px;background:var(--red-dim);color:var(--red);border:1px solid var(--red);border-radius:4px;cursor:pointer">✕</button>
+        </div>
+      `).join('');
+      
+      // Build add employee dropdown (exclude already assigned)
+      const assignedIds = new Set(staff.map(s => s.employee_id));
+      const addOpts = allEmployees.filter(e => !assignedIds.has(e.employee_id)).map(e => 
+        `<option value="${e.employee_id}">${escHtml(e.name)}</option>`
+      ).join('');
+      
+      return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:180px;position:relative;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">
         <div style="display:flex;flex-direction:column;gap:3px">
-          <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">${outletOpts}</select>
-          <select onchange="_wrUpdateEdit(this,'shift')" style="font-size:10px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">
-            <option value="">No shift</option>${shiftOpts}
-          </select>
+          ${staffList ? `<div style="max-height:120px;overflow-y:auto;margin-bottom:4px">${staffList}</div>` : '<div style="font-size:11px;color:var(--ink-3);padding:4px 0">No staff assigned</div>'}
+          <div style="border-top:1px solid var(--border);padding-top:4px;margin-top:2px">
+            <div style="font-size:10px;font-weight:700;color:var(--ink-3);margin-bottom:2px">ADD STAFF</div>
+            <select id="sv-add-emp-${outlet}-${date}" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%;margin-bottom:3px">
+              <option value="">Select employee...</option>
+              ${addOpts}
+            </select>
+            <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%;margin-bottom:3px">
+              <option value="">Select outlet...</option>
+              ${outletOpts}
+            </select>
+            <select onchange="_wrUpdateEdit(this,'shift')" style="font-size:10px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%;margin-bottom:3px">
+              <option value="">Select shift...</option>
+              ${shiftOpts}
+            </select>
+          </div>
           <div style="display:flex;gap:3px;margin-top:2px">
-            <button onclick="_svSaveEdit('${outlet}','${date}')" style="flex:1;padding:3px;font-size:10px;font-weight:700;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer">Save</button>
+            <button onclick="_svAddStaff('${outlet}','${date}')" style="flex:1;padding:3px;font-size:10px;font-weight:700;background:#16a34a;color:white;border:none;border-radius:4px;cursor:pointer">+ Add</button>
+            <button onclick="_svSaveAll('${outlet}','${date}')" style="flex:1;padding:3px;font-size:10px;font-weight:700;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer">Save</button>
             <button onclick="_wrCloseEditor();_svRender()" style="padding:3px 6px;font-size:10px;background:#f3f4f6;color:var(--ink);border:1px solid var(--border-2);border-radius:4px;cursor:pointer">✕</button>
           </div>
         </div>
@@ -5627,17 +5746,35 @@ function _svRender() {
     }
 
     if (!staff.length) {
-      return `<td onclick="_svOpenEditor('${outlet}','${date}')" style="padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:#fafafa;cursor:pointer;min-width:90px;border:1px solid transparent;border-radius:4px;transition:background .1s">
-        <span style="color:var(--ink-3);font-size:11px">—</span>
+      const hasDirtyAdd = Object.values(_wrState.dirty).some(d => d._action === 'add' && d.date === date && (d.outlet || '').toUpperCase() === outlet);
+      return `<td onclick="_svOpenEditor('${outlet}','${date}')" style="padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:${hasDirtyAdd ? '#dcfce7' : '#fafafa'};cursor:pointer;min-width:90px;border:1px solid transparent;border-radius:4px;transition:background .1s">
+        <span style="color:var(--ink-3);font-size:11px">${hasDirtyAdd ? '✓ Added' : '—'}</span>
       </td>`;
     }
 
-    const chips = staff.map(s => {
+    const hasDirtyChanges = staff.some(s => {
+      const key = `${s.employee_id}_${date}`;
+      return _wrState.dirty[key] && !_wrState.dirty[key]._action;
+    });
+    const hasDirtyRemove = staff.some(s => {
+      const key = `${s.employee_id}_${date}`;
+      return _wrState.dirty[key] && _wrState.dirty[key]._action === 'remove';
+    });
+
+    const chips = staff.filter(s => {
+      const key = `${s.employee_id}_${date}`;
+      const dirty = _wrState.dirty[key];
+      return !dirty || dirty._action !== 'remove';
+    }).map(s => {
+      const key = `${s.employee_id}_${date}`;
+      const dirty = _wrState.dirty[key];
       const shift = s.shift_name ? s.shift_name.replace(/\(.*\)/,'').trim() : (s.start_time ? `${s.start_time.slice(0,5)}–${s.end_time.slice(0,5)}` : '');
-      return `<div style="margin-bottom:3px"><span style="font-size:11px;font-weight:600;color:var(--ink)">${escHtml(s.name)}</span>${shift ? `<span style="font-size:9px;color:var(--ink-3);margin-left:4px">${escHtml(shift)}</span>` : ''}</div>`;
+      const dirtyShift = dirty && !dirty._action ? (dirty.shift_name ? dirty.shift_name.replace(/\(.*\)/,'').trim() : (dirty.start_time ? `${dirty.start_time.slice(0,5)}–${dirty.end_time.slice(0,5)}` : '')) : '';
+      return `<div style="margin-bottom:3px"><span style="font-size:11px;font-weight:600;color:var(--ink)">${escHtml(s.name)}</span>${dirtyShift ? `<span style="font-size:9px;color:#2563eb;margin-left:4px;font-weight:600">${escHtml(dirtyShift)}*</span>` : (shift ? `<span style="font-size:9px;color:var(--ink-3);margin-left:4px">${escHtml(shift)}</span>` : '')}</div>`;
     }).join('');
-    return `<td onclick="_svOpenEditor('${outlet}','${date}')" style="padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top;cursor:pointer;min-width:90px;border:1px solid transparent;border-radius:4px;transition:background .1s">
+    return `<td onclick="_svOpenEditor('${outlet}','${date}')" style="padding:6px 8px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);vertical-align:top;cursor:pointer;min-width:90px;border:1px solid transparent;border-radius:4px;transition:background .1s;${hasDirtyChanges || hasDirtyRemove ? 'outline:2px solid #2563eb;' : ''}">
       ${chips}
+      ${hasDirtyRemove ? `<div style="font-size:9px;color:var(--red);font-style:italic">Removed staff pending</div>` : ''}
     </td>`;
   };
 
@@ -5692,30 +5829,65 @@ function _svOpenEditor(outlet, date) {
   _svRender();
 }
 
-function _svSaveEdit(outlet, date) {
+function _svRemoveStaff(outlet, date, employeeId) {
+  // Mark this employee as removed for this date (set to empty/removed)
+  const key = `${employeeId}_${date}`;
+  _wrState.dirty[key] = {
+    employee_id: employeeId,
+    date: date,
+    outlet: '',
+    shift: '',
+    shift_name: '',
+    start_time: '',
+    end_time: '',
+    _action: 'remove'
+  };
+  _svRender();
+}
+
+function _svAddStaff(outlet, date) {
+  const empSel = document.getElementById(`sv-add-emp-${outlet}-${date}`);
   const outletSel = document.querySelector('td select[onchange*="outlet"]');
   const shiftSel = document.querySelector('td select[onchange*="shift"]');
+  
+  const empId = empSel ? empSel.value : '';
   const newOutlet = outletSel ? outletSel.value : outlet;
   const shiftId = shiftSel ? shiftSel.value : '';
-
-  // Find all employees currently assigned to this outlet on this date
-  const staff = [];
-  (Object.values(_wrState.data.week[date]?.entries || [])).forEach(e => {
-    if ((e.outlet || '').toUpperCase() === outlet) {
-      staff.push(e.employee_id);
-    }
-  });
-
-  // If changing outlet or shift, update all employees in this cell
-  // For simplicity, we update the first employee or create a generic entry
-  if (staff.length > 0) {
-    staff.forEach(empId => {
-      _wrSetCell(empId, date, newOutlet, shiftId);
-    });
-  } else {
-    // No staff — create a placeholder entry that will be handled by publish
-    // This shouldn't normally happen since we click on cells with staff
+  
+  if (!empId) {
+    alert('Please select an employee');
+    return;
   }
+  
+  const sh = _wrState.shifts.find(s => s.shift_id === shiftId) || {};
+  const emp = _wrState.data.week[date]?.entries?.find(e => e.employee_id === empId);
+  
+  const key = `${empId}_${date}`;
+  _wrState.dirty[key] = {
+    employee_id: empId,
+    employee_name: emp ? emp.employee_name : empId,
+    date: date,
+    outlet: newOutlet,
+    shift: shiftId,
+    shift_name: sh.shift_name || '',
+    start_time: sh.start_time || '',
+    end_time: sh.end_time || '',
+    _action: 'add'
+  };
+  
+  // Reset selections
+  if (empSel) empSel.value = '';
+  _svRender();
+}
+
+function _svSaveAll(outlet, date) {
+  // Apply all dirty changes for this date
+  _wrCloseEditor();
+  _svRender();
+}
+
+function _svSaveEdit(outlet, date) {
+  // Legacy function - now handled by _svAddStaff and _svRemoveStaff
   _wrCloseEditor();
   _svRender();
 }
@@ -9843,6 +10015,194 @@ function ovShowDetail(idx) {
     </div>`;
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── STAFF FEEDBACK PAGE ── */
+let _sfVisits = [];
+let _sfSelectedStaff = '';
+
+async function renderStaffFeedbackPage() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="padding:24px;max-width:1100px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">Staff Feedback</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">All feedback given to staff from outlet visits</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="sfStaffFilter" onchange="sfFilterStaff()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink);min-width:180px">
+            <option value="">All Staff</option>
+          </select>
+          <button onclick="sfLoad()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↻ Reload</button>
+        </div>
+      </div>
+      <div id="sfLoading" style="text-align:center;padding:40px;color:var(--ink-3)">
+        <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px"></div>
+        Loading feedback...
+      </div>
+      <div id="sfContent" style="display:none"></div>
+    </div>`;
+  
+  await sfLoad();
+}
+
+async function sfLoad() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const loading = document.getElementById('sfLoading');
+  const content = document.getElementById('sfContent');
+  if (!loading || !content) return;
+  loading.style.display = ''; content.style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/outlet-visit/list?limit=200`);
+    const data = await res.json();
+    _sfVisits = data.visits || [];
+    loading.style.display = 'none';
+    content.style.display = '';
+    sfPopulateStaffDropdown();
+    sfRender();
+  } catch(e) {
+    loading.textContent = 'Failed to load: ' + e.message;
+  }
+}
+
+function sfPopulateStaffDropdown() {
+  const select = document.getElementById('sfStaffFilter');
+  if (!select) return;
+  
+  // Extract all unique staff who have feedback
+  const staffMap = {};
+  _sfVisits.forEach(v => {
+    (v.employee_feedbacks || []).forEach(f => {
+      if (f.employee_id && f.short_name) {
+        staffMap[f.employee_id] = { id: f.employee_id, name: f.short_name };
+      }
+    });
+  });
+  
+  const staffList = Object.values(staffMap).sort((a, b) => a.name.localeCompare(b.name));
+  
+  // Keep current selection
+  const currentValue = select.value;
+  
+  select.innerHTML = `<option value="">All Staff (${staffList.length})</option>` + 
+    staffList.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join('');
+  
+  if (currentValue && staffMap[currentValue]) {
+    select.value = currentValue;
+  }
+}
+
+function sfFilterStaff() {
+  _sfSelectedStaff = document.getElementById('sfStaffFilter')?.value || '';
+  sfRender();
+}
+
+function sfRender() {
+  const content = document.getElementById('sfContent');
+  if (!content) return;
+
+  // Aggregate all feedback by staff
+  const staffFeedback = {};
+  
+  _sfVisits.forEach(v => {
+    const dt = v.submitted_at ? new Date(v.submitted_at) : null;
+    const dateStr = dt ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const timeStr = dt ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+    
+    (v.employee_feedbacks || []).forEach(f => {
+      if (!f.employee_id || (!f.short_name && !f.feedback)) return;
+      
+      if (!staffFeedback[f.employee_id]) {
+        staffFeedback[f.employee_id] = {
+          employee_id: f.employee_id,
+          name: f.short_name || f.employee_id,
+          feedbacks: []
+        };
+      }
+      
+      staffFeedback[f.employee_id].feedbacks.push({
+        date: dateStr,
+        time: timeStr,
+        outlet: v.outlet_name || v.outlet_code,
+        feedback: f.feedback || '<span style="color:var(--ink-3);font-style:italic">No feedback given</span>',
+        visit_id: v.visit_id,
+        submitted_by: v.submitted_by_name || v.submitted_by
+      });
+    });
+  });
+
+  // Filter by selected staff if any
+  let displayStaff = Object.values(staffFeedback);
+  if (_sfSelectedStaff) {
+    displayStaff = displayStaff.filter(s => s.employee_id === _sfSelectedStaff);
+  }
+  
+  // Sort by name
+  displayStaff.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (displayStaff.length === 0) {
+    content.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No staff feedback recorded yet.</div>`;
+    return;
+  }
+
+  let html = '';
+  
+  displayStaff.forEach(staff => {
+    // Sort feedbacks by date (newest first)
+    staff.feedbacks.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB - dateA;
+    });
+    
+    html += `
+      <div style="background:var(--surface);border:1px solid var(--border-1);border-radius:12px;overflow:hidden;margin-bottom:20px">
+        <div style="padding:14px 18px;background:#f8f9fb;border-bottom:1px solid var(--border-1);display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:10px;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${(staff.name).slice(0,2).toUpperCase()}</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--ink)">${staff.name}</div>
+            <div style="font-size:11px;color:var(--ink-3)">${staff.employee_id} · ${staff.feedbacks.length} feedback${staff.feedbacks.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <div style="padding:0">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:var(--surface-2)">
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1);width:120px">Date</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1);width:100px">Outlet</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1)">Feedback</th>
+                <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border-1);width:140px">By</th>
+              </tr>
+            </thead>
+            <tbody>`;
+    
+    staff.feedbacks.forEach((f, i) => {
+      const rowBg = i % 2 === 0 ? '' : 'background:var(--surface)';
+      html += `
+              <tr style="${rowBg}">
+                <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1);white-space:nowrap">
+                  <div style="font-weight:600">${f.date}</div>
+                  <div style="font-size:11px;color:var(--ink-3)">${f.time}</div>
+                </td>
+                <td style="padding:10px 14px;color:var(--ink);border-bottom:1px solid var(--border-1)">
+                  <span style="font-weight:600">${f.outlet}</span>
+                </td>
+                <td style="padding:10px 14px;color:var(--ink-2);border-bottom:1px solid var(--border-1);line-height:1.5">${f.feedback}</td>
+                <td style="padding:10px 14px;color:var(--ink-3);border-bottom:1px solid var(--border-1);font-size:12px">${f.submitted_by}</td>
+              </tr>`;
+    });
+    
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  });
+
+  content.innerHTML = html;
 }
 
 </script>
