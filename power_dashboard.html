@@ -9577,10 +9577,23 @@ async function renderOutletVisitPage() {
         <button id="ovTab-actions" onclick="ovSwitchTab('actions')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">⚠️ Action Required</button>
         <button id="ovTab-completed" onclick="ovSwitchTab('completed')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">✅ Completed Actions</button>
         <button id="ovTab-summary" onclick="ovSwitchTab('summary')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">📊 Question Summary</button>
+        <button id="ovTab-stafffeedback" onclick="ovSwitchTab('stafffeedback')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">💬 Staff Feedback</button>
       </div>
 
       <div id="ovLoading" style="text-align:center;padding:40px;color:var(--ink-3);font-size:13px">Loading…</div>
       <div id="ovContent" style="display:none"></div>
+      <div id="ovSfPanel" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+          <select id="sfStaffFilterOV" onchange="sfFilterStaffOV()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink);min-width:180px">
+            <option value="">All Staff</option>
+          </select>
+        </div>
+        <div id="sfLoadingOV" style="text-align:center;padding:40px;color:var(--ink-3)">
+          <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px"></div>
+          Loading feedback...
+        </div>
+        <div id="sfContentOV" style="display:none"></div>
+      </div>
     </div>`;
 
   await ovLoad();
@@ -9588,7 +9601,7 @@ async function renderOutletVisitPage() {
 
 function ovSwitchTab(tab) {
   _ovTab = tab;
-  ['visits','actions','completed','summary'].forEach(t => {
+  ['visits','actions','completed','summary','stafffeedback'].forEach(t => {
     const btn = document.getElementById('ovTab-' + t);
     if (!btn) return;
     if (t === tab) {
@@ -9597,7 +9610,16 @@ function ovSwitchTab(tab) {
       btn.style.borderBottomColor = 'transparent'; btn.style.color = 'var(--ink-3)';
     }
   });
-  ovRender();
+  const sfPanel = document.getElementById('ovSfPanel');
+  const mainContent = document.getElementById('ovContent');
+  if (tab === 'stafffeedback') {
+    if (mainContent) mainContent.style.display = 'none';
+    if (sfPanel) sfPanel.style.display = '';
+    sfLoadOV();
+  } else {
+    if (sfPanel) sfPanel.style.display = 'none';
+    ovRender();
+  }
 }
 
 async function ovLoad() {
@@ -9605,7 +9627,10 @@ async function ovLoad() {
   const loading = document.getElementById('ovLoading');
   const content = document.getElementById('ovContent');
   if (!loading || !content) return;
+  if (_ovTab === 'stafffeedback') { sfLoadOV(); return; }
   loading.style.display = ''; content.style.display = 'none';
+  const sfPanel = document.getElementById('ovSfPanel');
+  if (sfPanel) sfPanel.style.display = 'none';
 
   const outlet = document.getElementById('ovOutletFilter')?.value || '';
   const url = `${API}/outlet-visit/list?limit=100${outlet ? '&outlet_code=' + encodeURIComponent(outlet) : ''}`;
@@ -10020,6 +10045,115 @@ function ovShowDetail(idx) {
 /* ── STAFF FEEDBACK PAGE ── */
 let _sfVisits = [];
 let _sfSelectedStaff = '';
+
+// ── Staff Feedback embedded inside Outlet Visit tab ──
+let _sfVisitsOV = [];
+let _sfSelectedStaffOV = '';
+
+async function sfLoadOV() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const loading = document.getElementById('sfLoadingOV');
+  const content = document.getElementById('sfContentOV');
+  if (!loading || !content) return;
+  loading.style.display = ''; content.style.display = 'none';
+  try {
+    const res = await fetch(`${API}/outlet-visit/list?limit=200`);
+    const data = await res.json();
+    _sfVisitsOV = data.visits || [];
+    loading.style.display = 'none';
+    content.style.display = '';
+    sfPopulateStaffDropdownOV();
+    sfRenderOV();
+  } catch(e) {
+    loading.textContent = 'Failed to load: ' + e.message;
+  }
+}
+
+function sfPopulateStaffDropdownOV() {
+  const select = document.getElementById('sfStaffFilterOV');
+  if (!select) return;
+  const staffMap = {};
+  _sfVisitsOV.forEach(v => {
+    (v.employee_feedbacks || []).forEach(f => {
+      if (f.employee_id && f.short_name) staffMap[f.employee_id] = { id: f.employee_id, name: f.short_name };
+    });
+  });
+  const staffList = Object.values(staffMap).sort((a, b) => a.name.localeCompare(b.name));
+  const currentValue = select.value;
+  select.innerHTML = `<option value="">All Staff (${staffList.length})</option>` +
+    staffList.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join('');
+  if (currentValue && staffMap[currentValue]) select.value = currentValue;
+}
+
+function sfFilterStaffOV() {
+  _sfSelectedStaffOV = document.getElementById('sfStaffFilterOV')?.value || '';
+  sfRenderOV();
+}
+
+function sfRenderOV() {
+  const content = document.getElementById('sfContentOV');
+  if (!content) return;
+  const staffFeedback = {};
+  _sfVisitsOV.forEach(v => {
+    const dt = v.submitted_at ? new Date(v.submitted_at) : null;
+    const dateStr = dt ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const timeStr = dt ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+    (v.employee_feedbacks || []).forEach(f => {
+      if (!f.employee_id || (!f.short_name && !f.feedback)) return;
+      if (!staffFeedback[f.employee_id]) staffFeedback[f.employee_id] = { employee_id: f.employee_id, name: f.short_name || f.employee_id, feedbacks: [] };
+      staffFeedback[f.employee_id].feedbacks.push({
+        date: dateStr, time: timeStr,
+        outlet: v.outlet_name || v.outlet_code,
+        feedback: f.feedback || '<span style="color:var(--ink-3);font-style:italic">No feedback given</span>',
+        submitted_by: v.submitted_by_name || v.submitted_by
+      });
+    });
+  });
+  let displayStaff = Object.values(staffFeedback);
+  if (_sfSelectedStaffOV) displayStaff = displayStaff.filter(s => s.employee_id === _sfSelectedStaffOV);
+  displayStaff.sort((a, b) => a.name.localeCompare(b.name));
+  if (displayStaff.length === 0) {
+    content.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No staff feedback recorded yet.</div>`;
+    return;
+  }
+  let html = '';
+  displayStaff.forEach(staff => {
+    staff.feedbacks.sort((a, b) => new Date(b.date) - new Date(a.date));
+    html += `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">
+        <div style="padding:14px 18px;background:#f8f9fb;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:10px;background:#111827;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${staff.name.slice(0,2).toUpperCase()}</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--ink)">${staff.name}</div>
+            <div style="font-size:11px;color:var(--ink-3)">${staff.employee_id} · ${staff.feedbacks.length} feedback${staff.feedbacks.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--surface)">
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border);width:120px">Date</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border);width:100px">Outlet</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border)">Feedback</th>
+              <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--ink-2);border-bottom:1px solid var(--border);width:140px">By</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${staff.feedbacks.map((f, i) => `
+            <tr style="${i % 2 ? 'background:var(--bg)' : ''}">
+              <td style="padding:10px 14px;border-bottom:1px solid var(--border)">
+                <div style="font-weight:600">${f.date}</div>
+                <div style="font-size:11px;color:var(--ink-3)">${f.time}</div>
+              </td>
+              <td style="padding:10px 14px;border-bottom:1px solid var(--border);font-weight:600">${f.outlet}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid var(--border);color:var(--ink-2);line-height:1.5">${f.feedback}</td>
+              <td style="padding:10px 14px;border-bottom:1px solid var(--border);color:var(--ink-3);font-size:12px">${f.submitted_by}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  });
+  content.innerHTML = html;
+}
 
 async function renderStaffFeedbackPage() {
   const API = 'https://aodapp-backend.onrender.com/api';
