@@ -1232,7 +1232,7 @@ function renderPowerPage() {
             <div class="section-icon blue">📡</div>
             <div>
               <div class="section-title">Real-time Platform Status</div>
-              <div class="section-sub">Swiggy & Zomato — most recent check per outlet</div>
+              <div class="section-sub">Swiggy, Zomato & Ownly — most recent check per outlet</div>
             </div>
           </div>
           <span class="section-meta" id="liveTs"></span>
@@ -1300,7 +1300,8 @@ function renderLive(data) {
   document.getElementById('liveTs').textContent = data.generated_at ? 'As of ' + data.generated_at : '';
 
   const offlineList = outlets.filter(o =>
-    o.swiggy_aod.color === 'red' || o.swiggy_fc.color === 'red' || o.zomato.color === 'red'
+    o.swiggy_aod.color === 'red' || o.swiggy_fc.color === 'red' || o.zomato.color === 'red' ||
+    (o.ownly && o.ownly.color === 'red')
   );
 
   const scOff = document.getElementById('scOffline');
@@ -1327,6 +1328,7 @@ function renderLive(data) {
       <td class="c">${pill(o.swiggy_aod)}</td>
       <td class="c">${pill(o.swiggy_fc)}</td>
       <td class="c">${pill(o.zomato)}</td>
+      <td class="c">${o.ownly ? pill(o.ownly) : '<span class="pill gray">—</span>'}</td>
       <td class="ts-cell c">${o.as_of}</td>
     </tr>`).join('');
 
@@ -1334,7 +1336,7 @@ function renderLive(data) {
     <table>
       <thead><tr>
         <th>Outlet</th><th class="c">Swiggy AOD</th><th class="c">Swiggy FC</th>
-        <th class="c">Zomato</th><th class="c">Last Checked</th>
+        <th class="c">Zomato</th><th class="c">Ownly</th><th class="c">Last Checked</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
