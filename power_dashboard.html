@@ -1092,6 +1092,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
       <span class="sb-icon">⏱️</span> Kitchen Extra Hours
     </button>
+    <button class="sb-item" id="sbitem-zomsupport" onclick="navTo('zomsupport')">
+      <span class="sb-icon">💬</span> Zomato Support
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1127,11 +1130,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
+  const titles = { zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1158,6 +1161,7 @@ function navTo(page) {
   if (page === 'outletvisit') renderOutletVisitPage();
   if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
+  if (page === 'zomsupport')  renderZomSupportPage();
 }
 
 
@@ -10344,6 +10348,277 @@ function sfRender() {
   });
 
   content.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════
+   ZOMATO SUPPORT CHAT
+   ═══════════════════════════════════════════ */
+
+let _zsConvId = null;
+let _zsPolling = null;
+
+function renderZomSupportPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+<style>
+.zs-wrap { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* Token config card */
+.zs-token-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; }
+.zs-token-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin-bottom: 12px; }
+.zs-token-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.zs-token-row textarea { flex: 1; min-width: 220px; font-size: 11px; font-family: var(--mono); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; resize: vertical; min-height: 56px; color: var(--ink); background: var(--bg); }
+.zs-token-row textarea:focus { outline: none; border-color: var(--blue); }
+.zs-btn { padding: 8px 16px; border-radius: var(--r); border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .15s; }
+.zs-btn:hover { opacity: .85; }
+.zs-btn-primary { background: var(--ink); color: #fff; }
+.zs-btn-ghost   { background: var(--border); color: var(--ink); }
+.zs-token-status { font-size: 11px; color: var(--ink-3); margin-top: 8px; }
+.zs-token-status.ok  { color: var(--green); }
+.zs-token-status.err { color: var(--red); }
+
+/* Chat card */
+.zs-chat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); display: flex; flex-direction: column; overflow: hidden; }
+.zs-chat-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.zs-chat-head-left { display: flex; align-items: center; gap: 10px; }
+.zs-chat-logo { width: 28px; height: 28px; border-radius: 50%; background: #e23744; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.zs-chat-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.zs-chat-sub   { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.zs-chat-actions { display: flex; gap: 8px; }
+
+/* Messages */
+.zs-msgs { height: 420px; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+.zs-msg { display: flex; flex-direction: column; max-width: 72%; gap: 3px; }
+.zs-msg.user  { align-self: flex-end; align-items: flex-end; }
+.zs-msg.agent { align-self: flex-start; align-items: flex-start; }
+.zs-bubble { padding: 9px 13px; border-radius: 14px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+.zs-msg.user  .zs-bubble { background: var(--ink); color: #fff; border-bottom-right-radius: 4px; }
+.zs-msg.agent .zs-bubble { background: var(--surface); border: 1px solid var(--border); color: var(--ink); border-bottom-left-radius: 4px; }
+.zs-msg-meta { font-size: 10px; color: var(--ink-3); font-family: var(--mono); }
+.zs-msg-sender { font-size: 10px; font-weight: 600; color: var(--ink-3); margin-bottom: 1px; }
+.zs-msgs-empty { text-align: center; color: var(--ink-3); font-size: 13px; margin: auto; }
+
+/* Composer */
+.zs-composer { border-top: 1px solid var(--border); padding: 12px 14px; display: flex; gap: 8px; align-items: flex-end; background: var(--surface); }
+.zs-input { flex: 1; border: 1px solid var(--border); border-radius: var(--r); padding: 9px 12px; font-size: 13px; font-family: var(--sans); resize: none; min-height: 38px; max-height: 120px; color: var(--ink); background: var(--bg); }
+.zs-input:focus { outline: none; border-color: var(--blue); }
+.zs-send { width: 38px; height: 38px; border-radius: var(--r); border: none; background: var(--ink); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: opacity .15s; }
+.zs-send:hover { opacity: .8; }
+.zs-send:disabled { opacity: .4; cursor: default; }
+
+/* Status bar */
+.zs-status-bar { padding: 8px 18px; font-size: 11px; color: var(--ink-3); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+.zs-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); flex-shrink: 0; }
+.zs-dot.green { background: var(--green); }
+.zs-dot.red   { background: var(--red); }
+</style>
+
+<div class="zs-wrap">
+
+  <!-- Token Setup -->
+  <div class="zs-token-card">
+    <div class="zs-token-title">🔑 Nugget Token Setup</div>
+    <div style="font-size:12px;color:var(--ink-2);margin-bottom:10px;">
+      Open Zomato merchant dashboard → F12 → Network → filter <code>nugget</code> → copy the two header values below. Tokens last ~24 hours.
+    </div>
+    <div class="zs-token-row">
+      <textarea id="zs-access-token" placeholder="unified-support-access-token (eyJ…)" rows="2"></textarea>
+      <textarea id="zs-payload-token" placeholder="unified-support-payload-token (eyJ…)" rows="2"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+      <button class="zs-btn zs-btn-primary" onclick="zsSaveTokens()">Save Tokens</button>
+      <button class="zs-btn zs-btn-ghost" onclick="zsCheckTokenStatus()">Check Status</button>
+      <span class="zs-token-status" id="zs-token-status"></span>
+    </div>
+  </div>
+
+  <!-- Chat window -->
+  <div class="zs-chat-card">
+    <div class="zs-chat-head">
+      <div class="zs-chat-head-left">
+        <div class="zs-chat-logo">🍅</div>
+        <div>
+          <div class="zs-chat-label">Zomato Support</div>
+          <div class="zs-chat-sub" id="zs-conv-id">No active session</div>
+        </div>
+      </div>
+      <div class="zs-chat-actions">
+        <button class="zs-btn zs-btn-ghost" onclick="zsStartSession()" id="zs-start-btn">New Ticket</button>
+        <button class="zs-btn zs-btn-ghost" onclick="zsLoadMessages()" id="zs-refresh-btn">↻ Refresh</button>
+        <button class="zs-btn zs-btn-ghost" onclick="zsResolve()" id="zs-resolve-btn" style="display:none">✓ Resolve</button>
+      </div>
+    </div>
+
+    <div class="zs-msgs" id="zs-msgs">
+      <div class="zs-msgs-empty">Start a new ticket or load an existing conversation.</div>
+    </div>
+
+    <div class="zs-composer">
+      <textarea class="zs-input" id="zs-input" placeholder="Type a message…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();zsSend();}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+      <button class="zs-send" id="zs-send-btn" onclick="zsSend()" disabled title="Send">➤</button>
+    </div>
+
+    <div class="zs-status-bar">
+      <div class="zs-dot" id="zs-status-dot"></div>
+      <span id="zs-status-text">—</span>
+    </div>
+  </div>
+
+</div>`;
+
+  zsCheckTokenStatus();
+}
+
+async function zsSaveTokens() {
+  const at = document.getElementById('zs-access-token').value.trim();
+  const pt = document.getElementById('zs-payload-token').value.trim();
+  if (!at || !pt) { zsSetStatus('err', 'Both tokens required'); return; }
+  zsSetStatus('', 'Saving…');
+  try {
+    const r = await fetch(`${API}/api/admin/zomato-support/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ access_token: at, payload_token: pt }),
+    });
+    const d = await r.json();
+    if (d.success) zsSetStatus('ok', 'Tokens saved ✓');
+    else zsSetStatus('err', d.detail || 'Error');
+  } catch(e) { zsSetStatus('err', String(e)); }
+}
+
+async function zsCheckTokenStatus() {
+  try {
+    const r = await fetch(`${API}/api/admin/zomato-support/auth`, {
+      headers: { Authorization: `Bearer ${_lsToken}` }
+    });
+    const d = await r.json();
+    if (d.has_credentials) {
+      zsSetStatus('ok', `Tokens configured · updated ${d.updated_at} by ${d.updated_by}`);
+    } else {
+      zsSetStatus('err', 'No tokens saved yet — paste them above');
+    }
+  } catch(e) { zsSetStatus('err', 'Could not check status'); }
+}
+
+function zsSetStatus(type, msg) {
+  const el = document.getElementById('zs-token-status');
+  if (!el) return;
+  el.className = 'zs-token-status' + (type ? ' ' + type : '');
+  el.textContent = msg;
+}
+
+function zsSetBar(connected, msg) {
+  const dot  = document.getElementById('zs-status-dot');
+  const text = document.getElementById('zs-status-text');
+  if (!dot || !text) return;
+  dot.className  = 'zs-dot ' + (connected ? 'green' : '');
+  text.textContent = msg;
+}
+
+async function zsStartSession(orderId) {
+  zsSetBar(false, 'Opening session…');
+  try {
+    const r = await fetch(`${API}/api/zomato-support/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ order_id: orderId || '' }),
+    });
+    const d = await r.json();
+    if (r.status === 401) { zsSetBar(false, 'Token expired — refresh tokens above'); return; }
+    if (!r.ok) { zsSetBar(false, d.detail || 'Error opening session'); return; }
+    _zsConvId = d.session?.conversationId;
+    document.getElementById('zs-conv-id').textContent = _zsConvId || 'Session open';
+    document.getElementById('zs-resolve-btn').style.display = '';
+    document.getElementById('zs-send-btn').disabled = false;
+    zsSetBar(true, 'Connected · ' + (_zsConvId || ''));
+    await zsLoadMessages();
+    zsStartPolling();
+  } catch(e) { zsSetBar(false, String(e)); }
+}
+
+async function zsLoadMessages() {
+  if (!_zsConvId) return;
+  try {
+    const r = await fetch(`${API}/api/zomato-support/messages?conversation_id=${encodeURIComponent(_zsConvId)}&older=false`, {
+      headers: { Authorization: `Bearer ${_lsToken}` }
+    });
+    if (r.status === 401) { zsSetBar(false, 'Token expired'); return; }
+    const d = await r.json();
+    zsRenderMessages(d);
+    zsSetBar(true, 'Last refreshed ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true}));
+  } catch(e) { zsSetBar(false, 'Fetch error: ' + e); }
+}
+
+function zsRenderMessages(data) {
+  const container = document.getElementById('zs-msgs');
+  if (!container) return;
+  // Nugget returns { messages: [...] } or an array
+  const msgs = Array.isArray(data) ? data : (data.messages || data.data || []);
+  if (!msgs.length) {
+    container.innerHTML = '<div class="zs-msgs-empty">No messages yet. The bot may reply shortly.</div>';
+    return;
+  }
+  container.innerHTML = msgs.map(m => {
+    const isUser   = m.senderType === 'user' || m.sender_type === 'user' || m.userId;
+    const side     = isUser ? 'user' : 'agent';
+    const text     = m.message?.payload?.text || m.payload?.text || m.text || m.content || JSON.stringify(m.message || m);
+    const sender   = isUser ? 'You' : (m.senderName || m.sender_name || 'Zomato Support');
+    const ts       = m.createdAt || m.created_at || m.timestamp || '';
+    const timeStr  = ts ? new Date(typeof ts === 'number' ? ts : ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
+    return `<div class="zs-msg ${side}">
+      <div class="zs-msg-sender">${sender}</div>
+      <div class="zs-bubble">${String(text).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
+      ${timeStr ? `<div class="zs-msg-meta">${timeStr}</div>` : ''}
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function zsSend() {
+  const input = document.getElementById('zs-input');
+  const msg   = (input?.value || '').trim();
+  if (!msg || !_zsConvId) return;
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('zs-send-btn').disabled = true;
+  try {
+    const r = await fetch(`${API}/api/zomato-support/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ conversation_id: _zsConvId, message: msg }),
+    });
+    if (r.status === 401) { zsSetBar(false, 'Token expired'); return; }
+    await zsLoadMessages();
+  } catch(e) { zsSetBar(false, String(e)); }
+  finally { document.getElementById('zs-send-btn').disabled = false; }
+}
+
+async function zsResolve() {
+  if (!_zsConvId || !confirm('Resolve this support chat?')) return;
+  try {
+    await fetch(`${API}/api/zomato-support/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ conversation_id: _zsConvId }),
+    });
+    _zsConvId = null;
+    document.getElementById('zs-conv-id').textContent = 'No active session';
+    document.getElementById('zs-resolve-btn').style.display = 'none';
+    document.getElementById('zs-send-btn').disabled = true;
+    document.getElementById('zs-msgs').innerHTML = '<div class="zs-msgs-empty">Ticket resolved.</div>';
+    zsSetBar(false, 'Resolved');
+    zsStopPolling();
+  } catch(e) { alert('Error: ' + e); }
+}
+
+function zsStartPolling() {
+  zsStopPolling();
+  _zsPolling = setInterval(() => { if (_zsConvId) zsLoadMessages(); }, 15000);
+}
+function zsStopPolling() {
+  if (_zsPolling) { clearInterval(_zsPolling); _zsPolling = null; }
 }
 
 </script>
