@@ -10541,7 +10541,7 @@ async function zsStartSession(orderId) {
 async function zsLoadMessages() {
   if (!_zsConvId) return;
   try {
-    const r = await fetch(`${API}/api/zomato-support/messages?conversation_id=${encodeURIComponent(_zsConvId)}&older=false`, {
+    const r = await fetch(`${API}/api/zomato-support/messages?conversation_id=${encodeURIComponent(_zsConvId)}&older=true`, {
       headers: { Authorization: `Bearer ${_lsToken}` }
     });
     if (r.status === 401) { zsSetBar(false, 'Token expired'); return; }
@@ -10554,25 +10554,66 @@ async function zsLoadMessages() {
 function zsRenderMessages(data) {
   const container = document.getElementById('zs-msgs');
   if (!container) return;
-  // Nugget returns { messages: [...] } or an array
   const msgs = Array.isArray(data) ? data : (data.messages || data.data || []);
-  if (!msgs.length) {
-    container.innerHTML = '<div class="zs-msgs-empty">No messages yet. The bot may reply shortly.</div>';
+
+  // Filter out data_message (session tracking only, no visible text)
+  const visible = msgs.filter(m => m.contentType !== 'data_message');
+  if (!visible.length) {
+    container.innerHTML = '<div class="zs-msgs-empty">No messages yet.</div>';
     return;
   }
-  container.innerHTML = msgs.map(m => {
-    const isUser   = m.senderType === 'user' || m.sender_type === 'user' || m.userId;
-    const side     = isUser ? 'user' : 'agent';
-    const text     = m.message?.payload?.text || m.payload?.text || m.text || m.content || JSON.stringify(m.message || m);
-    const sender   = isUser ? 'You' : (m.senderName || m.sender_name || 'Zomato Support');
-    const ts       = m.createdAt || m.created_at || m.timestamp || '';
-    const timeStr  = ts ? new Date(typeof ts === 'number' ? ts : ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
+
+  // Mark unread bot messages as read
+  const unreadIds = visible
+    .filter(m => m.contentType !== 'email_message' && m.messageId && !m.isReadByAll)
+    .map(m => m.messageId);
+  if (unreadIds.length && _zsConvId) {
+    fetch(`${API}/api/zomato-support/read-receipts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ conversation_id: _zsConvId, message_ids: unreadIds }),
+    }).catch(() => {});
+  }
+
+  container.innerHTML = visible.map(m => {
+    // User messages: contentType=email_message, text in content.data.content
+    // Bot messages: contentType=journey_message, text in content.data.dynamic_node.header.copy_text_config.text
+    const isUser = m.contentType === 'email_message';
+    const side   = isUser ? 'user' : 'agent';
+
+    let text = '';
+    try {
+      const d = m.content?.data;
+      if (isUser) {
+        text = d?.content || '';
+      } else {
+        // Try copy_text_config first (plain text bot messages)
+        const node = d?.dynamic_node;
+        text = node?.header?.copy_text_config?.text
+          || node?.header?.component_copy_text?.text
+          || d?.content
+          || '';
+        // If still empty, try to find any text in the dynamic_node body components
+        if (!text && node?.body) {
+          for (const comp of (node.body || [])) {
+            const t = comp?.copy_text_config?.text || comp?.text;
+            if (t) { text = t; break; }
+          }
+        }
+      }
+    } catch(e) { text = ''; }
+
+    if (!text) return ''; // skip purely structural messages
+
+    const sender  = isUser ? 'You' : (m.senderInfo?.senderName || m.senderInfo?.displayName || 'Zomato Support');
+    const ts      = m.timestamp || '';
+    const timeStr = ts ? new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
     return `<div class="zs-msg ${side}">
       <div class="zs-msg-sender">${sender}</div>
       <div class="zs-bubble">${String(text).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
       ${timeStr ? `<div class="zs-msg-meta">${timeStr}</div>` : ''}
     </div>`;
-  }).join('');
+  }).filter(Boolean).join('');
   container.scrollTop = container.scrollHeight;
 }
 
