@@ -8071,6 +8071,13 @@ function _clFmtTime(ts) {
   return p.length >= 2 ? p[1].substring(0,5) : ts;
 }
 function _clEsc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
+// Google Drive uc?id= URLs no longer embed directly — convert to thumbnail endpoint
+function fixDriveUrl(url) {
+  if (!url) return url;
+  const m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w800`;
+  return url;
+}
 let _clSubmissionMap = {};
 
 const CL_SLOT_COLORS = { Morning:'#d97706', 'Mid Day':'#2563eb', Closing:'#7c3aed' };
@@ -8339,7 +8346,7 @@ async function clOpenResponses(submissionId, slot, by, time) {
       <div class="cl-resp-card">
         <div class="cl-resp-q"><div class="cl-resp-qbadge">${i+1}</div><div class="cl-resp-qtext">${_clEsc(resp.question)}</div></div>
         <div class="cl-resp-ans ${resp.answer==='Yes'?'yes':resp.answer==='No'?'no':''}">${_clEsc(resp.answer||'—')}</div>
-        ${resp.image_url?`<img class="cl-resp-img" data-src="${_clEsc(resp.image_url)}">`: ''}
+        ${resp.image_url?`<img class="cl-resp-img" data-src="${_clEsc(fixDriveUrl(resp.image_url))}">`: ''}
       </div>`).join('');
     body.querySelectorAll('img[data-src]').forEach(img => { img.src=img.dataset.src; img.onclick=()=>clFullscreenImg(img.dataset.src); });
   } catch(e) {
@@ -8438,7 +8445,7 @@ async function _clLoadCritical(date) {
               ${!row.submitted
                 ? '<span class="cl-not-sub">Not submitted</span>'
                 : `<span class="cl-ans-badge ${row.answer==='Yes'?'cl-ans-yes':'cl-ans-no'}">${_clEsc(row.answer||'—')}</span>
-                   ${row.image_url?`<img class="cl-thumb" data-src="${_clEsc(row.image_url)}">`:''}` }
+                   ${row.image_url?`<img class="cl-thumb" data-src="${_clEsc(fixDriveUrl(row.image_url))}">`:''}` }
             </div>
           </div>`;
         }).join('')}
