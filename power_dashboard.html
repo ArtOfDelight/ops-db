@@ -1395,9 +1395,9 @@ function renderLog(summaryData) {
       ${statBlock(o.last_7_days_mins, o.last_7_days_fmt, '7 Days')}
       ${statBlock(o.last_28_days_mins, o.last_28_days_fmt, '28 Days')}
     </div>`;
-    const platRows = ['swiggy_aod','swiggy_fc','zomato'].map(key => {
+    const platRows = ['swiggy_aod','swiggy_fc','zomato','ownly'].map(key => {
       const p = pd[key] || {};
-      const label = key === 'swiggy_aod' ? 'Swiggy AOD' : key === 'swiggy_fc' ? 'Swiggy FC' : 'Zomato';
+      const label = key === 'swiggy_aod' ? 'Swiggy AOD' : key === 'swiggy_fc' ? 'Swiggy FC' : key === 'zomato' ? 'Zomato' : 'Ownly';
       return `<div class="oc-source-label">${label} Offline</div>
       <div class="oc-stats-row">
         ${statBlock(p.last_7_days_mins||0, p.last_7_days_fmt||'0m', '7 Days')}
@@ -1426,9 +1426,9 @@ function renderLog(summaryData) {
         <div><div class="detail-title">⚡ Power Cut Log</div>
           <div class="detail-note">Physical outages — operating hours only</div></div>
       </div>${incidentTable(o.recent_outages || [], ['Power Off','Power On'])}`;
-    const platSections = ['swiggy_aod','swiggy_fc','zomato'].map(key => {
+    const platSections = ['swiggy_aod','swiggy_fc','zomato','ownly'].map(key => {
       const p = pd[key] || {};
-      const label = key === 'swiggy_aod' ? 'Swiggy AOD' : key === 'swiggy_fc' ? 'Swiggy FC' : 'Zomato';
+      const label = key === 'swiggy_aod' ? 'Swiggy AOD' : key === 'swiggy_fc' ? 'Swiggy FC' : key === 'zomato' ? 'Zomato' : 'Ownly';
       return `<div class="detail-head" style="border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
         <div><div class="detail-title">📡 ${label} Platform Offline</div>
           <div class="detail-note">Live status checks — operating hours only</div></div>
@@ -1578,6 +1578,7 @@ function renderPlatform(summaryData, platformData) {
     { key: 'swiggy_aod', label: 'Swiggy AOD' },
     { key: 'swiggy_fc',  label: 'Swiggy FC'  },
     { key: 'zomato',     label: 'Zomato'      },
+    { key: 'ownly',      label: 'Ownly'       },
   ];
 
   const platHeaders = PLATS.map(p => `
