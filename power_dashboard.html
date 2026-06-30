@@ -2771,12 +2771,24 @@ async function prLoad() {
     const statusEl = document.getElementById('pr-status');
     if (statusEl) statusEl.textContent = products.length ? `${products.length} products · ${d.date_from} → ${d.date_to}${outlet ? ' · ' + outlet : ''}` : '';
     prRenderTable(products, el);
+    // fetch previous equivalent period in background for volume trend cards
+    const days = Math.round((new Date(to) - new Date(from)) / 86400000);
+    const prevTo   = new Date(from); prevTo.setDate(prevTo.getDate() - 1);
+    const prevFrom = new Date(prevTo); prevFrom.setDate(prevTo.getDate() - days);
+    const fmt = d => d.toISOString().split('T')[0];
+    let prevUrl = `${API}/api/admin/product-rankings?date_from=${fmt(prevFrom)}&date_to=${fmt(prevTo)}`;
+    if (outlet) prevUrl += `&outlet=${encodeURIComponent(outlet)}`;
+    fetch(prevUrl, { headers: { 'Authorization': `Bearer ${_lsToken}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { _prPrevData = (d && d.products) || []; prDrawTable(); })
+      .catch(() => {});
   } catch(e) {
     if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
   }
 }
 
 let _prData = [];
+let _prPrevData = [];
 let _prSort = { key: 'online_orders', dir: -1 };
 
 function prRenderTable(products, el) {
@@ -2982,18 +2994,33 @@ function prDrawTable(el) {
     const bestRated  = [...qualified].sort((a,b) => (b.net_pct||0) - (a.net_pct||0));
     const trendUp    = [...qualified].sort((a,b) => (b.high_pct||0) - (a.high_pct||0));
     const trendDown  = [...qualified].sort((a,b) => (a.high_pct||0) - (b.high_pct||0));
+    const mostError  = [...qualified].sort((a,b) => (b.error_pct||0) - (a.error_pct||0));
+
+    // volume trend: compare current orders vs previous period
+    const prevMap = {};
+    _prPrevData.forEach(p => { prevMap[p.product] = p; });
+    const withVolDelta = qualified.map(p => {
+      const prev = prevMap[p.product];
+      const delta = prev ? (p[oKey] || 0) - (prev[oKey] || 0) : null;
+      return { ...p, _volDelta: delta };
+    }).filter(p => p._volDelta !== null);
+    const volUp   = [...withVolDelta].sort((a,b) => b._volDelta - a._volDelta);
+    const volDown = [...withVolDelta].sort((a,b) => a._volDelta - b._volDelta);
 
     const c1 = hlCard('Best Rated', '⭐', bestRated,
       p => `${p.net_pct}%`, 'color:var(--green)');
-    const mostError  = [...qualified].sort((a,b) => (b.error_pct||0) - (a.error_pct||0));
     const c2 = hlCard('Most Errors', '🚨', mostError,
       p => `${p.error_pct}%`, 'color:var(--red)');
-    const c3 = hlCard('Trending Up', '📈', trendUp,
-      p => `${p.high_pct}% ↑`, 'color:var(--green)');
-    const c4 = hlCard('Trending Down', '📉', trendDown,
-      p => `${p.high_pct}% ↓`, 'color:var(--red)');
+    const c3 = hlCard('Rating Trend ↑', '📈', trendUp,
+      p => `${p.high_pct}% high`, 'color:var(--green)');
+    const c4 = hlCard('Rating Trend ↓', '📉', trendDown,
+      p => `${p.high_pct}% high`, 'color:var(--red)');
+    const c5 = hlCard('Volume Up', '🚀', volUp,
+      p => `+${p._volDelta} ord`, 'color:var(--green)');
+    const c6 = hlCard('Volume Down', '📦', volDown,
+      p => `${p._volDelta} ord`, 'color:var(--red)');
 
-    const cards = [c1, c2, c3, c4].filter(Boolean).join('');
+    const cards = [c1, c2, c3, c4, c5, c6].filter(Boolean).join('');
     if (cards) {
       highlightsHtml = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">${cards}</div>`;
     }
