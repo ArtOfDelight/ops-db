@@ -2956,9 +2956,57 @@ function prDrawTable(el) {
     </tr></tfoot>`;
   }
 
+  // ── Highlights strip (only on online/combined where ratings exist) ──
+  let highlightsHtml = '';
+  if (view !== 'dinein' && view !== 'kpt' && sorted.length) {
+    const MIN40 = 40;
+    const oKey  = orderKey; // already computed above
+    const ratedSorted = [...sorted].filter(p => (p.total_rated || 0) > 0);
+    const with40      = [...sorted].filter(p => (p[oKey] || 0) >= MIN40);
+
+    const hlCard = (title, icon, items, valFn, cls) => {
+      if (!items.length) return '';
+      const rows = items.slice(0, 5).map((p, i) => {
+        const name = p.product.length > 28 ? p.product.slice(0, 26) + '…' : p.product;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;${i < items.slice(0,5).length-1?'border-bottom:1px solid var(--border)':''}">
+          <span style="font-size:11px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${p.product}">${name}</span>
+          <span style="font-size:11px;font-family:var(--mono);font-weight:700;flex-shrink:0;margin-left:8px;${cls}">${valFn(p)}</span>
+        </div>`;
+      }).join('');
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;min-width:220px;flex:1">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3);font-family:var(--mono);margin-bottom:10px">${icon} ${title}</div>
+        ${rows}
+      </div>`;
+    };
+
+    const bestRated  = [...ratedSorted].sort((a,b) => (b.net_pct||0) - (a.net_pct||0));
+    const worstRated = [...ratedSorted].sort((a,b) => (a.net_pct||0) - (b.net_pct||0));
+    const trendUp    = [...ratedSorted].sort((a,b) => (b.high_pct||0) - (a.high_pct||0));
+    const trendDown  = [...ratedSorted].sort((a,b) => (a.high_pct||0) - (b.high_pct||0));
+
+    const c1 = hlCard(`Min ${MIN40} Orders`, '📦', with40,
+      p => `${p[oKey].toLocaleString()} ord`, 'color:var(--blue)');
+    const c2 = hlCard('Best Rated', '⭐', bestRated,
+      p => `${p.net_pct}%`, 'color:var(--green)');
+    const c3 = hlCard('Lowest Rated', '👎', worstRated,
+      p => `${p.net_pct}%`, 'color:var(--red)');
+    const c4 = hlCard('Trending Up', '📈', trendUp,
+      p => `${p.high_pct}% ↑`, 'color:var(--green)');
+    const c5 = hlCard('Trending Down', '📉', trendDown,
+      p => `${p.high_pct}% ↓`, 'color:var(--red)');
+
+    const cards = [c1, c2, c3, c4, c5].filter(Boolean).join('');
+    if (cards) {
+      highlightsHtml = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">${cards}</div>`;
+    }
+  }
+
   const minW = view === 'dinein' ? '500px' : view === 'kpt' ? '900px' : view === 'combined' ? '1200px' : '1100px';
-  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:${minW}">${thead}<tbody>${rows}</tbody>${tfoot}</table></div>`;
-  if (!sorted.length) el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this view.</div>';
+  if (!sorted.length) {
+    el.innerHTML = highlightsHtml + '<div class="no-outages" style="padding:40px">No data for this view.</div>';
+  } else {
+    el.innerHTML = highlightsHtml + `<div style="overflow-x:auto"><table class="sc-table" style="min-width:${minW}">${thead}<tbody>${rows}</tbody>${tfoot}</table></div>`;
+  }
 }
 
 function prSortBy(key) {
