@@ -3031,8 +3031,8 @@ function prDrawTable(el) {
     const c6 = hlCard('Volume Down', '📦', volDown,
       p => `${p._volPct}% (${p._volDelta})`, 'color:var(--red)');
 
-    const row1 = [c1, c2, c3].filter(Boolean).join('');
-    const row2 = [c4, c5, c6].filter(Boolean).join('');
+    const row1 = [c1, c5, c3].filter(Boolean).join('');
+    const row2 = [c2, c6, c4].filter(Boolean).join('');
     if (row1 || row2) {
       highlightsHtml = `
         ${row1 ? `<div style="display:flex;gap:12px;margin-bottom:12px">${row1}</div>` : ''}
