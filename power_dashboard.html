@@ -2583,6 +2583,19 @@ function prSwitchSubTab(tab, skipState) {
             <input type="text" id="pr-search" class="pr-search-input" placeholder="Search product…" oninput="prDrawTable()"/>
           </div>
         </div>
+        <!-- Row 3: highlight thresholds -->
+        <div class="pr-toolbar-row" style="gap:20px">
+          <div class="pr-ctrl-group" style="gap:8px;align-items:center">
+            <span class="pr-ctrl-label">Highlight threshold — 7d:</span>
+            <input type="range" id="pr-hl-7" min="10" max="300" step="5" value="75" style="width:110px;cursor:pointer" oninput="document.getElementById('pr-hl-7-val').textContent=this.value;prDrawTable()"/>
+            <span id="pr-hl-7-val" style="font-size:11px;font-family:var(--mono);font-weight:700;color:var(--blue);min-width:28px">75</span>
+          </div>
+          <div class="pr-ctrl-group" style="gap:8px;align-items:center">
+            <span class="pr-ctrl-label">28d:</span>
+            <input type="range" id="pr-hl-28" min="50" max="1000" step="25" value="300" style="width:110px;cursor:pointer" oninput="document.getElementById('pr-hl-28-val').textContent=this.value;prDrawTable()"/>
+            <span id="pr-hl-28-val" style="font-size:11px;font-family:var(--mono);font-weight:700;color:var(--blue);min-width:36px">300</span>
+          </div>
+        </div>
       </div>
       <div id="pr-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     prSetPreset(7);
@@ -2972,7 +2985,9 @@ function prDrawTable(el) {
   let highlightsHtml = '';
   if (view !== 'dinein' && view !== 'kpt' && sorted.length) {
     const _is28 = document.getElementById('prtab-28')?.classList.contains('active');
-    const MIN40 = _is28 ? 300 : 75;
+    const MIN40 = _is28
+      ? (parseInt(document.getElementById('pr-hl-28')?.value) || 300)
+      : (parseInt(document.getElementById('pr-hl-7')?.value)  || 75);
     const oKey  = orderKey; // already computed above
     // only products with 40+ orders qualify for all highlight cards
     const qualified = [...sorted].filter(p => (p[oKey] || 0) >= MIN40 && (p.total_rated || 0) > 0);
