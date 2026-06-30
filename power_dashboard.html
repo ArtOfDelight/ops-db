@@ -2961,8 +2961,8 @@ function prDrawTable(el) {
   if (view !== 'dinein' && view !== 'kpt' && sorted.length) {
     const MIN40 = 40;
     const oKey  = orderKey; // already computed above
-    const ratedSorted = [...sorted].filter(p => (p.total_rated || 0) > 0);
-    const with40      = [...sorted].filter(p => (p[oKey] || 0) >= MIN40);
+    // only products with 40+ orders qualify for all highlight cards
+    const qualified = [...sorted].filter(p => (p[oKey] || 0) >= MIN40 && (p.total_rated || 0) > 0);
 
     const hlCard = (title, icon, items, valFn, cls) => {
       if (!items.length) return '';
@@ -2979,23 +2979,21 @@ function prDrawTable(el) {
       </div>`;
     };
 
-    const bestRated  = [...ratedSorted].sort((a,b) => (b.net_pct||0) - (a.net_pct||0));
-    const worstRated = [...ratedSorted].sort((a,b) => (a.net_pct||0) - (b.net_pct||0));
-    const trendUp    = [...ratedSorted].sort((a,b) => (b.high_pct||0) - (a.high_pct||0));
-    const trendDown  = [...ratedSorted].sort((a,b) => (a.high_pct||0) - (b.high_pct||0));
+    const bestRated  = [...qualified].sort((a,b) => (b.net_pct||0) - (a.net_pct||0));
+    const worstRated = [...qualified].sort((a,b) => (a.net_pct||0) - (b.net_pct||0));
+    const trendUp    = [...qualified].sort((a,b) => (b.high_pct||0) - (a.high_pct||0));
+    const trendDown  = [...qualified].sort((a,b) => (a.high_pct||0) - (b.high_pct||0));
 
-    const c1 = hlCard(`Min ${MIN40} Orders`, '📦', with40,
-      p => `${p[oKey].toLocaleString()} ord`, 'color:var(--blue)');
-    const c2 = hlCard('Best Rated', '⭐', bestRated,
+    const c1 = hlCard('Best Rated', '⭐', bestRated,
       p => `${p.net_pct}%`, 'color:var(--green)');
-    const c3 = hlCard('Lowest Rated', '👎', worstRated,
+    const c2 = hlCard('Lowest Rated', '👎', worstRated,
       p => `${p.net_pct}%`, 'color:var(--red)');
-    const c4 = hlCard('Trending Up', '📈', trendUp,
+    const c3 = hlCard('Trending Up', '📈', trendUp,
       p => `${p.high_pct}% ↑`, 'color:var(--green)');
-    const c5 = hlCard('Trending Down', '📉', trendDown,
+    const c4 = hlCard('Trending Down', '📉', trendDown,
       p => `${p.high_pct}% ↓`, 'color:var(--red)');
 
-    const cards = [c1, c2, c3, c4, c5].filter(Boolean).join('');
+    const cards = [c1, c2, c3, c4].filter(Boolean).join('');
     if (cards) {
       highlightsHtml = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">${cards}</div>`;
     }
