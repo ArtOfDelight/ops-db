@@ -10620,9 +10620,38 @@ function zsSetBar(connected, msg) {
   text.textContent = msg;
 }
 
+function zsLoadNuggetWidget(accessToken) {
+  // Load hidden Nugget widget to keep MQTT connection alive so Spark responds
+  const existing = document.getElementById('nugget-chat-widget');
+  if (existing) { existing.remove(); }
+  const oldScript = document.getElementById('nugget-embed-script');
+  if (oldScript) { oldScript.remove(); }
+  // Pre-init the NuggetChat queue
+  window.NuggetChat = { q: [] };
+  window.NuggetChat.q.push(['init', {
+    accessToken: accessToken,
+    domain: 'eternal.nugget.com',
+    alwaysHideBubble: true,
+    initiallyVisible: false,
+    initiallyExpanded: false,
+  }]);
+  const s = document.createElement('script');
+  s.id = 'nugget-embed-script';
+  s.src = 'https://eternal.nugget.com/user/chat-embed.js';
+  s.async = true;
+  document.body.appendChild(s);
+}
+
 async function zsStartSession(orderId) {
   zsSetBar(false, 'Opening session…');
   try {
+    // Load Nugget widget in background to maintain MQTT (needed for Spark to respond)
+    const authR = await fetch(`${API}/api/admin/zomato-support/auth`, {
+      headers: { Authorization: `Bearer ${_lsToken}` },
+    });
+    const authD = await authR.json();
+    if (authD.access_token) zsLoadNuggetWidget(authD.access_token);
+
     const r = await fetch(`${API}/api/zomato-support/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
@@ -10690,16 +10719,17 @@ function zsRenderMessages(data) {
       if (isUser) {
         text = d?.content || '';
       } else {
-        // Try copy_text_config first (plain text bot messages)
         const node = d?.dynamic_node;
-        text = node?.header?.copy_text_config?.text
-          || node?.header?.component_copy_text?.text
+        const hdr = node?.header;
+        text = hdr?.copy_text_config?.text
+          || hdr?.component_copy_text?.text
+          || hdr?.text_snippet_type_3?.title?.text
+          || hdr?.text_snippet_type_3?.subtitle?.text
           || d?.content
           || '';
-        // If still empty, try to find any text in the dynamic_node body components
         if (!text && node?.body) {
           for (const comp of (node.body || [])) {
-            const t = comp?.copy_text_config?.text || comp?.text;
+            const t = comp?.copy_text_config?.text || comp?.text_snippet_type_3?.title?.text || comp?.text;
             if (t) { text = t; break; }
           }
         }
