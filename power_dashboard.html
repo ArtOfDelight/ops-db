@@ -2810,8 +2810,8 @@ function prDrawTable(el) {
     .filter(p => (p[orderKey] || 0) >= minOrders)
     .filter(p => !catFilter || (p.category || '') === catFilter)
     .filter(p => !searchQ || (p.product || '').toLowerCase().includes(searchQ))
-    // hide products with 0 orders AND 0 ratings (keep rated items even if Rista name didn't match)
-    .filter(p => (p[orderKey] || 0) > 0 || (p.total_rated || 0) > 0)
+    // hide products with 0 orders in current view
+    .filter(p => (p[orderKey] || 0) > 0 || view === 'combined')
     .sort((a, b) => {
       const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
       return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir;
