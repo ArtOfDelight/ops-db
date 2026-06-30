@@ -2992,9 +2992,17 @@ function prDrawTable(el) {
     };
 
     const bestRated  = [...qualified].sort((a,b) => (b.net_pct||0) - (a.net_pct||0));
-    const trendUp    = [...qualified].sort((a,b) => (b.high_pct||0) - (a.high_pct||0));
-    const trendDown  = [...qualified].sort((a,b) => (a.high_pct||0) - (b.high_pct||0));
     const mostError  = [...qualified].sort((a,b) => (b.error_pct||0) - (a.error_pct||0));
+
+    // rating trend: % growth in high_pct vs previous period
+    const withRatingDelta = qualified.map(p => {
+      const prev = prevMap[p.product];
+      if (!prev || !(prev.high_pct > 0)) return null;
+      const growthPct = Math.round(((p.high_pct - prev.high_pct) / prev.high_pct) * 100);
+      return { ...p, _ratingGrowth: growthPct, _prevHighPct: prev.high_pct };
+    }).filter(Boolean);
+    const trendUp   = [...withRatingDelta].sort((a,b) => b._ratingGrowth - a._ratingGrowth);
+    const trendDown = [...withRatingDelta].sort((a,b) => a._ratingGrowth - b._ratingGrowth);
 
     // volume trend: compare current orders vs previous period
     const prevMap = {};
@@ -3015,9 +3023,9 @@ function prDrawTable(el) {
     const c2 = hlCard('Most Errors', '🚨', mostError,
       p => `${p.error_pct}%`, 'color:var(--red)');
     const c3 = hlCard('Rating Trend ↑', '📈', trendUp,
-      p => `${p.high_pct}% high`, 'color:var(--green)');
+      p => `+${p._ratingGrowth}% (${p._prevHighPct}→${p.high_pct}%)`, 'color:var(--green)');
     const c4 = hlCard('Rating Trend ↓', '📉', trendDown,
-      p => `${p.high_pct}% high`, 'color:var(--red)');
+      p => `${p._ratingGrowth}% (${p._prevHighPct}→${p.high_pct}%)`, 'color:var(--red)');
     const c5 = hlCard('Volume Up', '🚀', volUp,
       p => `+${p._volPct}% (${p._volDelta>0?'+':''}${p._volDelta})`, 'color:var(--green)');
     const c6 = hlCard('Volume Down', '📦', volDown,
