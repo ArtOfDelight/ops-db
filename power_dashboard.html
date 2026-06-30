@@ -2971,8 +2971,8 @@ function prDrawTable(el) {
   // ── Highlights strip (only on online/combined where ratings exist) ──
   let highlightsHtml = '';
   if (view !== 'dinein' && view !== 'kpt' && sorted.length) {
-    const _prDays = Math.round((new Date(document.getElementById('pr-end')?.value) - new Date(document.getElementById('pr-start')?.value)) / 86400000) + 1;
-    const MIN40 = _prDays >= 25 ? 200 : 40;
+    const _is28 = document.getElementById('prtab-28')?.classList.contains('active');
+    const MIN40 = _is28 ? 200 : 40;
     const oKey  = orderKey; // already computed above
     // only products with 40+ orders qualify for all highlight cards
     const qualified = [...sorted].filter(p => (p[oKey] || 0) >= MIN40 && (p.total_rated || 0) > 0);
