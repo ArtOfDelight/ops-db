@@ -2972,7 +2972,7 @@ function prDrawTable(el) {
   let highlightsHtml = '';
   if (view !== 'dinein' && view !== 'kpt' && sorted.length) {
     const _is28 = document.getElementById('prtab-28')?.classList.contains('active');
-    const MIN40 = _is28 ? 200 : 40;
+    const MIN40 = _is28 ? 300 : 75;
     const oKey  = orderKey; // already computed above
     // only products with 40+ orders qualify for all highlight cards
     const qualified = [...sorted].filter(p => (p[oKey] || 0) >= MIN40 && (p.total_rated || 0) > 0);
