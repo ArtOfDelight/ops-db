@@ -2994,6 +2994,10 @@ function prDrawTable(el) {
     const bestRated  = [...qualified].sort((a,b) => (b.net_pct||0) - (a.net_pct||0));
     const mostError  = [...qualified].sort((a,b) => (b.error_pct||0) - (a.error_pct||0));
 
+    // build prev period lookup first — used by both rating and volume trend cards
+    const prevMap = {};
+    _prPrevData.forEach(p => { prevMap[p.product] = p; });
+
     // rating trend: % growth in high_pct vs previous period
     const withRatingDelta = qualified.map(p => {
       const prev = prevMap[p.product];
@@ -3003,10 +3007,6 @@ function prDrawTable(el) {
     }).filter(Boolean);
     const trendUp   = [...withRatingDelta].sort((a,b) => b._ratingGrowth - a._ratingGrowth);
     const trendDown = [...withRatingDelta].sort((a,b) => a._ratingGrowth - b._ratingGrowth);
-
-    // volume trend: compare current orders vs previous period
-    const prevMap = {};
-    _prPrevData.forEach(p => { prevMap[p.product] = p; });
     const withVolDelta = qualified.map(p => {
       const prev = prevMap[p.product];
       if (!prev) return null;
