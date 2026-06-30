@@ -3001,11 +3001,14 @@ function prDrawTable(el) {
     _prPrevData.forEach(p => { prevMap[p.product] = p; });
     const withVolDelta = qualified.map(p => {
       const prev = prevMap[p.product];
-      const delta = prev ? (p[oKey] || 0) - (prev[oKey] || 0) : null;
-      return { ...p, _volDelta: delta };
-    }).filter(p => p._volDelta !== null);
-    const volUp   = [...withVolDelta].sort((a,b) => b._volDelta - a._volDelta);
-    const volDown = [...withVolDelta].sort((a,b) => a._volDelta - b._volDelta);
+      if (!prev) return null;
+      const cur = p[oKey] || 0, prv = prev[oKey] || 0;
+      const delta = cur - prv;
+      const pct   = prv > 0 ? Math.round((delta / prv) * 100) : null;
+      return { ...p, _volDelta: delta, _volPct: pct };
+    }).filter(Boolean).filter(p => p._volPct !== null);
+    const volUp   = [...withVolDelta].sort((a,b) => b._volPct - a._volPct);
+    const volDown = [...withVolDelta].sort((a,b) => a._volPct - b._volPct);
 
     const c1 = hlCard('Best Rated', '⭐', bestRated,
       p => `${p.net_pct}%`, 'color:var(--green)');
@@ -3016,9 +3019,9 @@ function prDrawTable(el) {
     const c4 = hlCard('Rating Trend ↓', '📉', trendDown,
       p => `${p.high_pct}% high`, 'color:var(--red)');
     const c5 = hlCard('Volume Up', '🚀', volUp,
-      p => `+${p._volDelta} ord`, 'color:var(--green)');
+      p => `+${p._volPct}% (${p._volDelta>0?'+':''}${p._volDelta})`, 'color:var(--green)');
     const c6 = hlCard('Volume Down', '📦', volDown,
-      p => `${p._volDelta} ord`, 'color:var(--red)');
+      p => `${p._volPct}% (${p._volDelta})`, 'color:var(--red)');
 
     const cards = [c1, c2, c3, c4, c5, c6].filter(Boolean).join('');
     if (cards) {
