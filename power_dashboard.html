@@ -2757,19 +2757,35 @@ function prSetViewTab(tab) {
   prDrawTable();
 }
 
+let _prLoadToken = 0;
+let _prLoadAbort = null;
+
 async function prLoad() {
   const from   = document.getElementById('pr-start')?.value;
   const to     = document.getElementById('pr-end')?.value;
   const outlet = document.getElementById('pr-outlet')?.value || '';
   if (!from || !to) return;
+
+  // Cancel any in-flight load for a previous selection and claim a new token.
+  // Without this, switching date/outlet mid-load lets whichever response
+  // lands last silently overwrite the table — even if it's for a selection
+  // the user already moved away from.
+  if (_prLoadAbort) _prLoadAbort.abort();
+  const abortCtrl = new AbortController();
+  _prLoadAbort = abortCtrl;
+  const myToken = ++_prLoadToken;
+  const isStale = () => myToken !== _prLoadToken;
+
   const el = document.getElementById('pr-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading… (Rista data may take 30–60s on first load)</div>';
   try {
     let url = `${API}/api/admin/product-rankings?date_from=${from}&date_to=${to}`;
     if (outlet) url += `&outlet=${encodeURIComponent(outlet)}`;
-    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` }, signal: abortCtrl.signal });
+    if (isStale()) return;
     if (r.status === 401 || r.status === 403) { lsLogout(); renderProductsPage(); return; }
     const d = await r.json();
+    if (isStale()) return;
     const products = d.products || [];
     // Populate outlet dropdown once (keep existing selection)
     const outSel = document.getElementById('pr-outlet');
@@ -2791,11 +2807,12 @@ async function prLoad() {
     const fmt = d => d.toISOString().split('T')[0];
     let prevUrl = `${API}/api/admin/product-rankings?date_from=${fmt(prevFrom)}&date_to=${fmt(prevTo)}`;
     if (outlet) prevUrl += `&outlet=${encodeURIComponent(outlet)}`;
-    fetch(prevUrl, { headers: { 'Authorization': `Bearer ${_lsToken}` } })
+    fetch(prevUrl, { headers: { 'Authorization': `Bearer ${_lsToken}` }, signal: abortCtrl.signal })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { _prPrevData = (d && d.products) || []; prDrawTable(); })
+      .then(d => { if (isStale()) return; _prPrevData = (d && d.products) || []; prDrawTable(); })
       .catch(() => {});
   } catch(e) {
+    if (e.name === 'AbortError' || isStale()) return;
     if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
   }
 }
@@ -10501,6 +10518,15 @@ function renderZomSupportPage() {
 .zs-msg-sender { font-size: 10px; font-weight: 600; color: var(--ink-3); margin-bottom: 1px; }
 .zs-msgs-empty { text-align: center; color: var(--ink-3); font-size: 13px; margin: auto; }
 
+/* Typing indicator */
+.zs-typing { display: none; padding: 8px 14px 4px; align-items: center; gap: 6px; }
+.zs-typing.visible { display: flex; }
+.zs-typing-label { font-size: 11px; color: var(--ink-3); }
+.zs-typing-dots { display: flex; gap: 4px; }
+.zs-typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: zsDot 1.2s infinite ease-in-out; }
+.zs-typing-dots span:nth-child(2) { animation-delay: .2s; }
+.zs-typing-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes zsDot { 0%,80%,100%{transform:scale(.7);opacity:.4} 40%{transform:scale(1);opacity:1} }
 /* Composer */
 .zs-composer { border-top: 1px solid var(--border); padding: 12px 14px; display: flex; gap: 8px; align-items: flex-end; background: var(--surface); }
 .zs-input { flex: 1; border: 1px solid var(--border); border-radius: var(--r); padding: 9px 12px; font-size: 13px; font-family: var(--sans); resize: none; min-height: 38px; max-height: 120px; color: var(--ink); background: var(--bg); }
@@ -10508,6 +10534,12 @@ function renderZomSupportPage() {
 .zs-send { width: 38px; height: 38px; border-radius: var(--r); border: none; background: var(--ink); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: opacity .15s; }
 .zs-send:hover { opacity: .8; }
 .zs-send:disabled { opacity: .4; cursor: default; }
+
+/* Bot options */
+.zs-bot-options { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px 18px 4px; border-top: 1px solid var(--border); background: var(--bg); }
+.zs-bot-btn { padding: 7px 14px; border: 1.5px solid var(--border-2); border-radius: 20px; background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 500; cursor: pointer; transition: background .12s, border-color .12s; }
+.zs-bot-btn:hover { background: var(--navy-3); border-color: var(--blue); }
+.zs-bot-btn:disabled { opacity: .45; cursor: default; }
 
 /* Status bar */
 .zs-status-bar { padding: 8px 18px; font-size: 11px; color: var(--ink-3); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
@@ -10546,14 +10578,21 @@ function renderZomSupportPage() {
         </div>
       </div>
       <div class="zs-chat-actions">
-        <button class="zs-btn zs-btn-ghost" onclick="zsStartSession()" id="zs-start-btn">New Ticket</button>
+        <button class="zs-btn zs-btn-ghost" onclick="zsStartSession()" id="zs-start-btn">↻ Open Spark Chat</button>
         <button class="zs-btn zs-btn-ghost" onclick="zsLoadMessages()" id="zs-refresh-btn">↻ Refresh</button>
         <button class="zs-btn zs-btn-ghost" onclick="zsResolve()" id="zs-resolve-btn" style="display:none">✓ Resolve</button>
       </div>
     </div>
 
     <div class="zs-msgs" id="zs-msgs">
-      <div class="zs-msgs-empty">Start a new ticket or load an existing conversation.</div>
+      <div class="zs-msgs-empty">Loading Spark chat…</div>
+    </div>
+
+    <div class="zs-bot-options" id="zs-bot-options" style="display:none"></div>
+
+    <div class="zs-typing" id="zs-typing">
+      <div class="zs-typing-dots"><span></span><span></span><span></span></div>
+      <span class="zs-typing-label">Spark is typing…</span>
     </div>
 
     <div class="zs-composer">
@@ -10572,6 +10611,8 @@ function renderZomSupportPage() {
 </div>`;
 
   zsCheckTokenStatus();
+  // Auto-open the live Spark chat synced from the Zomato widget
+  zsStartSession();
 }
 
 async function zsSaveTokens() {
@@ -10643,44 +10684,43 @@ function zsLoadNuggetWidget(accessToken) {
 }
 
 async function zsStartSession(orderId) {
-  zsSetBar(false, 'Opening session…');
-  try {
-    // Load Nugget widget in background to maintain MQTT (needed for Spark to respond)
-    const authR = await fetch(`${API}/api/admin/zomato-support/auth`, {
-      headers: { Authorization: `Bearer ${_lsToken}` },
-    });
-    const authD = await authR.json();
-    if (authD.access_token) zsLoadNuggetWidget(authD.access_token);
-
-    const r = await fetch(`${API}/api/zomato-support/session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
-      body: JSON.stringify({ order_id: orderId || '' }),
-    });
-    const d = await r.json();
-    if (r.status === 401) { zsSetBar(false, 'Token expired — refresh tokens above'); return; }
-    if (!r.ok) { zsSetBar(false, d.detail || 'Error opening session'); return; }
-    _zsConvId = d.session?.conversationId;
-    document.getElementById('zs-conv-id').textContent = _zsConvId || 'Session open';
-    document.getElementById('zs-resolve-btn').style.display = '';
-    document.getElementById('zs-send-btn').disabled = false;
-    zsSetBar(true, 'Connected · ' + (_zsConvId || ''));
-    await zsLoadMessages();
-    zsStartPolling();
-  } catch(e) { zsSetBar(false, String(e)); }
+  // Opens the active Spark chat (synced from the Zomato widget) and starts polling.
+  zsSetBar(false, 'Loading Spark chat…');
+  document.getElementById('zs-send-btn').disabled = false;
+  document.getElementById('zs-resolve-btn').style.display = '';
+  document.getElementById('zs-conv-id').textContent = 'Spark · live chat';
+  await zsLoadMessages();
+  zsStartPolling();
 }
 
 async function zsLoadMessages() {
-  if (!_zsConvId) return;
   try {
-    const r = await fetch(`${API}/api/zomato-support/messages?conversation_id=${encodeURIComponent(_zsConvId)}&older=true`, {
+    const r = await fetch(`${API}/api/zomato-support/messages?older=true`, {
       headers: { Authorization: `Bearer ${_lsToken}` }
     });
-    if (r.status === 401) { zsSetBar(false, 'Token expired'); return; }
+    if (r.status === 401) { zsSetBar(false, 'Tokens expired — re-sync from Zomato'); return; }
     const d = await r.json();
+    if (!r.ok) { zsSetBar(false, d.detail || 'Could not load messages'); return; }
     zsRenderMessages(d);
+    const _te = document.getElementById('zs-typing');
+    if (_te) _te.classList.remove('visible');
+    document.getElementById('zs-send-btn').disabled = false;
     zsSetBar(true, 'Last refreshed ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',hour12:true}));
   } catch(e) { zsSetBar(false, 'Fetch error: ' + e); }
+}
+
+let _zsBotMeta = null;
+let _zsBotItems = [];
+
+// Light markdown → HTML for Spark replies (escapes HTML first)
+function zsMd(text) {
+  let s = String(text)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');     // **bold**
+  s = s.replace(/(^|\n)\s*[-•]\s+/g, '$1• ');          // list bullets
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank">$1</a>'); // links
+  s = s.replace(/\n/g, '<br>');
+  return s;
 }
 
 function zsRenderMessages(data) {
@@ -10708,16 +10748,15 @@ function zsRenderMessages(data) {
   }
 
   container.innerHTML = visible.map(m => {
-    // User messages: contentType=email_message, text in content.data.content
-    // Bot messages: contentType=journey_message, text in content.data.dynamic_node.header.copy_text_config.text
-    const isUser = m.contentType === 'email_message';
+    // pointOfView 'agent' = Spark/Zomato; anything else = us
+    const isUser = m.pointOfView !== 'agent';
     const side   = isUser ? 'user' : 'agent';
 
     let text = '';
     try {
       const d = m.content?.data;
-      if (isUser) {
-        text = d?.content || '';
+      if (m.contentType === 'email_message') {
+        text = d?.content || m.caption || '';
       } else {
         const node = d?.dynamic_node;
         const hdr = node?.header;
@@ -10726,6 +10765,7 @@ function zsRenderMessages(data) {
           || hdr?.text_snippet_type_3?.title?.text
           || hdr?.text_snippet_type_3?.subtitle?.text
           || d?.content
+          || m.caption
           || '';
         if (!text && node?.body) {
           for (const comp of (node.body || [])) {
@@ -10736,37 +10776,115 @@ function zsRenderMessages(data) {
       }
     } catch(e) { text = ''; }
 
-    if (!text) return ''; // skip purely structural messages
+    if (!text) return '';
 
-    const sender  = isUser ? 'You' : (m.senderInfo?.senderName || m.senderInfo?.displayName || 'Zomato Support');
+    const sender  = isUser ? 'You' : (m.senderInfo?.senderName || m.senderInfo?.displayName || 'Spark');
     const ts      = m.timestamp || '';
     const timeStr = ts ? new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}) : '';
     return `<div class="zs-msg ${side}">
       <div class="zs-msg-sender">${sender}</div>
-      <div class="zs-bubble">${String(text).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>
+      <div class="zs-bubble">${zsMd(text)}</div>
       ${timeStr ? `<div class="zs-msg-meta">${timeStr}</div>` : ''}
     </div>`;
   }).filter(Boolean).join('');
   container.scrollTop = container.scrollHeight;
+
+  // Capture conversationId from session info if present
+  try {
+    const sinfo = (data.sessionInfo || data.custom_data?.sessionInfo);
+    if (sinfo?.conversationId) _zsConvId = sinfo.conversationId;
+  } catch(e) {}
+
+  // Extract bot option buttons from last journey_message with items
+  const optionsEl = document.getElementById('zs-bot-options');
+  _zsBotMeta = null; _zsBotItems = [];
+  const lastBotMsg = [...visible].reverse().find(m =>
+    m.contentType === 'journey_message' && (m.content?.data?.dynamic_node?.items || []).length > 0
+  );
+  if (lastBotMsg && optionsEl) {
+    const node = lastBotMsg.content.data.dynamic_node;
+    _zsBotMeta = {
+      journey_id: node.journey_id,
+      journey_variable_id: node.journey_variable_id,
+      internal_message_id: lastBotMsg.content?.data?.internal_message_id || lastBotMsg.messageId,
+      message_id: lastBotMsg.messageId,
+    };
+    _zsBotItems = node.items;
+    optionsEl.innerHTML = node.items.map((item, i) => {
+      const label = item.text_snippet_type_3?.title?.text
+        || item.form_data?.text_snippet_type_3?.title?.text
+        || item.component_type || `Option ${i+1}`;
+      return `<button class="zs-bot-btn" onclick="zsBotClick(${i})">${String(label).replace(/</g,'&lt;')}</button>`;
+    }).join('');
+    optionsEl.style.display = '';
+  } else if (optionsEl) {
+    optionsEl.style.display = 'none';
+    optionsEl.innerHTML = '';
+  }
+}
+
+async function zsBotClick(idx) {
+  if (!_zsConvId || !_zsBotMeta || !_zsBotItems[idx]) return;
+  document.querySelectorAll('.zs-bot-btn').forEach(b => b.disabled = true);
+  const item = _zsBotItems[idx];
+  const formData = item.form_data || item;
+  try {
+    const r = await fetch(`${API}/api/zomato-support/bot`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({
+        conversation_id: _zsConvId,
+        journey_id: _zsBotMeta.journey_id,
+        journey_variable_id: _zsBotMeta.journey_variable_id,
+        session_journey_variable_id: _zsBotMeta.journey_variable_id,
+        internal_message_id: _zsBotMeta.internal_message_id,
+        message_id: _zsBotMeta.message_id,
+        form_response: JSON.stringify(formData),
+      }),
+    });
+    if (r.status === 401) { zsSetBar(false, 'Token expired — refresh tokens'); return; }
+    document.getElementById('zs-bot-options').style.display = 'none';
+    await new Promise(res => setTimeout(res, 1800));
+    await zsLoadMessages();
+  } catch(e) { zsSetBar(false, String(e)); }
 }
 
 async function zsSend() {
   const input = document.getElementById('zs-input');
   const msg   = (input?.value || '').trim();
-  if (!msg || !_zsConvId) return;
+  if (!msg) return;
   input.value = '';
   input.style.height = 'auto';
   document.getElementById('zs-send-btn').disabled = true;
+  // Optimistic echo
+  const container = document.getElementById('zs-msgs');
+  if (container) {
+    if (container.querySelector('.zs-msgs-empty')) container.innerHTML = '';
+    container.insertAdjacentHTML('beforeend',
+      `<div class="zs-msg user"><div class="zs-msg-sender">You</div><div class="zs-bubble">${zsMd(msg)}</div></div>`);
+    container.scrollTop = container.scrollHeight;
+  }
+  const typingEl = document.getElementById('zs-typing');
+  if (typingEl) typingEl.classList.add('visible');
+  zsSetBar(true, 'Spark is typing…');
   try {
     const r = await fetch(`${API}/api/zomato-support/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
-      body: JSON.stringify({ conversation_id: _zsConvId, message: msg }),
+      body: JSON.stringify({ message: msg }),
     });
-    if (r.status === 401) { zsSetBar(false, 'Token expired'); return; }
+    if (r.status === 401) { zsSetBar(false, 'Tokens expired — re-sync from Zomato'); return; }
+    const d = await r.json();
+    if (!r.ok) { zsSetBar(false, d.detail || 'Send failed'); return; }
+    // Spark replies async via the bot journey — poll a couple times to catch it
+    await new Promise(res => setTimeout(res, 1500));
     await zsLoadMessages();
+    setTimeout(zsLoadMessages, 2500);
   } catch(e) { zsSetBar(false, String(e)); }
-  finally { document.getElementById('zs-send-btn').disabled = false; }
+  finally {
+    document.getElementById('zs-send-btn').disabled = false;
+    if (typingEl) typingEl.classList.remove('visible');
+  }
 }
 
 async function zsResolve() {
