@@ -9893,9 +9893,37 @@ function ovRenderActionsList(container, showCompleted) {
     });
   });
 
+  // Add-action form, only on the Action Required (not Completed) tab — lets you
+  // log a custom issue directly here without opening a specific visit's detail panel.
+  let addActionHtml = '';
+  if (!showCompleted) {
+    // latest visit per outlet, so the custom action attaches somewhere sensible
+    const latestByOutlet = {};
+    _ovVisits.forEach(v => {
+      const key = v.outlet_name || v.outlet_code;
+      const ts = v.submitted_at ? new Date(v.submitted_at).getTime() : 0;
+      if (!latestByOutlet[key] || ts > latestByOutlet[key].ts) latestByOutlet[key] = { ts, visitId: v.visit_id };
+    });
+    const outletOptions = Object.keys(latestByOutlet).sort()
+      .map(o => `<option value="${latestByOutlet[o].visitId}">${o}</option>`).join('');
+    addActionHtml = `
+      <div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:14px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">+ Add Action</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select id="ovqAddOutlet" style="padding:8px 10px;font-size:13px;border-radius:6px;border:1px solid var(--border-2);background:#fff;min-width:160px">
+            ${outletOptions}
+          </select>
+          <input id="ovqAddInput" placeholder="Describe the issue / custom action needed…"
+            style="flex:1;min-width:220px;padding:8px 10px;font-size:13px;border-radius:6px;border:1px solid var(--border-2);outline:none;background:#fff" />
+          <button onclick="ovSubmitQuickAddAction()"
+            style="padding:8px 16px;font-size:12px;font-weight:600;border-radius:6px;border:0;background:#111827;color:#fff;cursor:pointer;white-space:nowrap">Add</button>
+        </div>
+      </div>`;
+  }
+
   if (allNoItems.length === 0) {
     const msg = showCompleted ? 'No completed actions yet.' : 'No open issues — everything is good! ✅';
-    container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">${msg}</div>`;
+    container.innerHTML = addActionHtml + `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">${msg}</div>`;
     return;
   }
 
@@ -9907,7 +9935,7 @@ function ovRenderActionsList(container, showCompleted) {
     byOutlet[key].push({ v, item });
   });
 
-  let html = '';
+  let html = addActionHtml;
   Object.entries(byOutlet).forEach(([outlet, entries]) => {
     html += `<div style="margin-bottom:28px">
       <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--border-1)">${outlet} <span style="font-size:11px;font-weight:500;color:var(--ink-3)">(${entries.length} issue${entries.length > 1 ? 's' : ''})</span></div>`;
@@ -10274,31 +10302,51 @@ function ovShowAddAction(visitId, forceHide) {
   if (show) document.getElementById(`ovAddActionInput-${visitId}`)?.focus();
 }
 
+async function ovPostAddAction(visitId, text) {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const res = await fetch(`${API}/outlet-visit/${encodeURIComponent(visitId)}/add-action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  if (!res.ok) throw new Error('Failed to add action');
+  const data = await res.json();
+  const visit = _ovVisits.find(v => v.visit_id === visitId);
+  if (visit) {
+    if (!visit.checklist_items) visit.checklist_items = [];
+    visit.checklist_items.push(data.item);
+    visit.total_items = (visit.total_items || 0) + 1;
+    visit.no_items = (visit.no_items || 0) + 1;
+  }
+  ovUpdatePendingBadge();
+  return data.item;
+}
+
 async function ovSubmitAddAction(visitId) {
   const input = document.getElementById(`ovAddActionInput-${visitId}`);
   const text = input ? input.value.trim() : '';
   if (!text) { alert('Please describe the action needed.'); return; }
-  const API = 'https://aodapp-backend.onrender.com/api';
   try {
-    const res = await fetch(`${API}/outlet-visit/${encodeURIComponent(visitId)}/add-action`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    if (!res.ok) throw new Error('Failed to add action');
-    const data = await res.json();
-    const visit = _ovVisits.find(v => v.visit_id === visitId);
-    if (visit) {
-      if (!visit.checklist_items) visit.checklist_items = [];
-      visit.checklist_items.push(data.item);
-      visit.total_items = (visit.total_items || 0) + 1;
-      visit.no_items = (visit.no_items || 0) + 1;
-    }
+    await ovPostAddAction(visitId, text);
     if (input) input.value = '';
     ovShowAddAction(visitId, true);
     const idx = _ovVisits.findIndex(v => v.visit_id === visitId);
     if (idx !== -1) ovShowDetail(idx);
-    ovUpdatePendingBadge();
+  } catch(e) {
+    alert('Failed to add action: ' + e.message);
+  }
+}
+
+async function ovSubmitQuickAddAction() {
+  const select = document.getElementById('ovqAddOutlet');
+  const input = document.getElementById('ovqAddInput');
+  const visitId = select ? select.value : '';
+  const text = input ? input.value.trim() : '';
+  if (!visitId) { alert('No outlet available — record a visit for this outlet first.'); return; }
+  if (!text) { alert('Please describe the action needed.'); return; }
+  try {
+    await ovPostAddAction(visitId, text);
+    ovRender();
   } catch(e) {
     alert('Failed to add action: ' + e.message);
   }
