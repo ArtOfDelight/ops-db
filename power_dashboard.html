@@ -10196,7 +10196,7 @@ function ovShowDetail(idx) {
         <div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border-1);${isNo ? 'background:#FEF9F9;border-radius:4px;padding:6px 4px;' : ''}">
           <span style="font-size:13px;flex-shrink:0">${icon}</span>
           <div style="flex:1">
-            <div style="font-size:12px;color:var(--ink)">${item.text || item.id}</div>
+            <div style="font-size:12px;color:var(--ink)">${item.text || item.id}${item.is_custom ? ' <span style="font-size:9px;font-weight:700;color:#7C3AED;background:#F3E8FF;padding:1px 6px;border-radius:4px;margin-left:4px">CUSTOM</span>' : ''}</div>
             ${item.note ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">Issue: ${item.note}</div>` : ''}
             ${item.action_taken ? `<div style="font-size:11px;color:#16A34A;margin-top:2px">Action: ${item.action_taken}</div>` : ''}
           </div>
@@ -10238,7 +10238,21 @@ function ovShowDetail(idx) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
         <div style="padding:20px;border-right:1px solid var(--border-1)">
-          <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">Checklist Results</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--ink)">Checklist Results</div>
+            <button onclick="ovShowAddAction('${v.visit_id}')" id="ovAddActionBtn-${v.visit_id}"
+              style="padding:4px 10px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">+ Add Action</button>
+          </div>
+          <div id="ovAddActionForm-${v.visit_id}" style="display:none;margin-bottom:14px;background:var(--surface-2);border:1px solid var(--border-1);border-radius:8px;padding:10px">
+            <input id="ovAddActionInput-${v.visit_id}" placeholder="Describe the issue / custom action needed…"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:13px;border-radius:6px;border:1px solid var(--border-2);outline:none;background:#fff;margin-bottom:8px" />
+            <div style="display:flex;gap:8px">
+              <button onclick="ovSubmitAddAction('${v.visit_id}')"
+                style="padding:6px 14px;font-size:12px;font-weight:600;border-radius:6px;border:0;background:#111827;color:#fff;cursor:pointer">Add</button>
+              <button onclick="ovShowAddAction('${v.visit_id}', true)"
+                style="padding:6px 14px;font-size:12px;font-weight:600;border-radius:6px;border:1px solid var(--border-2);background:#fff;color:var(--ink);cursor:pointer">Cancel</button>
+            </div>
+          </div>
           ${checklistHtml}
         </div>
         <div style="padding:20px">
@@ -10250,6 +10264,44 @@ function ovShowDetail(idx) {
     </div>`;
 
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function ovShowAddAction(visitId, forceHide) {
+  const form = document.getElementById(`ovAddActionForm-${visitId}`);
+  if (!form) return;
+  const show = forceHide ? false : form.style.display === 'none';
+  form.style.display = show ? '' : 'none';
+  if (show) document.getElementById(`ovAddActionInput-${visitId}`)?.focus();
+}
+
+async function ovSubmitAddAction(visitId) {
+  const input = document.getElementById(`ovAddActionInput-${visitId}`);
+  const text = input ? input.value.trim() : '';
+  if (!text) { alert('Please describe the action needed.'); return; }
+  const API = 'https://aodapp-backend.onrender.com/api';
+  try {
+    const res = await fetch(`${API}/outlet-visit/${encodeURIComponent(visitId)}/add-action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) throw new Error('Failed to add action');
+    const data = await res.json();
+    const visit = _ovVisits.find(v => v.visit_id === visitId);
+    if (visit) {
+      if (!visit.checklist_items) visit.checklist_items = [];
+      visit.checklist_items.push(data.item);
+      visit.total_items = (visit.total_items || 0) + 1;
+      visit.no_items = (visit.no_items || 0) + 1;
+    }
+    if (input) input.value = '';
+    ovShowAddAction(visitId, true);
+    const idx = _ovVisits.findIndex(v => v.visit_id === visitId);
+    if (idx !== -1) ovShowDetail(idx);
+    ovUpdatePendingBadge();
+  } catch(e) {
+    alert('Failed to add action: ' + e.message);
+  }
 }
 
 /* ── STAFF FEEDBACK PAGE ── */
