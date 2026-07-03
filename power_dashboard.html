@@ -9705,7 +9705,7 @@ async function renderOutletVisitPage() {
       <!-- Tabs -->
       <div style="display:flex;gap:0;border-bottom:2px solid var(--border-1);margin-bottom:20px">
         <button id="ovTab-visits" onclick="ovSwitchTab('visits')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid var(--blue);margin-bottom:-2px;color:var(--blue)">All Visits</button>
-        <button id="ovTab-actions" onclick="ovSwitchTab('actions')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">⚠️ Action Required</button>
+        <button id="ovTab-actions" onclick="ovSwitchTab('actions')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">⚠️ Action Required<span id="ovActionsPendingBadge"></span></button>
         <button id="ovTab-completed" onclick="ovSwitchTab('completed')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">✅ Completed Actions</button>
         <button id="ovTab-summary" onclick="ovSwitchTab('summary')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">📊 Question Summary</button>
         <button id="ovTab-stafffeedback" onclick="ovSwitchTab('stafffeedback')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">💬 Staff Feedback</button>
@@ -9768,7 +9768,10 @@ async function ovLoad() {
   try {
     const res = await fetch(url);
     const data = await res.json();
-    _ovVisits = data.visits || [];
+    // Feedback-only submissions (from the admin "Give Staff Feedback" flow) have no
+    // checklist — keep them out of the visits/actions/summary tabs; they still show
+    // up in the Staff Feedback tab, which reads from its own separate fetch.
+    _ovVisits = (data.visits || []).filter(v => !v.feedback_only);
     loading.style.display = 'none';
     content.style.display = '';
     ovRender();
@@ -9777,9 +9780,21 @@ async function ovLoad() {
   }
 }
 
+function ovUpdatePendingBadge() {
+  let pendingCount = 0;
+  _ovVisits.forEach(v => {
+    (v.checklist_items || []).forEach(item => {
+      if (item.answer === 'no' && item.action_resolved !== true) pendingCount++;
+    });
+  });
+  const badge = document.getElementById('ovActionsPendingBadge');
+  if (badge) badge.textContent = pendingCount > 0 ? ` (${pendingCount})` : '';
+}
+
 function ovRender() {
   const content = document.getElementById('ovContent');
   if (!content) return;
+  ovUpdatePendingBadge();
 
   if (_ovTab === 'visits') {
     ovRenderVisitsList(content);
@@ -9797,7 +9812,25 @@ function ovRenderVisitsList(container) {
     container.innerHTML = `<div style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">No outlet visits recorded yet.</div>`;
     return;
   }
-  let html = `
+
+  // Per-outlet visit-count summary
+  const outletCounts = {};
+  const outletOrderSummary = [];
+  _ovVisits.forEach(v => {
+    const key = v.outlet_name || v.outlet_code || 'Unknown';
+    if (!(key in outletCounts)) { outletCounts[key] = 0; outletOrderSummary.push(key); }
+    outletCounts[key]++;
+  });
+  let summaryHtml = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">`;
+  outletOrderSummary.forEach(key => {
+    summaryHtml += `<div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--ink)">
+      <span style="font-weight:600">${key}</span>
+      <span style="color:var(--ink-3);margin-left:4px">${outletCounts[key]} visit${outletCounts[key] > 1 ? 's' : ''}</span>
+    </div>`;
+  });
+  summaryHtml += `</div>`;
+
+  let html = summaryHtml + `
     <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border-1)">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -9898,8 +9931,12 @@ function ovRenderActionsList(container, showCompleted) {
                 </div>
                 ${item.action_taken_at ? `<div style="font-size:11px;color:#9CA3AF;margin-top:4px">Resolved: ${new Date(item.action_taken_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}</div>` : ''}
               </div>
-              <button onclick="ovClearAction('${v.visit_id}','${item.id}')" title="Clear from list"
-                style="margin-left:12px;padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #BBF7D0;background:#fff;color:#6B7280;cursor:pointer;flex-shrink:0">Clear</button>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-left:12px;flex-shrink:0">
+                <button onclick="ovClearAction('${v.visit_id}','${item.id}')" title="Clear from list"
+                  style="padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #BBF7D0;background:#fff;color:#6B7280;cursor:pointer">Clear</button>
+                <button onclick="ovReopenAction('${v.visit_id}','${item.id}')" title="Send back to Action Required"
+                  style="padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid #FECACA;background:#fff;color:#DC2626;cursor:pointer">Not Satisfied</button>
+              </div>
             </div>
           </div>`;
       } else {
@@ -9953,6 +9990,27 @@ async function ovSaveAction(visitId, itemId, inputId, resolved) {
   } catch(e) {
     alert('Failed to save action: ' + e.message);
   }
+}
+
+async function ovReopenAction(visitId, itemId) {
+  if (!confirm('Send this back to Action Required as not satisfied?')) return;
+  const API = 'https://aodapp-backend.onrender.com/api';
+  try {
+    const res = await fetch(`${API}/outlet-visit/${encodeURIComponent(visitId)}/action`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_id: itemId, action_taken: '', resolved: false })
+    });
+    if (!res.ok) throw new Error('Save failed');
+    const visit = _ovVisits.find(v => v.visit_id === visitId);
+    if (visit) {
+      const item = (visit.checklist_items || []).find(i => i.id === itemId);
+      if (item) { item.action_taken = ''; item.action_resolved = false; }
+    }
+    const card = document.getElementById(`ovcomp-${visitId}_${itemId}`);
+    if (card) { card.style.opacity = '0.3'; card.style.pointerEvents = 'none'; }
+    setTimeout(() => ovRender(), 500);
+  } catch(e) { alert('Failed to reopen: ' + e.message); }
 }
 
 async function ovClearAction(visitId, itemId) {
@@ -10128,7 +10186,7 @@ function ovShowDetail(idx) {
 
   let feedbackHtml = '';
   (v.employee_feedbacks || []).forEach(f => {
-    if (!f.short_name && !f.feedback) return;
+    if (!f.feedback || !f.feedback.trim()) return;
     feedbackHtml += `
       <div style="background:var(--surface);border:1px solid var(--border-1);border-radius:8px;padding:12px;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -10230,12 +10288,12 @@ function sfRenderOV() {
     const dateStr = dt ? dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const timeStr = dt ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
     (v.employee_feedbacks || []).forEach(f => {
-      if (!f.employee_id || (!f.short_name && !f.feedback)) return;
+      if (!f.employee_id || !f.feedback || !f.feedback.trim()) return;
       if (!staffFeedback[f.employee_id]) staffFeedback[f.employee_id] = { employee_id: f.employee_id, name: f.short_name || f.employee_id, feedbacks: [] };
       staffFeedback[f.employee_id].feedbacks.push({
         date: dateStr, time: timeStr,
         outlet: v.outlet_name || v.outlet_code,
-        feedback: f.feedback || '<span style="color:var(--ink-3);font-style:italic">No feedback given</span>',
+        feedback: f.feedback,
         submitted_by: v.submitted_by_name || v.submitted_by
       });
     });
@@ -10378,8 +10436,8 @@ function sfRender() {
     const timeStr = dt ? dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
     
     (v.employee_feedbacks || []).forEach(f => {
-      if (!f.employee_id || (!f.short_name && !f.feedback)) return;
-      
+      if (!f.employee_id || !f.feedback || !f.feedback.trim()) return;
+
       if (!staffFeedback[f.employee_id]) {
         staffFeedback[f.employee_id] = {
           employee_id: f.employee_id,
@@ -10387,12 +10445,12 @@ function sfRender() {
           feedbacks: []
         };
       }
-      
+
       staffFeedback[f.employee_id].feedbacks.push({
         date: dateStr,
         time: timeStr,
         outlet: v.outlet_name || v.outlet_code,
-        feedback: f.feedback || '<span style="color:var(--ink-3);font-style:italic">No feedback given</span>',
+        feedback: f.feedback,
         visit_id: v.visit_id,
         submitted_by: v.submitted_by_name || v.submitted_by
       });
