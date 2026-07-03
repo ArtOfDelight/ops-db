@@ -9940,13 +9940,23 @@ function ovRenderActionsList(container, showCompleted) {
             </div>
           </div>`;
       } else {
+        const log = item.action_log || [];
+        const logHtml = log.length ? `
+            <div style="margin-top:6px;margin-bottom:6px;display:flex;flex-direction:column;gap:6px">
+              ${log.map(l => `
+                <div style="background:#fff;border:1px solid #FCA5A5;border-radius:8px;padding:8px 10px">
+                  <div style="font-size:13px;color:var(--ink)">${l.text}</div>
+                  <div style="font-size:10px;color:#9CA3AF;margin-top:3px">${l.at ? new Date(l.at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true }) : ''}</div>
+                </div>`).join('')}
+            </div>` : '';
         html += `
           <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:14px;margin-bottom:10px" id="ovaction-${uid}">
             <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${item.section} · ${dtStr}</div>
             <div style="font-size:13px;color:var(--ink);margin-bottom:8px">${item.text}</div>
             ${item.note ? `<div style="font-size:12px;color:#6B7280;font-style:italic;margin-bottom:8px">Observed: ${item.note}</div>` : ''}
+            ${logHtml}
             <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
-              <input id="ovinput-${uid}" placeholder="What action was taken?" value="${item.action_taken || ''}"
+              <input id="ovinput-${uid}" placeholder="What action was taken?" value=""
                 style="flex:1;padding:8px 10px;font-size:13px;border-radius:8px;border:1px solid #FCA5A5;outline:none;background:#fff" />
               <button onclick="ovSaveAction('${v.visit_id}','${item.id}','ovinput-${uid}',false)"
                 style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;border:0;background:#111827;color:#fff;cursor:pointer;white-space:nowrap">Save</button>
@@ -9973,11 +9983,20 @@ async function ovSaveAction(visitId, itemId, inputId, resolved) {
       body: JSON.stringify({ item_id: itemId, action_taken: actionText, resolved })
     });
     if (!res.ok) throw new Error('Save failed');
-    // Update local cache
+    // Update local cache — append to the action log rather than overwrite,
+    // so multiple actions can be logged over time before "Done" is clicked.
     const visit = _ovVisits.find(v => v.visit_id === visitId);
     if (visit) {
       const item = (visit.checklist_items || []).find(i => i.id === itemId);
-      if (item) { item.action_taken = actionText; item.action_resolved = resolved; item.action_taken_at = new Date().toISOString(); }
+      if (item) {
+        if (actionText) {
+          if (!item.action_log) item.action_log = [];
+          item.action_log.push({ text: actionText, at: new Date().toISOString() });
+          item.action_taken = actionText;
+          item.action_taken_at = new Date().toISOString();
+        }
+        item.action_resolved = resolved;
+      }
     }
     if (resolved) {
       // Remove from action required, show in completed
@@ -9985,7 +10004,9 @@ async function ovSaveAction(visitId, itemId, inputId, resolved) {
       if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
       setTimeout(() => ovRender(), 600);
     } else {
-      if (input) input.style.borderColor = '#16A34A';
+      // Stay in Action Required — re-render so the new log entry shows below
+      // and the input clears for the next action.
+      ovRender();
     }
   } catch(e) {
     alert('Failed to save action: ' + e.message);
