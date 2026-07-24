@@ -1095,6 +1095,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-zomsupport" onclick="navTo('zomsupport')">
       <span class="sb-icon">💬</span> Zomato Support
     </button>
+    <button class="sb-item" id="sbitem-ownlyanalytics" onclick="navTo('ownlyanalytics')">
+      <span class="sb-icon">📈</span> Ownly Analytics
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1130,11 +1133,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1162,6 +1165,7 @@ function navTo(page) {
   if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
   if (page === 'zomsupport')  renderZomSupportPage();
+  if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
 }
 
 
@@ -9149,6 +9153,113 @@ async function _thLogin(pid) {
     msg.style.color = '#2e7d32'; msg.textContent = `✅ Logged in as ${d.name || d.mobile || 'Swiggy user'} — token saved! Re-checking…`;
     setTimeout(() => renderTokenHealthPage(), 1200);
   } catch(e) { msg.style.color = '#c00'; msg.textContent = 'Network error'; }
+}
+
+/* ── OWNLY ANALYTICS ──────────────────────────────────────────────────────── */
+const OWNLY_TABS = ['Summary', 'Sales', 'Funnel', 'Customers', 'Revenue Loss'];
+let _ownlyData = null;
+let _ownlyActiveTab = 'Summary';
+
+async function renderOwnlyAnalyticsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="padding:24px;max-width:1400px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div style="font-size:15px;font-weight:700;color:var(--ink)">Ownly Analytics — all outlets</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="ownly-days" style="padding:6px 10px;font-size:12px;border-radius:7px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+            <option value="1">Today</option>
+            <option value="7" selected>Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+          <button onclick="_ownlyLoad()" style="padding:7px 16px;font-size:13px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="ownly-tabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap"></div>
+      <div id="ownly-status" style="font-size:12px;color:var(--ink-3);margin-bottom:10px">Loading…</div>
+      <div id="ownly-table-wrap" style="overflow-x:auto"></div>
+    </div>`;
+  document.getElementById('ownly-days').onchange = _ownlyLoad;
+  _ownlyRenderTabs();
+  await _ownlyLoad();
+}
+
+function _ownlyRenderTabs() {
+  const wrap = document.getElementById('ownly-tabs');
+  wrap.innerHTML = OWNLY_TABS.map(t => `
+    <button onclick="_ownlySwitchTab('${t}')"
+      style="padding:7px 16px;font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;
+      border:1px solid ${t === _ownlyActiveTab ? 'var(--blue)' : 'var(--border-2)'};
+      background:${t === _ownlyActiveTab ? 'var(--blue)' : 'var(--surface)'};
+      color:${t === _ownlyActiveTab ? '#fff' : 'var(--ink)'}">${t}</button>
+  `).join('');
+}
+
+function _ownlySwitchTab(tab) {
+  _ownlyActiveTab = tab;
+  _ownlyRenderTabs();
+  _ownlyDrawTable();
+}
+
+async function _ownlyLoad() {
+  const days = document.getElementById('ownly-days').value;
+  const statusEl = document.getElementById('ownly-status');
+  statusEl.textContent = 'Loading…';
+  try {
+    const r = await fetch(`${API}/api/admin/ownly-analytics?days=${days}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); return; }
+    const d = await r.json();
+    if (d.error) { statusEl.textContent = '⚠️ ' + d.error; _ownlyData = null; _ownlyDrawTable(); return; }
+    _ownlyData = d;
+    statusEl.textContent = `Last checked: ${new Date().toLocaleTimeString('en-IN')} · ${d.generated_at || ''}`;
+    _ownlyDrawTable();
+  } catch (e) {
+    statusEl.textContent = 'Failed to load: ' + e;
+  }
+}
+
+function _ownlyDrawTable() {
+  const wrap = document.getElementById('ownly-table-wrap');
+  if (!wrap) return;
+  if (!_ownlyData) { wrap.innerHTML = ''; return; }
+
+  const outlets = _ownlyData.outlets || {};
+  const outletNames = Object.keys(outlets).sort();
+
+  // Union of metric labels across outlets for this tab, in first-seen order
+  const cols = [];
+  const seen = new Set();
+  outletNames.forEach(o => {
+    const tabData = outlets[o]?.[_ownlyActiveTab] || {};
+    Object.keys(tabData).forEach(k => { if (!seen.has(k)) { seen.add(k); cols.push(k); } });
+  });
+
+  if (!cols.length) {
+    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink-3);padding:20px">No data for this tab yet.</div>';
+    return;
+  }
+
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<thead><tr>' +
+    '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid var(--border-2);color:var(--ink-3);position:sticky;left:0;background:var(--bg)">Outlet</th>' +
+    cols.map(c => `<th style="text-align:right;padding:8px 12px;border-bottom:2px solid var(--border-2);color:var(--ink-3);white-space:nowrap">${c}</th>`).join('') +
+    '</tr></thead><tbody>';
+
+  outletNames.forEach(o => {
+    const tabData = outlets[o]?.[_ownlyActiveTab];
+    if (tabData?.error) {
+      html += `<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;color:var(--ink)">${o}</td>` +
+        `<td colspan="${cols.length}" style="padding:8px 12px;border-bottom:1px solid var(--border);color:#c62828">${tabData.error}</td></tr>`;
+      return;
+    }
+    html += `<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;color:var(--ink);position:sticky;left:0;background:var(--bg)">${o}</td>` +
+      cols.map(c => `<td style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--ink);white-space:nowrap">${(tabData && tabData[c]) ?? '—'}</td>`).join('') +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
 }
 
 /* ── INCENTIVE PAYOUT ─────────────────────────────────────────────────────── */
