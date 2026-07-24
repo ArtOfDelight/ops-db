@@ -9078,11 +9078,16 @@ function _renderTokenCards(tokens) {
         ${t.http ? `<b style="color:var(--ink)">HTTP:</b> ${t.http} &nbsp; <b style="color:var(--ink)">Latency:</b> ${t.latency_ms}ms<br>` : ''}
         ${t.error ? `<b style="color:#c00">Error:</b> ${t.error}<br>` : ''}
       </div>
-      <div>
+      <div style="display:flex;gap:8px">
         <button onclick="document.getElementById('thform-${pid}').style.display=document.getElementById('thform-${pid}').style.display==='block'?'none':'block'"
           style="padding:7px 14px;font-size:13px;border-radius:7px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer">
           ✏️ Update Token
         </button>
+        ${pid === 'swiggy' ? `
+        <button onclick="document.getElementById('thlogin-${pid}').style.display=document.getElementById('thlogin-${pid}').style.display==='block'?'none':'block'"
+          style="padding:7px 14px;font-size:13px;border-radius:7px;border:1px solid #2e7d32;background:#e8f5e9;color:#2e7d32;cursor:pointer">
+          🔐 Login
+        </button>` : ''}
       </div>
       <div id="thform-${pid}" style="display:none">
         <textarea id="thinput-${pid}" placeholder="${t.platform === 'Zomato' ? 'Paste full Zomato cookie string…' : 'Paste Swiggy access_token (UUID)…'}"
@@ -9092,7 +9097,19 @@ function _renderTokenCards(tokens) {
           <button onclick="document.getElementById('thform-${pid}').style.display='none'" style="padding:7px 14px;font-size:13px;border-radius:7px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">Cancel</button>
         </div>
         <div id="thmsg-${pid}" style="font-size:12px;margin-top:6px"></div>
-      </div>`;
+      </div>
+      ${pid === 'swiggy' ? `
+      <div id="thlogin-${pid}" style="display:none">
+        <input id="thuser-${pid}" type="text" placeholder="Swiggy username/phone (blank = use server default)"
+          style="width:100%;padding:8px;margin-bottom:6px;border:1px solid var(--border-2);border-radius:7px;font-size:12px;background:var(--surface);color:var(--ink)">
+        <input id="thpass-${pid}" type="password" placeholder="Swiggy password (blank = use server default)"
+          style="width:100%;padding:8px;border:1px solid var(--border-2);border-radius:7px;font-size:12px;background:var(--surface);color:var(--ink)">
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="_thLogin('${pid}')" style="padding:7px 14px;font-size:13px;border-radius:7px;border:none;background:#2e7d32;color:#fff;cursor:pointer">Login & Save Token</button>
+          <button onclick="document.getElementById('thlogin-${pid}').style.display='none'" style="padding:7px 14px;font-size:13px;border-radius:7px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">Cancel</button>
+        </div>
+        <div id="thloginmsg-${pid}" style="font-size:12px;margin-top:6px"></div>
+      </div>` : ''}`;
     grid.appendChild(card);
   });
 }
@@ -9112,6 +9129,24 @@ async function _thSave(pid) {
     const d = await r.json();
     if (!r.ok) { msg.style.color = '#c00'; msg.textContent = d.detail || 'Failed'; return; }
     msg.style.color = '#2e7d32'; msg.textContent = '✅ Saved! Re-checking…';
+    setTimeout(() => renderTokenHealthPage(), 1200);
+  } catch(e) { msg.style.color = '#c00'; msg.textContent = 'Network error'; }
+}
+
+async function _thLogin(pid) {
+  const username = document.getElementById('thuser-' + pid)?.value?.trim() || '';
+  const password = document.getElementById('thpass-' + pid)?.value || '';
+  const msg = document.getElementById('thloginmsg-' + pid);
+  msg.style.color = 'var(--ink-3)'; msg.textContent = 'Logging in…';
+  try {
+    const r = await fetch(`${API}/api/admin/swiggy-login`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const d = await r.json();
+    if (!r.ok) { msg.style.color = '#c00'; msg.textContent = d.detail || 'Login failed'; return; }
+    msg.style.color = '#2e7d32'; msg.textContent = `✅ Logged in as ${d.name || d.mobile || 'Swiggy user'} — token saved! Re-checking…`;
     setTimeout(() => renderTokenHealthPage(), 1200);
   } catch(e) { msg.style.color = '#c00'; msg.textContent = 'Network error'; }
 }
