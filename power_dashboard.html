@@ -219,6 +219,7 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
   font-size: 13px; flex-shrink: 0;
 }
 .section-icon.blue  { background: var(--blue-dim); }
+.section-icon.amber { background: #fef3c7; }
 .section-icon.red   { background: var(--red-dim); }
 .section-icon.green { background: var(--green-dim); }
 .section-title { font-size: 13px; font-weight: 700; color: var(--ink); }
@@ -1074,6 +1075,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
       <span class="sb-icon">🚨</span> Complaints Review
     </button>
+    <button class="sb-item" id="sbitem-reviews" onclick="navTo('reviews')">
+      <span class="sb-icon">📝</span> Reviews & AI Summary
+    </button>
     <button class="sb-item" id="sbitem-mango" onclick="navTo('mango')">
       <span class="sb-icon">🥭</span> Mango Tracker
     </button>
@@ -1139,11 +1143,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','reviews','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1161,6 +1165,7 @@ function navTo(page) {
   if (page === 'payouts')    renderPayoutsPage();
   if (page === 'roster')     renderRosterPage();
   if (page === 'complaints') renderComplaintsPage();
+  if (page === 'reviews')    renderReviewsPage();
   if (page === 'mango')      renderMangoPage();
   if (page === 'checklist')  renderChecklistStatusPage();
   if (page === 'cashcoll')   renderCashCollectionPage();
@@ -6865,6 +6870,203 @@ let _cmpAll = [];
 let _cmpFilters = { platform: 'all', status: 'pending' };
 let _cmpReviewDebounce = {};
 let _cmpLiveStatuses = {};
+
+/* ══════════════════════════════════════════════════
+   REVIEWS & AI SUMMARY
+═══════════════════════════════════════════════════ */
+let _rvWindow = 28;          // 28 | 56 | 'custom'
+let _rvCustom = { start: '', end: '' };
+let _rvOutletFilter = '';
+let _rvAll = [];
+
+function rvDateRange(days) {
+  const end = new Date(); end.setHours(0,0,0,0);
+  if (days === 'custom') {
+    return { start: _rvCustom.start, end: _rvCustom.end };
+  }
+  const start = new Date(end); start.setDate(end.getDate() - (days - 1));
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return { start: iso(start), end: iso(end) };
+}
+
+function renderReviewsPage() {
+  if (!_lsToken) { renderSigninLogin(document.getElementById('pageBody')); return; }
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div class="section-card sc-sticky" style="margin-bottom:16px">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon blue">📝</div>
+          <div>
+            <div class="section-title">Reviews & Comments</div>
+            <div class="section-sub">Every free-text customer review or complaint comment — Swiggy, Zomato, IGCC</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="rvtab-28" onclick="rvSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+            <button class="ptab"        id="rvtab-56" onclick="rvSetWindow(56)" style="padding:4px 12px;font-size:10px">56 Days</button>
+            <button class="ptab"        id="rvtab-custom" onclick="rvSetWindow('custom')" style="padding:4px 12px;font-size:10px">Custom</button>
+          </div>
+          <div id="rvCustomPicker" class="panel-tabs" style="display:none;margin:0;padding:3px;gap:5px;align-items:center">
+            <input type="date" id="rvCustomStart" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
+            <span style="font-size:10px;color:var(--ink-3)">→</span>
+            <input type="date" id="rvCustomEnd" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
+            <button class="ptab active" onclick="rvApplyCustom()" style="padding:4px 12px;font-size:10px">Load</button>
+          </div>
+          <input id="rvOutletFilter" placeholder="Filter outlet e.g. WF" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink);width:120px" oninput="rvApplyOutletFilter()">
+          <span class="as-of-label" id="rvStatus"></span>
+        </div>
+      </div>
+      <div id="rv-content" class="loader-box"><div class="loader"></div> Loading…</div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon amber">🤖</div>
+          <div>
+            <div class="section-title">AI Summary</div>
+            <div class="section-sub">Groq · Llama 3.3 70B — summarizes the comments currently loaded above, on demand</div>
+          </div>
+        </div>
+        <button class="ptab active" id="rvSummarizeBtn" onclick="rvSummarize()" style="padding:6px 16px;font-size:11px">✨ Summarize</button>
+      </div>
+      <div id="rv-summary" style="padding:20px">
+        <div class="no-outages" style="padding:24px">Click Summarize to generate an AI summary of the reviews above.</div>
+      </div>
+    </div>`;
+
+  const s = document.getElementById('rvCustomStart'), e = document.getElementById('rvCustomEnd');
+  const end = new Date(); const start = new Date(); start.setDate(end.getDate() - 27);
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  if (s) s.value = iso(start);
+  if (e) e.value = iso(end);
+
+  rvSetWindow(28);
+}
+
+function rvSetWindow(days) {
+  _rvWindow = days;
+  [28, 56, 'custom'].forEach(d => {
+    const btn = document.getElementById('rvtab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const picker = document.getElementById('rvCustomPicker');
+  if (picker) picker.style.display = days === 'custom' ? 'flex' : 'none';
+  if (days === 'custom' && !(_rvCustom.start && _rvCustom.end)) return;
+  rvLoad();
+}
+
+function rvApplyCustom() {
+  const s = document.getElementById('rvCustomStart').value;
+  const e = document.getElementById('rvCustomEnd').value;
+  if (!s || !e) { alert('Pick both a start and an end date.'); return; }
+  if (s > e)    { alert('Start date must be on or before the end date.'); return; }
+  _rvCustom = { start: s, end: e };
+  _rvWindow = 'custom';
+  rvLoad();
+}
+
+function rvApplyOutletFilter() {
+  _rvOutletFilter = (document.getElementById('rvOutletFilter')?.value || '').trim().toUpperCase();
+  rvRenderTable();
+}
+
+async function rvLoad() {
+  const { start, end } = rvDateRange(_rvWindow);
+  const statusEl = document.getElementById('rvStatus');
+  const contentEl = document.getElementById('rv-content');
+  if (!start || !end || !contentEl) return;
+  contentEl.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  if (statusEl) statusEl.textContent = 'Loading…';
+  try {
+    const r = await fetch(`${API}/api/admin/reviews-feed?date_from=${start}&date_to=${end}`,
+      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderReviewsPage(); return; }
+    const d = await r.json();
+    _rvAll = d.reviews || [];
+    if (statusEl) statusEl.textContent = `${_rvAll.length} comments · ${start} to ${end}`;
+    rvRenderTable();
+    // reset the summary panel — it belongs to the previous range/filter
+    const sumEl = document.getElementById('rv-summary');
+    if (sumEl) sumEl.innerHTML = '<div class="no-outages" style="padding:24px">Click Summarize to generate an AI summary of the reviews above.</div>';
+  } catch {
+    if (statusEl) statusEl.textContent = 'Failed to load.';
+    contentEl.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
+  }
+}
+
+function rvFiltered() {
+  if (!_rvOutletFilter) return _rvAll;
+  return _rvAll.filter(r => (r.outlet || '').toUpperCase().includes(_rvOutletFilter));
+}
+
+const RV_SOURCE_COLORS = {
+  'Swiggy Review':    '#fff5f2', 'Swiggy Complaint':  '#ffe8e0',
+  'Zomato Review':     '#fff2f3', 'Zomato Complaint':  '#ffe0e2',
+  'IGCC':              '#fefce8',
+};
+const RV_SOURCE_TEXT = {
+  'Swiggy Review':    '#e8502a', 'Swiggy Complaint':  '#c2410c',
+  'Zomato Review':     '#e23744', 'Zomato Complaint':  '#b91c1c',
+  'IGCC':              '#854d0e',
+};
+
+function rvRenderTable() {
+  const el = document.getElementById('rv-content');
+  if (!el) return;
+  const rows = rvFiltered();
+  if (!rows.length) {
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No comments match this range/filter.</div>';
+    return;
+  }
+  const trs = rows.map(r => {
+    const bg = RV_SOURCE_COLORS[r.source] || '#f1f5f9';
+    const fg = RV_SOURCE_TEXT[r.source] || 'var(--ink-3)';
+    return `<tr>
+      <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}</td>
+      <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap">${r.source}</span></td>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:700">${r.outlet || '—'}</td>
+      <td style="font-size:11px;color:var(--ink-3)">${r.rating || '—'}</td>
+      <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">${(r.text || '').replace(/</g,'&lt;')}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+    <table class="sc-table">
+      <thead><tr><th style="text-align:left">Date</th><th style="text-align:left">Source</th><th style="text-align:left">Outlet</th><th style="text-align:left">Rating / Type</th><th class="left">Comment</th></tr></thead>
+      <tbody>${trs}</tbody>
+    </table></div>`;
+}
+
+async function rvSummarize() {
+  const { start, end } = rvDateRange(_rvWindow);
+  const btn = document.getElementById('rvSummarizeBtn');
+  const el  = document.getElementById('rv-summary');
+  if (!start || !end || !el) return;
+  const rows = rvFiltered();
+  if (!rows.length) { el.innerHTML = '<div class="no-outages" style="padding:24px">Nothing to summarize in this range/filter.</div>'; return; }
+  btn.disabled = true; btn.textContent = '⏳ Summarizing…';
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Asking the model…</div>';
+  try {
+    const qs = `date_from=${start}&date_to=${end}` + (_rvOutletFilter ? `&outlet=${encodeURIComponent(_rvOutletFilter)}` : '');
+    const r = await fetch(`${API}/api/admin/reviews-summary?${qs}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderReviewsPage(); return; }
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      el.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">${d.detail || 'Summary failed'}</div></div>`;
+      return;
+    }
+    const d = await r.json();
+    const noteBit = d.summarized_count < d.count
+      ? `<div style="font-size:10px;color:var(--ink-3);margin-bottom:10px">Summarized the most recent ${d.summarized_count} of ${d.count} comments.</div>` : '';
+    el.innerHTML = `${noteBit}<div style="font-size:13px;line-height:1.65;white-space:pre-wrap">${(d.summary||'').replace(/</g,'&lt;')}</div>`;
+  } catch {
+    el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Summarize';
+  }
+}
 
 function renderComplaintsPage() {
   const body = document.getElementById('pageBody');
