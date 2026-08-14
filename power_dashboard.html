@@ -576,7 +576,13 @@ td.c { text-align: center; }
   letter-spacing: .1em; color: var(--ink-3); background: #f8fafd;
   white-space: nowrap; text-align: center;
   position: sticky; top: 0; z-index: 2;
+  /* border-collapse drops thead borders once the row is stuck — paint it here */
+  box-shadow: inset 0 -2px 0 var(--border-2);
 }
+/* A section-card with overflow:hidden becomes the sticky clipping container and
+   kills `position:sticky` on the header. `clip` still rounds the corners but
+   does not create a scroll container, so the header locks to .body instead. */
+.section-card.sc-sticky { overflow: hidden; overflow: clip; }
 .sc-table th.left { text-align: left; }
 .sc-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
 .sc-table tbody tr:last-child { border-bottom: none; }
@@ -2272,7 +2278,7 @@ function renderScorecardPage() {
 
   const body = document.getElementById('pageBody');
   body.innerHTML = `
-    <div class="section-card">
+    <div class="section-card sc-sticky">
       <div class="section-head">
         <div class="section-head-left">
           <div class="section-icon blue">👥</div>
