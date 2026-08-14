@@ -1695,7 +1695,8 @@ function loadAll() {
 ═══════════════════════════════════════════ */
 let   _lsToken = localStorage.getItem('adminToken');
 let   _lsPhone = '';
-let   _lsWindow = 1;
+let   _lsWindow = 1;              // 1 | 7 | 28 | 'custom'
+let   _lsCustom = { start: '', end: '' };  // ISO yyyy-mm-dd, used when _lsWindow === 'custom'
 let   _lsTypeFilter = 'all'; // 'all' | 'late' | 'missed'
 let   _lsView = 'exceptions'; // 'exceptions' | 'all'
 
@@ -1750,6 +1751,13 @@ function renderSigninMain(body) {
             <button class="ptab active" id="lstab-1"  onclick="lsSetWindow(1)"  style="padding:4px 12px;font-size:10px">1 Day</button>
             <button class="ptab"        id="lstab-7"  onclick="lsSetWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
             <button class="ptab"        id="lstab-28" onclick="lsSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+            <button class="ptab"        id="lstab-custom" onclick="lsSetWindow('custom')" style="padding:4px 12px;font-size:10px">Custom</button>
+          </div>
+          <div id="lsCustomPicker" class="panel-tabs" style="display:none;margin:0;padding:3px;gap:5px;align-items:center">
+            <input type="date" id="lsCustomStart" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
+            <span style="font-size:10px;color:var(--ink-3)">→</span>
+            <input type="date" id="lsCustomEnd" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
+            <button class="ptab active" onclick="lsApplyCustom()" style="padding:4px 12px;font-size:10px">Load</button>
           </div>
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
             <button class="ptab active" id="lstab-type-all"    onclick="lsSetType('all')"    style="padding:4px 12px;font-size:10px">All</button>
@@ -1791,10 +1799,34 @@ function renderSigninMain(body) {
 
 function lsSetWindow(days) {
   _lsWindow = days;
-  [1, 7, 28].forEach(d => {
+  [1, 7, 28, 'custom'].forEach(d => {
     const btn = document.getElementById('lstab-' + d);
     if (btn) btn.classList.toggle('active', d === days);
   });
+  const picker = document.getElementById('lsCustomPicker');
+  if (picker) picker.style.display = days === 'custom' ? 'flex' : 'none';
+  if (days === 'custom') {
+    const s = document.getElementById('lsCustomStart');
+    const e = document.getElementById('lsCustomEnd');
+    if (s && e && !s.value && !e.value) {
+      const end = new Date(); end.setDate(end.getDate() - 1);
+      const start = new Date(end); start.setDate(end.getDate() - 6);
+      s.value = lsFmtISO(start); e.value = lsFmtISO(end);
+    }
+    // wait for Load unless a range was already applied
+    if (_lsCustom.start && _lsCustom.end) lsLoadReport();
+    return;
+  }
+  lsLoadReport();
+}
+
+function lsApplyCustom() {
+  const s = document.getElementById('lsCustomStart').value;
+  const e = document.getElementById('lsCustomEnd').value;
+  if (!s || !e) { alert('Pick both a start and an end date.'); return; }
+  if (s > e)    { alert('Start date must be on or before the end date.'); return; }
+  _lsCustom = { start: s, end: e };
+  _lsWindow = 'custom';
   lsLoadReport();
 }
 
@@ -1934,11 +1966,20 @@ function lsLogout() {
   renderSigninLogin(document.getElementById('pageBody'));
 }
 
+function lsFmtISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function lsDateRange(days) {
+  const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  if (days === 'custom') {
+    // ISO yyyy-mm-dd from the pickers → dd/mm/yyyy the API expects
+    const iso = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
+    return { start: iso(_lsCustom.start), end: iso(_lsCustom.end) };
+  }
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const end   = new Date(yesterday);
   const start = new Date(yesterday); start.setDate(yesterday.getDate() - (days - 1));
-  const fmt   = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   return { start: fmt(start), end: fmt(end) };
 }
 
@@ -1946,8 +1987,11 @@ async function lsLoadReport() {
   const statusEl  = document.getElementById('ls-status');
   const contentEl = document.getElementById('ls-content');
   if (!contentEl) return;
+  if (_lsWindow === 'custom' && !(_lsCustom.start && _lsCustom.end)) return;
   const { start, end } = lsDateRange(_lsWindow);
-  const label = _lsWindow === 1 ? 'yesterday' : `last ${_lsWindow} days`;
+  const label = _lsWindow === 'custom' ? 'custom range'
+              : _lsWindow === 1        ? 'yesterday'
+              : `last ${_lsWindow} days`;
   if (statusEl) statusEl.textContent = 'Connecting to server…';
   contentEl.innerHTML = `
     <div class="ls-progress-wrap">
@@ -2203,13 +2247,21 @@ function renderMetricsTable(data) {
 /* ══════════════════════════════════════════
    SCORECARD
 ═══════════════════════════════════════════ */
-let _scWindow = 7;
+let _scWindow = 7;                        // 7 | 28 | 'custom'
+let _scCustom = { start: '', end: '' };   // ISO yyyy-mm-dd, used when _scWindow === 'custom'
 let _scType = 'cloud';
 
 function scFmtISO(d) {
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function scParseISO(s) {
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 function scDateRange(days) {
+  if (days === 'custom') {
+    return { start: scParseISO(_scCustom.start), end: scParseISO(_scCustom.end) };
+  }
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0,0,0,0);
   const start = new Date(yesterday); start.setDate(yesterday.getDate() - (days - 1));
   return { start, end: yesterday };
@@ -2233,6 +2285,13 @@ function renderScorecardPage() {
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
             <button class="ptab active" id="sctab-7"  onclick="scSetWindow(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
             <button class="ptab"        id="sctab-28" onclick="scSetWindow(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+            <button class="ptab"        id="sctab-custom" onclick="scSetWindow('custom')" style="padding:4px 12px;font-size:10px">Custom</button>
+          </div>
+          <div id="scCustomPicker" class="panel-tabs" style="display:none;margin:0;padding:3px;gap:5px;align-items:center">
+            <input type="date" id="scCustomStart" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
+            <span style="font-size:10px;color:var(--ink-3)">→</span>
+            <input type="date" id="scCustomEnd" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
+            <button class="ptab active" onclick="scApplyCustom()" style="padding:4px 12px;font-size:10px">Load</button>
           </div>
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
             <button class="ptab active" id="sctype-cloud"  onclick="scSetType('cloud')"  style="padding:4px 12px;font-size:10px">☁ Cloud</button>
@@ -2250,10 +2309,34 @@ function renderScorecardPage() {
 
 function scSetWindow(days) {
   _scWindow = days;
-  [7,28].forEach(d => {
+  [7,28,'custom'].forEach(d => {
     const btn = document.getElementById('sctab-' + d);
     if (btn) btn.classList.toggle('active', d === days);
   });
+  const picker = document.getElementById('scCustomPicker');
+  if (picker) picker.style.display = days === 'custom' ? 'flex' : 'none';
+  if (days === 'custom') {
+    const s = document.getElementById('scCustomStart');
+    const e = document.getElementById('scCustomEnd');
+    if (s && e && !s.value && !e.value) {
+      const r = scDateRange(7);
+      s.value = scFmtISO(r.start); e.value = scFmtISO(r.end);
+    }
+    // wait for Load unless a range was already applied
+    if (!(_scCustom.start && _scCustom.end)) return;
+  }
+  const el = document.getElementById('sc-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  scLoadData();
+}
+
+function scApplyCustom() {
+  const s = document.getElementById('scCustomStart').value;
+  const e = document.getElementById('scCustomEnd').value;
+  if (!s || !e) { alert('Pick both a start and an end date.'); return; }
+  if (s > e)    { alert('Start date must be on or before the end date.'); return; }
+  _scCustom = { start: s, end: e };
+  _scWindow = 'custom';
   const el = document.getElementById('sc-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
   scLoadData();
@@ -2270,6 +2353,7 @@ function scSetType(type) {
 }
 
 async function scLoadData() {
+  if (_scWindow === 'custom' && !(_scCustom.start && _scCustom.end)) return;
   const { start, end } = scDateRange(_scWindow);
   const fmt = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
   const labelEl = document.getElementById('scDateLabel');
