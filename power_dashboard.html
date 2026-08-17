@@ -763,6 +763,32 @@ td.c { text-align: center; }
 .atmodal-confirm { background: var(--green); border: none; border-radius: 7px; padding: 7px 18px; font-size: 13px; font-weight: 700; color: #fff; cursor: pointer; }
 .atmodal-confirm:disabled { opacity: .4; cursor: default; }
 .action-pending-empty { text-align: center; padding: 32px 0; color: var(--ink-3); font-size: 13px; }
+/* right-click "Add Comment" context menu */
+.dc-ctxmenu {
+  position: fixed; z-index: 10000; display: none;
+  background: #fff; border-radius: 8px; padding: 4px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.06);
+  min-width: 170px;
+}
+.dc-ctxmenu.show { display: block; }
+.dc-ctxmenu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--ink); white-space: nowrap;
+}
+.dc-ctxmenu-item:hover { background: #f3f5f9; }
+.dc-comment-list { display: flex; flex-direction: column; gap: 10px; }
+.dc-comment-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.dc-comment-card.resolved { opacity: .55; }
+.dc-comment-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.dc-comment-page { font-size: 11px; font-weight: 700; color: var(--blue); }
+.dc-comment-time { font-size: 11px; color: var(--ink-3); }
+.dc-comment-snippet { font-size: 11px; color: var(--ink-3); background: #f5f7fa; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; border-left: 3px solid var(--border-2); }
+.dc-comment-text { font-size: 13px; color: var(--ink); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.dc-comment-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+.dc-comment-author { font-size: 11px; color: var(--ink-3); }
+.dc-resolve-btn { background: none; border: 1.5px solid var(--border-2); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: var(--ink-3); }
+.dc-resolve-btn.done { background: var(--green); border-color: var(--green); color: #fff; }
 .action-carryover-badge { font-size: 10px; background: #fff3cd; color: #92600a; border-radius: 4px; padding: 1px 6px; font-weight: 700; }
 .brief-progress { width: 280px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
 .brief-progress-fill { height: 4px; background: var(--blue); border-radius: 2px; transition: width .4s ease; }
@@ -1108,6 +1134,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-ownlyanalytics" onclick="navTo('ownlyanalytics')">
       <span class="sb-icon">📈</span> Ownly Analytics
     </button>
+    <button class="sb-item" id="sbitem-comments" onclick="navTo('comments')">
+      <span class="sb-icon">💬</span> Dashboard Comments
+    </button>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1143,11 +1172,12 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','reviews','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','reviews','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics','comments'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
+  _currentPage = page;
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
   refreshBtn.style.display = page === 'power' ? '' : 'none';
@@ -1177,6 +1207,7 @@ function navTo(page) {
   if (page === 'kitchenextra') renderKitchenExtraPage();
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
+  if (page === 'comments')    renderCommentsPage();
 }
 
 
@@ -1705,6 +1736,7 @@ function loadAll() {
    LATE SIGN-IN
 ═══════════════════════════════════════════ */
 let   _lsToken = localStorage.getItem('adminToken');
+let   _currentPage = '';
 let   _lsPhone = '';
 let   _lsWindow = 1;              // 1 | 7 | 28 | 'custom'
 let   _lsCustom = { start: '', end: '' };  // ISO yyyy-mm-dd, used when _lsWindow === 'custom'
@@ -11579,6 +11611,165 @@ function zsStopPolling() {
   if (_zsPolling) { clearInterval(_zsPolling); _zsPolling = null; }
 }
 
+/* ══════════════════════════════════════════
+   DASHBOARD COMMENTS (right-click anywhere → Add Comment)
+═══════════════════════════════════════════ */
+let _dcMenuTarget = null; // { text, x, y }
+
+document.addEventListener('contextmenu', (e) => {
+  // Don't hijack native context menu on text inputs — users may want copy/paste/spellcheck there
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+
+  e.preventDefault();
+  const snippet = _dcNearestText(e.target);
+  _dcMenuTarget = { text: snippet, x: e.clientX, y: e.clientY };
+
+  const menu = document.getElementById('dcCtxMenu');
+  if (!menu) return;
+  menu.style.left = e.clientX + 'px';
+  menu.style.top  = e.clientY + 'px';
+  menu.classList.add('show');
+});
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('dcCtxMenu');
+  if (menu && !menu.contains(e.target)) menu.classList.remove('show');
+});
+
+function _dcNearestText(el) {
+  // Walk up a few levels to find a short, meaningful text snippet near the click
+  let node = el;
+  for (let i = 0; i < 4 && node; i++) {
+    const t = (node.innerText || node.textContent || '').trim().replace(/\s+/g, ' ');
+    if (t && t.length <= 200) return t;
+    if (t) return t.slice(0, 200) + '…';
+    node = node.parentElement;
+  }
+  return '';
+}
+
+function dcOpenAddComment() {
+  document.getElementById('dcCtxMenu')?.classList.remove('show');
+  const ctx = _dcMenuTarget || { text: '' };
+  const pageTitle = document.getElementById('pageTitle')?.textContent || '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'atmodal-overlay';
+  overlay.id = 'dcModalOverlay';
+  overlay.innerHTML = `
+    <div class="atmodal">
+      <div class="atmodal-title">Add Comment</div>
+      <div class="atmodal-sub">Leave a note on this part of ${escHtml(pageTitle)} — it'll be saved for review.</div>
+      ${ctx.text ? `<div class="atmodal-task">${escHtml(ctx.text)}</div>` : ''}
+      <textarea id="dcModalInput" placeholder="What's wrong or worth noting here?" rows="3"></textarea>
+      <div class="atmodal-btns">
+        <button class="atmodal-cancel" onclick="dcCloseModal()">Cancel</button>
+        <button class="atmodal-confirm" id="dcModalConfirm" onclick="dcSubmitComment()">Save Comment</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) dcCloseModal(); });
+  setTimeout(() => document.getElementById('dcModalInput')?.focus(), 50);
+}
+
+function dcCloseModal() {
+  document.getElementById('dcModalOverlay')?.remove();
+}
+
+async function dcSubmitComment() {
+  const text = (document.getElementById('dcModalInput')?.value || '').trim();
+  if (!text) { document.getElementById('dcModalInput')?.focus(); return; }
+
+  const btn = document.getElementById('dcModalConfirm');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  const ctx = _dcMenuTarget || {};
+  try {
+    await fetch(`${API}/api/admin/dashboard-comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({
+        text,
+        page: _currentPage,
+        page_title: document.getElementById('pageTitle')?.textContent || '',
+        element_text: ctx.text || '',
+        url: location.href,
+      }),
+    });
+  } catch (e) {
+    alert('Failed to save comment: ' + e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Comment'; }
+    return;
+  }
+  dcCloseModal();
+}
+
+async function renderCommentsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+      <button class="cmp-ftab active" data-df="all" onclick="dcSetFilter('all', this)">All</button>
+      <button class="cmp-ftab" data-df="open" onclick="dcSetFilter('open', this)">Open</button>
+      <button class="cmp-ftab" data-df="resolved" onclick="dcSetFilter('resolved', this)">Resolved</button>
+      <span style="font-size:11px;color:var(--ink-3);margin-left:6px">Right-click anywhere on the dashboard to leave a new one.</span>
+    </div>
+    <div id="dcList" class="dc-comment-list"><div class="cmp-empty"><div class="cmp-empty-i">💬</div><div class="cmp-empty-t">Loading…</div></div></div>`;
+  await dcLoad('all');
+}
+
+let _dcFilter = 'all';
+function dcSetFilter(f, btn) {
+  _dcFilter = f;
+  document.querySelectorAll('#pageBody .cmp-ftab').forEach(b => b.classList.toggle('active', b === btn));
+  dcLoad(f);
+}
+
+async function dcLoad(filter) {
+  const list = document.getElementById('dcList');
+  if (!list) return;
+  const qs = filter === 'open' ? '?resolved=false' : filter === 'resolved' ? '?resolved=true' : '';
+  try {
+    const r = await fetch(`${API}/api/admin/dashboard-comments${qs}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await r.json();
+    const comments = d.comments || [];
+    if (!comments.length) {
+      list.innerHTML = '<div class="cmp-empty"><div class="cmp-empty-i">💬</div><div class="cmp-empty-t">No comments yet</div></div>';
+      return;
+    }
+    list.innerHTML = comments.map(c => `
+      <div class="dc-comment-card ${c.resolved ? 'resolved' : ''}" data-id="${escHtml(c.id)}">
+        <div class="dc-comment-meta">
+          <span class="dc-comment-page">${escHtml(c.page_title || c.page || '')}</span>
+          <span class="dc-comment-time">${c.created_at ? new Date(c.created_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}</span>
+        </div>
+        ${c.element_text ? `<div class="dc-comment-snippet">${escHtml(c.element_text)}</div>` : ''}
+        <div class="dc-comment-text">${escHtml(c.text)}</div>
+        <div class="dc-comment-footer">
+          <span class="dc-comment-author">${escHtml(c.created_by || '')}</span>
+          <button class="dc-resolve-btn ${c.resolved ? 'done' : ''}" onclick="dcToggleResolved('${escHtml(c.id)}', ${!c.resolved})">
+            ${c.resolved ? '✓ Resolved' : 'Mark Resolved'}
+          </button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="cmp-empty"><div class="cmp-empty-t">Failed to load comments</div></div>';
+  }
+}
+
+async function dcToggleResolved(id, resolved) {
+  try {
+    await fetch(`${API}/api/admin/dashboard-comments/${encodeURIComponent(id)}?resolved=${resolved}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${_lsToken}` },
+    });
+    dcLoad(_dcFilter);
+  } catch (e) { alert('Failed to update: ' + e); }
+}
+
 </script>
+<div class="dc-ctxmenu" id="dcCtxMenu">
+  <div class="dc-ctxmenu-item" onclick="dcOpenAddComment()">💬 Add Comment</div>
+</div>
 </body>
 </html>
