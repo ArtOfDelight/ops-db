@@ -5505,6 +5505,8 @@ async function _wrWeeklyLoad() {
           shift_name:  e.shift_name  || '',
           start_time:  e.start_time  || '',
           end_time:    e.end_time    || '',
+          sign_in_time:  e.sign_in_time  || '',
+          sign_out_time: e.sign_out_time || '',
           already_exists: !!byEmp[eid],
         };
       });
@@ -5523,12 +5525,12 @@ function _wrGetCell(empId, date) {
   const key = `${empId}_${date}`;
   if (_wrState.dirty[key]) return _wrState.dirty[key];
   const day = _wrState.data?.week?.[date];
-  if (!day) return {outlet:'', shift:'', shift_name:'', start_time:'', end_time:''};
+  if (!day) return {outlet:'', shift:'', shift_name:'', start_time:'', end_time:'', sign_in_time:'', sign_out_time:''};
   const entry = day.entries.find(e => e.employee_id === empId);
-  return entry || {outlet:'', shift:'', shift_name:'', start_time:'', end_time:''};
+  return entry || {outlet:'', shift:'', shift_name:'', start_time:'', end_time:'', sign_in_time:'', sign_out_time:''};
 }
 
-function _wrSetCell(empId, date, outlet, shiftId) {
+function _wrSetCell(empId, date, outlet, shiftId, signInTime, signOutTime) {
   const key = `${empId}_${date}`;
   const sh = _wrState.shifts.find(s => s.shift_id === shiftId) || {};
   const day = _wrState.data?.week?.[date];
@@ -5541,6 +5543,8 @@ function _wrSetCell(empId, date, outlet, shiftId) {
     shift_name: sh.shift_name || '',
     start_time: sh.start_time || '',
     end_time: sh.end_time || '',
+    sign_in_time: signInTime ?? entry.sign_in_time ?? '',
+    sign_out_time: signOutTime ?? entry.sign_out_time ?? '',
   };
   _wrCloseEditor();
   _wrRender();
@@ -5548,9 +5552,12 @@ function _wrSetCell(empId, date, outlet, shiftId) {
 
 function _wrOpenEditor(empId, date) {
   _wrState.editCell = { empId, date };
-  // Seed the editor's outlet so the shift list filters to that outlet immediately.
-  _wrEditOutlet = _wrGetCell(empId, date).outlet || '';
-  _wrEditShift  = _wrGetCell(empId, date).shift || '';
+  // Seed the editor's fields so they show the current values immediately.
+  const c = _wrGetCell(empId, date);
+  _wrEditOutlet = c.outlet || '';
+  _wrEditShift  = c.shift || '';
+  _wrEditSignIn  = c.sign_in_time || '';
+  _wrEditSignOut = c.sign_out_time || '';
   _wrRender();
 }
 
@@ -5623,12 +5630,18 @@ function _wrRender() {
         `<option value="${s.shift_id}" ${curShift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
       ).join('');
       const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
+      const curSignIn  = _wrEditSignIn  !== null ? _wrEditSignIn  : (c.sign_in_time  || '');
+      const curSignOut = _wrEditSignOut !== null ? _wrEditSignOut : (c.sign_out_time || '');
       return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:130px;position:relative">
         <div style="display:flex;flex-direction:column;gap:3px">
           <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">${outletOpts}</select>
           <select onchange="_wrUpdateEdit(this,'shift')" style="font-size:10px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">
             <option value="">No shift</option>${shiftOpts}
           </select>
+          <div style="display:flex;gap:3px">
+            <input type="time" value="${curSignIn}" onchange="_wrUpdateEdit(this,'sign_in')" title="Sign-in" style="flex:1;min-width:0;font-size:10px;padding:3px 2px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink)">
+            <input type="time" value="${curSignOut}" onchange="_wrUpdateEdit(this,'sign_out')" title="Sign-out" style="flex:1;min-width:0;font-size:10px;padding:3px 2px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink)">
+          </div>
           <div style="display:flex;gap:3px;margin-top:2px">
             <button onclick="_wrSaveEdit('${empId}','${date}')" style="flex:1;padding:3px;font-size:10px;font-weight:700;background:#2563eb;color:white;border:none;border-radius:4px;cursor:pointer">Save</button>
             <button onclick="_wrCloseEditor();_wrRender()" style="padding:3px 6px;font-size:10px;background:#f3f4f6;color:var(--ink);border:1px solid var(--border-2);border-radius:4px;cursor:pointer">✕</button>
@@ -5637,9 +5650,11 @@ function _wrRender() {
       </td>`;
     }
 
+    const timesLabel = (c.sign_in_time || c.sign_out_time) ? `${c.sign_in_time || '—'}–${c.sign_out_time || '—'}` : '';
     return `<td onclick="_wrOpenEditor('${empId}','${date}')" style="padding:6px 8px;cursor:pointer;min-width:90px;border:1px solid transparent;border-radius:4px;transition:background .1s;${isDirty?'outline:2px solid #2563eb;':''}">
       <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;${outletColor(c.outlet)}">${outlet}</span>
       ${shiftLabel ? `<div style="font-size:9px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:85px">${shiftLabel}</div>` : ''}
+      ${timesLabel ? `<div style="font-size:9px;color:#2563eb;margin-top:1px;white-space:nowrap">${timesLabel}</div>` : ''}
     </td>`;
   };
 
@@ -5701,6 +5716,8 @@ function _wrRender() {
 
 let _wrEditOutlet = '';
 let _wrEditShift  = '';
+let _wrEditSignIn  = null;
+let _wrEditSignOut = null;
 
 function _wrUpdateEdit(sel, field) {
   if (field === 'outlet') {
@@ -5712,17 +5729,24 @@ function _wrUpdateEdit(sel, field) {
     if (!stillValid) _wrEditShift = '';
     _wrRender();
   }
-  if (field === 'shift')  _wrEditShift  = sel.value;
+  if (field === 'shift')     _wrEditShift    = sel.value;
+  if (field === 'sign_in')   _wrEditSignIn   = sel.value;
+  if (field === 'sign_out')  _wrEditSignOut  = sel.value;
 }
 
 function _wrSaveEdit(empId, date) {
-  const cell = document.querySelector(`td select[onchange*="outlet"]`);
-  // read current dropdown values from the editing cell
-  const outletSel = document.querySelector(`td select[onchange*="outlet"]`);
-  const shiftSel  = document.querySelector(`td select[onchange*="shift"]`);
+  // read current field values from the editing cell
+  const outletSel  = document.querySelector(`td select[onchange*="outlet"]`);
+  const shiftSel   = document.querySelector(`td select[onchange*="shift"]`);
+  const signInInp  = document.querySelector(`td input[onchange*="sign_in"]`);
+  const signOutInp = document.querySelector(`td input[onchange*="sign_out"]`);
   const outlet = outletSel ? outletSel.value : (_wrState.editCell ? _wrGetCell(empId, date).outlet : '');
   const shiftId = shiftSel ? shiftSel.value : '';
-  _wrSetCell(empId, date, outlet, shiftId);
+  const signIn  = signInInp  ? signInInp.value  : '';
+  const signOut = signOutInp ? signOutInp.value : '';
+  _wrSetCell(empId, date, outlet, shiftId, signIn, signOut);
+  _wrEditSignIn = null;
+  _wrEditSignOut = null;
 }
 
 async function _wrPublish() {
