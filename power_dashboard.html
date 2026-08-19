@@ -5610,6 +5610,15 @@ function _wrRender() {
     return 'color:#14532d;background:#dcfce7';
   };
 
+  // sign_in_time/sign_out_time are stored as full "YYYY-MM-DD HH:MM:SS"
+  // timestamps, not bare times — pull just HH:MM for display and for the
+  // <input type="time"> editor.
+  const _wrTimeOnly = (ts) => {
+    if (!ts) return '';
+    const part = ts.includes(' ') ? ts.split(' ')[1] : ts;
+    return (part || '').slice(0, 5);
+  };
+
   // Cell renderer
   const cellHtml = (empId, date) => {
     const c = _wrGetCell(empId, date);
@@ -5630,8 +5639,8 @@ function _wrRender() {
         `<option value="${s.shift_id}" ${curShift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
       ).join('');
       const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
-      const curSignIn  = _wrEditSignIn  !== null ? _wrEditSignIn  : (c.sign_in_time  || '');
-      const curSignOut = _wrEditSignOut !== null ? _wrEditSignOut : (c.sign_out_time || '');
+      const curSignIn  = _wrEditSignIn  !== null ? _wrEditSignIn  : _wrTimeOnly(c.sign_in_time);
+      const curSignOut = _wrEditSignOut !== null ? _wrEditSignOut : _wrTimeOnly(c.sign_out_time);
       return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:110px;position:relative">
         <div style="display:flex;flex-direction:column;gap:3px">
           <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%">${outletOpts}</select>
@@ -5650,11 +5659,13 @@ function _wrRender() {
       </td>`;
     }
 
-    const timesLabel = (c.sign_in_time || c.sign_out_time) ? `${c.sign_in_time || '—'}–${c.sign_out_time || '—'}` : '';
-    return `<td onclick="_wrOpenEditor('${empId}','${date}')" style="padding:5px 4px;cursor:pointer;border:1px solid transparent;border-radius:4px;transition:background .1s;${isDirty?'outline:2px solid #2563eb;':''}">
+    const siShort = _wrTimeOnly(c.sign_in_time);
+    const soShort = _wrTimeOnly(c.sign_out_time);
+    const timesLabel = (siShort || soShort) ? `${siShort || '—'}–${soShort || '—'}` : '';
+    return `<td onclick="_wrOpenEditor('${empId}','${date}')" style="padding:5px 4px;cursor:pointer;border:1px solid transparent;border-radius:4px;transition:background .1s;overflow:hidden;${isDirty?'outline:2px solid #2563eb;':''}">
       <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;${outletColor(c.outlet)}">${outlet}</span>
-      ${shiftLabel ? `<div style="font-size:9px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:85px">${shiftLabel}</div>` : ''}
-      ${timesLabel ? `<div style="font-size:9px;color:#2563eb;margin-top:1px;white-space:nowrap">${timesLabel}</div>` : ''}
+      ${shiftLabel ? `<div style="font-size:9px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${shiftLabel}</div>` : ''}
+      ${timesLabel ? `<div style="font-size:9px;color:#2563eb;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${timesLabel}</div>` : ''}
     </td>`;
   };
 
@@ -5739,6 +5750,16 @@ function _wrUpdateEdit(sel, field) {
   if (field === 'sign_out')  _wrEditSignOut  = sel.value;
 }
 
+// date is "DD/MM/YYYY"; hhmm is "HH:MM" from a <input type="time">.
+// Roster docs store sign_in_time/sign_out_time as full "YYYY-MM-DD HH:MM:SS"
+// timestamps (see get_current_datetime_str() in the backend), so a manual
+// correction has to match that shape or downstream late/extra-hours parsing breaks.
+function _wrToFullTimestamp(dateDMY, hhmm) {
+  if (!hhmm) return '';
+  const [dd, mm, yyyy] = dateDMY.split('/');
+  return `${yyyy}-${mm}-${dd} ${hhmm}:00`;
+}
+
 function _wrSaveEdit(empId, date) {
   // read current field values from the editing cell
   const outletSel  = document.querySelector(`td select[onchange*="outlet"]`);
@@ -5747,8 +5768,8 @@ function _wrSaveEdit(empId, date) {
   const signOutInp = document.querySelector(`td input[onchange*="sign_out"]`);
   const outlet = outletSel ? outletSel.value : (_wrState.editCell ? _wrGetCell(empId, date).outlet : '');
   const shiftId = shiftSel ? shiftSel.value : '';
-  const signIn  = signInInp  ? signInInp.value  : '';
-  const signOut = signOutInp ? signOutInp.value : '';
+  const signIn  = _wrToFullTimestamp(date, signInInp  ? signInInp.value  : '');
+  const signOut = _wrToFullTimestamp(date, signOutInp ? signOutInp.value : '');
   _wrSetCell(empId, date, outlet, shiftId, signIn, signOut);
   _wrEditSignIn = null;
   _wrEditSignOut = null;
