@@ -5662,7 +5662,7 @@ function _wrRender() {
     const siShort = _wrTimeOnly(c.sign_in_time);
     const soShort = _wrTimeOnly(c.sign_out_time);
     const timesLabel = (siShort || soShort) ? `${siShort || '—'}–${soShort || '—'}` : '';
-    return `<td onclick="_wrOpenEditor('${empId}','${date}')" style="padding:5px 4px;cursor:pointer;border:1px solid transparent;border-radius:4px;transition:background .1s;overflow:hidden;${isDirty?'outline:2px solid #2563eb;':''}">
+    return `<td onclick="_wrOpenEditor('${empId}','${date}')" style="padding:7px 10px;cursor:pointer;min-width:100px;border:1px solid transparent;border-radius:4px;transition:background .1s;overflow:hidden;${isDirty?'outline:2px solid #2563eb;':''}">
       <span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;${outletColor(c.outlet)}">${outlet}</span>
       ${shiftLabel ? `<div style="font-size:9px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${shiftLabel}</div>` : ''}
       ${timesLabel ? `<div style="font-size:9px;color:#2563eb;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${timesLabel}</div>` : ''}
@@ -5709,12 +5709,7 @@ function _wrRender() {
       </div>
       <!-- Grid -->
       <div style="overflow:auto;border:1px solid var(--border-2);border-radius:10px">
-        <table style="border-collapse:collapse;width:100%;table-layout:fixed">
-          <colgroup>
-            <col style="width:14%">
-            ${dates.map(() => '<col style="width:9.5%">').join('')}
-            <col style="width:5%"><col style="width:5%"><col style="width:5%"><col style="width:5%">
-          </colgroup>
+        <table style="border-collapse:collapse;width:100%">
           <thead><tr>
             <th style="${thStyle};text-align:left;position:sticky;left:0;z-index:3;background:var(--surface)">Employee</th>
             ${dateHeaders}
