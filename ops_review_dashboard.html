@@ -20,7 +20,7 @@
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
-.wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 80px; }
+.wrap { max-width: 100%; margin: 0 auto; padding: 28px 28px 80px; }
 .hdr { margin-bottom: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .hdr h1 { font-size: 20px; font-weight: 700; }
 .hdr p { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
@@ -31,9 +31,8 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .banner .deadline { font-weight: 400; color: var(--ink-2); font-size: 12px; }
 .banner.done { background: var(--green-dim); border-color: #bbf7d0; color: #166534; }
 .banner.pending { background: var(--amber-dim); border-color: #fde68a; color: #92400e; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 16px; box-shadow: var(--sh); overflow: hidden; }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); width: 100%; box-shadow: var(--sh); overflow: hidden; }
 .card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; gap: 10px; flex-wrap: wrap; }
 .card-hdr h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .live-badge { font-size: 10px; font-weight: 700; color: #fff; background: var(--red); padding: 2px 7px; border-radius: 999px; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 4px; }
@@ -43,10 +42,11 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .filter-btn { border: 1px solid var(--border-2); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
 .filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
 .filter-date { border: 1px solid var(--border-2); border-radius: var(--r); padding: 3px 8px; font-size: 11.5px; font-family: var(--sans); }
-.card-body { padding: 14px 18px; font-size: 13px; color: var(--ink-2); min-height: 24px; max-height: 340px; overflow-y: auto; }
-.card-body table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.card-body td, .card-body th { padding: 6px 7px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
-.card-body th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 10px; position: sticky; top: 0; background: var(--surface); }
+.card-body { padding: 14px 22px 18px; font-size: 13px; color: var(--ink-2); min-height: 24px; overflow-x: auto; }
+.card-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.card-body td, .card-body th { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.card-body th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 10.5px; }
+.card-body tr:hover td { background: var(--bg); }
 .stat-row { display: flex; gap: 18px; padding: 12px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .stat { display: flex; flex-direction: column; gap: 2px; }
 .stat .n { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -69,6 +69,11 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .who-pick { flex: 1; padding: 22px 10px; border: 1.5px solid var(--border-2); border-radius: var(--r-lg); background: var(--surface); cursor: pointer; font-size: 15px; font-weight: 700; color: var(--ink); transition: border-color .12s, background .12s; }
 .who-pick:hover { border-color: var(--blue); background: var(--blue-dim); }
 .who-pick .emoji { display: block; font-size: 28px; margin-bottom: 8px; }
+.plat { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; display: inline-block; }
+.plat.green { background: var(--green-dim); color: var(--green); }
+.plat.amber { background: var(--amber-dim); color: var(--amber); }
+.plat.red { background: var(--red-dim); color: var(--red); }
+.plat.gray { background: var(--bg); color: var(--ink-3); border: 1px solid var(--border); }
 .hidden { display: none !important; }
 </style>
 </head>
@@ -97,7 +102,7 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 
   <div id="banner" class="banner"></div>
 
-  <div class="grid2">
+  <div class="stack">
     <div class="card" data-section="late_signins">
       <div class="card-hdr">
         <h2>🕐 Late Sign-Ins</h2>
@@ -305,36 +310,59 @@ async function loadLateSignins() {
   } catch { fmtErr('body-late_signins'); }
 }
 
+// Known spelling mismatches between the "Power Cut Log" sheet (used by
+// /power/summary) and the "Power status live" sheet (used by /power/live) —
+// same outlet, different string, so a plain name match would silently drop it.
+const POWER_NAME_ALIASES = { 'brookefield': 'brookfield' };
+function normOutletName(n) {
+  const k = String(n || '').trim().toLowerCase();
+  return POWER_NAME_ALIASES[k] || k;
+}
+function platBadge(info) {
+  if (!info || !info.label || info.label === '—') return '<span class="plat gray">—</span>';
+  return `<span class="plat ${info.color || 'gray'}">${esc(info.label)}</span>`;
+}
+
 async function loadPowerStatus() {
   const el = document.getElementById('body-power_status');
   try {
-    const d = await api('/api/power/summary');
-    const outlets = d.outlets || {};
+    const [summary, live] = await Promise.all([api('/api/power/summary'), api('/api/power/live')]);
+    const outlets = summary.outlets || {};
     const names = Object.keys(outlets).sort();
-    // "Live" = outlet currently mid-outage (last event is off, no Power On form yet).
-    const live = names.filter(n => (outlets[n].recent_outages || []).some(o => o.on === 'Still Off'));
+    const liveByName = {};
+    (live.outlets || []).forEach(o => { liveByName[normOutletName(o.outlet)] = o; });
+    // "Currently down" = outlet mid-outage (last event is off, no Power On form yet).
+    const down = names.filter(n => (outlets[n].recent_outages || []).some(o => o.on === 'Still Off'));
     const affectedToday = names.filter(n => (outlets[n].today_mins || 0) > 0);
+    const platformIssues = names.filter(n => {
+      const p = liveByName[normOutletName(n)];
+      if (!p) return false;
+      return [p.swiggy_aod, p.swiggy_fc, p.zomato, p.ownly].some(x => x && x.color === 'red');
+    });
     let html = `<div class="stat-row">
-      <div class="stat ${live.length ? 'bad' : 'good'}"><div class="n">${live.length}</div><div class="l">Currently Down</div></div>
+      <div class="stat ${down.length ? 'bad' : 'good'}"><div class="n">${down.length}</div><div class="l">Currently Down</div></div>
+      <div class="stat ${platformIssues.length ? 'bad' : 'good'}"><div class="n">${platformIssues.length}</div><div class="l">Platform Issues</div></div>
       <div class="stat ${affectedToday.length ? 'warn' : 'good'}"><div class="n">${affectedToday.length}</div><div class="l">Affected Today</div></div>
       <div class="stat"><div class="n">${names.length}</div><div class="l">Total Outlets</div></div>
+      <div class="stat"><div class="l" style="margin-top:5px">As of ${esc(live.generated_at || summary.generated_at || '—')}</div></div>
     </div>`;
     if (names.length === 0) {
       html += '<span>No outlet power data available.</span>';
     } else {
-      // Currently-down outlets float to the top, then affected-today, then the rest.
+      // Currently-down outlets float to the top, then platform issues, then affected-today, then the rest.
       const ranked = names.slice().sort((a, b) => {
-        const rank = n => live.includes(n) ? 0 : (outlets[n].today_mins || 0) > 0 ? 1 : 2;
+        const rank = n => down.includes(n) ? 0 : platformIssues.includes(n) ? 1 : (outlets[n].today_mins || 0) > 0 ? 2 : 3;
         return rank(a) - rank(b) || a.localeCompare(b);
       });
-      html += '<table><tr><th>Outlet</th><th>Live Status</th><th>Down Today</th><th>Last 7d</th></tr>' +
+      html += '<table><tr><th>Outlet</th><th>Power</th><th>Swiggy AOD</th><th>Swiggy FC</th><th>Zomato</th><th>Ownly</th><th>Down Today</th><th>Last 7d</th><th>Last 28d</th></tr>' +
         ranked.map(n => {
           const o = outlets[n];
-          const isLive = live.includes(n);
-          const status = isLive ? '<span class="badge bad">Still Off</span>'
+          const p = liveByName[normOutletName(n)];
+          const isDown = down.includes(n);
+          const status = isDown ? '<span class="badge bad">Still Off</span>'
             : (o.today_mins || 0) > 0 ? '<span class="badge ok">Restored</span>'
             : '<span class="badge ok">Normal</span>';
-          return `<tr><td>${esc(n)}</td><td>${status}</td><td>${(o.today_mins || 0) > 0 ? `<span class="badge warn">${esc(o.today_fmt || (o.today_mins + ' min'))}</span>` : '—'}</td><td>${esc(o.last_7_days_fmt) || '—'}</td></tr>`;
+          return `<tr><td>${esc(n)}</td><td>${status}</td><td>${platBadge(p && p.swiggy_aod)}</td><td>${platBadge(p && p.swiggy_fc)}</td><td>${platBadge(p && p.zomato)}</td><td>${platBadge(p && p.ownly)}</td><td>${(o.today_mins || 0) > 0 ? `<span class="badge warn">${esc(o.today_fmt || (o.today_mins + ' min'))}</span>` : '—'}</td><td>${esc(o.last_7_days_fmt) || '—'}</td><td>${esc(o.last_28_days_fmt) || '—'}</td></tr>`;
         }).join('') + '</table>';
     }
     el.innerHTML = html;
