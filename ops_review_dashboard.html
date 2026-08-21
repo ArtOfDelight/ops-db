@@ -27,11 +27,6 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
 .who b { color: var(--ink); }
 .who button { border: 1px solid var(--border-2); background: var(--surface); border-radius: var(--r); padding: 5px 10px; font-size: 11.5px; cursor: pointer; color: var(--ink-2); }
-.datebar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 14px; box-shadow: var(--sh); flex-wrap: wrap; }
-.datebar label { font-size: 11.5px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: .03em; }
-.datebar input[type=date] { border: 1px solid var(--border-2); border-radius: var(--r); padding: 6px 10px; font-size: 13px; font-family: var(--sans); }
-.datebar .today-btn { border: 1px solid var(--border-2); background: var(--bg); border-radius: var(--r); padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
-.datebar .today-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 .banner { border-radius: var(--r-lg); padding: 14px 18px; margin-bottom: 20px; font-weight: 600; font-size: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--sh); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .banner .deadline { font-weight: 400; color: var(--ink-2); font-size: 12px; }
 .banner.done { background: var(--green-dim); border-color: #bbf7d0; color: #166534; }
@@ -39,9 +34,15 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 16px; box-shadow: var(--sh); overflow: hidden; }
-.card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 10px; flex-wrap: wrap; }
+.card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; gap: 10px; flex-wrap: wrap; }
 .card-hdr h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.card-hdr .sub { font-size: 11.5px; color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+.live-badge { font-size: 10px; font-weight: 700; color: #fff; background: var(--red); padding: 2px 7px; border-radius: 999px; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 4px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.filterbar { display: flex; gap: 6px; padding: 0 18px 12px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--border); }
+.filter-btn { border: 1px solid var(--border-2); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 11.5px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
+.filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.filter-date { border: 1px solid var(--border-2); border-radius: var(--r); padding: 3px 8px; font-size: 11.5px; font-family: var(--sans); }
 .card-body { padding: 14px 18px; font-size: 13px; color: var(--ink-2); min-height: 24px; max-height: 340px; overflow-y: auto; }
 .card-body table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .card-body td, .card-body th { padding: 6px 7px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -57,6 +58,7 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .badge.ok { background: var(--green-dim); color: var(--green); }
 .badge.warn { background: var(--amber-dim); color: var(--amber); }
 .badge.bad { background: var(--red-dim); color: var(--red); }
+.approve-row { display: flex; justify-content: flex-end; padding: 10px 18px; border-top: 1px solid var(--border); }
 .approve-btn { border: none; border-radius: var(--r); padding: 8px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--blue); color: #fff; white-space: nowrap; }
 .approve-btn:disabled { background: var(--green); cursor: default; opacity: .9; }
 .approve-btn.loading { opacity: .6; cursor: wait; }
@@ -93,45 +95,42 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
     </div>
   </div>
 
-  <div class="datebar">
-    <label>Date</label>
-    <input type="date" id="datePicker" onchange="onDateChange()">
-    <button class="today-btn" id="todayBtn" onclick="goToday()">Today</button>
-  </div>
-
   <div id="banner" class="banner"></div>
 
   <div class="grid2">
     <div class="card" data-section="late_signins">
       <div class="card-hdr">
         <h2>🕐 Late Sign-Ins</h2>
-        <button class="approve-btn" onclick="approve('late_signins')">Mark as Read &amp; Approved</button>
       </div>
+      <div class="filterbar" id="filterbar-late_signins"></div>
       <div class="card-body" id="body-late_signins">Loading…</div>
+      <div class="approve-row"><button class="approve-btn" onclick="approve('late_signins')">Mark as Read &amp; Approved</button></div>
     </div>
 
     <div class="card" data-section="power_status">
       <div class="card-hdr">
-        <h2>⚡ Power Status</h2>
-        <button class="approve-btn" onclick="approve('power_status')">Mark as Read &amp; Approved</button>
+        <h2>⚡ Power Status <span class="live-badge"><span class="live-dot"></span>LIVE</span></h2>
       </div>
       <div class="card-body" id="body-power_status">Loading…</div>
+      <div class="approve-row"><button class="approve-btn" onclick="approve('power_status')">Mark as Read &amp; Approved</button></div>
     </div>
 
     <div class="card" data-section="outlet_db">
       <div class="card-hdr">
         <h2>⭐ Outlet DB</h2>
-        <button class="approve-btn" onclick="approve('outlet_db')">Mark as Read &amp; Approved</button>
       </div>
+      <div class="filterbar" id="filterbar-outlet_db"></div>
       <div class="card-body" id="body-outlet_db">Loading…</div>
+      <div class="approve-row"><button class="approve-btn" onclick="approve('outlet_db')">Mark as Read &amp; Approved</button></div>
     </div>
 
     <div class="card" data-section="employee_db">
       <div class="card-hdr">
         <h2>👥 Employee DB</h2>
-        <button class="approve-btn" onclick="approve('employee_db')">Mark as Read &amp; Approved</button>
       </div>
+      <div class="filterbar" id="filterbar-employee_db"></div>
       <div class="card-body" id="body-employee_db">Loading…</div>
+      <div class="approve-row"><button class="approve-btn" onclick="approve('employee_db')">Mark as Read &amp; Approved</button></div>
     </div>
   </div>
 </div>
@@ -139,10 +138,22 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 <script>
 const API = 'https://aodapp-backend.onrender.com';
 const SECTIONS = ['late_signins', 'power_status', 'outlet_db', 'employee_db'];
+const FILTERED_SECTIONS = ['late_signins', 'outlet_db', 'employee_db'];
+const FILTER_MODES = [
+  { id: 'today',     label: 'Today' },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: '7d',        label: '7 Days' },
+  { id: '28d',        label: '28 Days' },
+  { id: 'custom',    label: 'Custom' },
+];
 let manager = JSON.parse(localStorage.getItem('opsReviewManager') || 'null');
-let selectedDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-const realToday = selectedDate;
+const realToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 let approvedState = {};
+let filterState = {
+  late_signins: { mode: 'today', customDate: realToday },
+  outlet_db:    { mode: 'today', customDate: realToday },
+  employee_db:  { mode: 'today', customDate: realToday },
+};
 
 function selectManager(id, name) {
   manager = { id, name };
@@ -161,26 +172,48 @@ function showMain() {
   document.getElementById('whoScreen').classList.add('hidden');
   document.getElementById('mainScreen').classList.remove('hidden');
   document.getElementById('whoName').textContent = manager.name;
-  document.getElementById('datePicker').value = selectedDate;
-  updateTodayBtn();
+  FILTERED_SECTIONS.forEach(renderFilterBar);
   loadAll();
 }
 
-function updateTodayBtn() {
-  document.getElementById('todayBtn').classList.toggle('active', selectedDate === realToday);
+function daysAgoISO(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 }
 
-function goToday() {
-  selectedDate = realToday;
-  document.getElementById('datePicker').value = selectedDate;
-  updateTodayBtn();
-  loadAll();
+function rangeForFilter(section) {
+  const st = filterState[section];
+  if (st.mode === 'today')     return { from: realToday, to: realToday };
+  if (st.mode === 'yesterday') { const y = daysAgoISO(1); return { from: y, to: y }; }
+  if (st.mode === '7d')        return { from: daysAgoISO(6), to: realToday };
+  if (st.mode === '28d')       return { from: daysAgoISO(27), to: realToday };
+  return { from: st.customDate, to: st.customDate };
 }
 
-function onDateChange() {
-  selectedDate = document.getElementById('datePicker').value || realToday;
-  updateTodayBtn();
-  loadAll();
+function renderFilterBar(section) {
+  const st = filterState[section];
+  const el = document.getElementById(`filterbar-${section}`);
+  el.innerHTML = FILTER_MODES.map(m =>
+    `<button class="filter-btn ${st.mode === m.id ? 'active' : ''}" onclick="setFilter('${section}','${m.id}')">${m.label}</button>`
+  ).join('') + (st.mode === 'custom' ? `<input type="date" class="filter-date" value="${st.customDate}" max="${realToday}" onchange="setCustomDate('${section}', this.value)">` : '');
+}
+
+function setFilter(section, mode) {
+  filterState[section].mode = mode;
+  renderFilterBar(section);
+  loadSection(section);
+}
+
+function setCustomDate(section, date) {
+  filterState[section].customDate = date || realToday;
+  loadSection(section);
+}
+
+function loadSection(section) {
+  if (section === 'late_signins') return loadLateSignins();
+  if (section === 'outlet_db')    return loadOutletDb();
+  if (section === 'employee_db')  return loadEmployeeDb();
 }
 
 async function api(path) {
@@ -193,7 +226,7 @@ function renderBanner() {
   const el = document.getElementById('banner');
   const complete = doneCount === SECTIONS.length;
   el.className = 'banner ' + (complete ? 'done' : 'pending');
-  el.innerHTML = `<span>${complete ? '✅ All 4 sections approved' : `${doneCount} of ${SECTIONS.length} sections approved`}</span><span class="deadline">Due by 1:00 PM daily · ${selectedDate}</span>`;
+  el.innerHTML = `<span>${complete ? '✅ All 4 sections approved for today' : `${doneCount} of ${SECTIONS.length} sections approved`}</span><span class="deadline">Due by 1:00 PM daily · ${realToday}</span>`;
 }
 
 function renderApproveButton(section) {
@@ -210,7 +243,7 @@ function renderApproveButton(section) {
 }
 
 async function loadStatus() {
-  const d = await api(`/api/admin/ops-review/status?manager_id=${manager.id}&date=${selectedDate}`);
+  const d = await api(`/api/admin/ops-review/status?manager_id=${manager.id}&date=${realToday}`);
   approvedState = {};
   (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
   SECTIONS.forEach(renderApproveButton);
@@ -225,7 +258,7 @@ async function approve(section) {
   try {
     const r = await fetch(`${API}/api/admin/ops-review/approve`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: selectedDate, section, manager_id: manager.id })
+      body: JSON.stringify({ date: realToday, section, manager_id: manager.id })
     });
     const d = await r.json();
     approvedState = {};
@@ -242,13 +275,15 @@ function fmtErr(id) { document.getElementById(id).textContent = 'Unable to load 
 function esc(s) { return String(s ?? '—').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
 async function loadLateSignins() {
+  const el = document.getElementById('body-late_signins');
+  el.textContent = 'Loading…';
   try {
-    const d = await api(`/api/admin/ops-review/data/late-signins?manager_id=${manager.id}&date=${selectedDate}`);
+    const { from, to } = rangeForFilter('late_signins');
+    const d = await api(`/api/admin/ops-review/data/late-signins?manager_id=${manager.id}&date_from=${from}&date_to=${to}`);
     const all = d.records || [];
     const late = all.filter(r => r.type === 'late');
     const missedIn = all.filter(r => r.type === 'missed_signin');
     const missedOut = all.filter(r => r.type === 'missed_signout');
-    const el = document.getElementById('body-late_signins');
     let html = `<div class="stat-row">
       <div class="stat ${late.length ? 'warn' : 'good'}"><div class="n">${late.length}</div><div class="l">Late</div></div>
       <div class="stat ${missedIn.length ? 'bad' : 'good'}"><div class="n">${missedIn.length}</div><div class="l">Missed Sign-in</div></div>
@@ -258,12 +293,12 @@ async function loadLateSignins() {
       html += '<span class="badge ok">All clear</span>';
     } else {
       const rows = [...late, ...missedIn, ...missedOut];
-      html += '<table><tr><th>Employee</th><th>Outlet</th><th>Shift</th><th>Sign In</th><th>Issue</th></tr>' +
+      html += '<table><tr><th>Date</th><th>Employee</th><th>Outlet</th><th>Shift</th><th>Sign In</th><th>Issue</th></tr>' +
         rows.map(r => {
           const issue = r.type === 'late' ? `<span class="badge warn">Late ${r.late_by_minutes ?? '—'}m</span>`
             : r.type === 'missed_signin' ? `<span class="badge bad">No sign-in</span>`
             : `<span class="badge warn">No sign-out</span>`;
-          return `<tr><td>${esc(r.employee_name || r.employee_id)}</td><td>${esc(r.outlet_code || r.outlet)}</td><td>${esc(r.start_time)}–${esc(r.end_time)}</td><td>${esc(r.sign_in) || '—'}</td><td>${issue}</td></tr>`;
+          return `<tr><td>${esc(r.date)}</td><td>${esc(r.employee_name || r.employee_id)}</td><td>${esc(r.outlet_code || r.outlet)}</td><td>${esc(r.start_time)}–${esc(r.end_time)}</td><td>${esc(r.sign_in) || '—'}</td><td>${issue}</td></tr>`;
         }).join('') + '</table>';
     }
     el.innerHTML = html;
@@ -271,49 +306,47 @@ async function loadLateSignins() {
 }
 
 async function loadPowerStatus() {
+  const el = document.getElementById('body-power_status');
   try {
     const d = await api('/api/power/summary');
     const outlets = d.outlets || {};
     const names = Object.keys(outlets);
-    const isToday = selectedDate === realToday;
-    const affected = names.filter(n => isToday ? (outlets[n].today_mins || 0) > 0 : true)
-      .filter(n => isToday ? true : (outlets[n].recent_outages || []).some(o => (o.off || '').includes(fmtDateForOutageMatch(selectedDate))));
-    const el = document.getElementById('body-power_status');
-    const totalDownMins = names.reduce((sum, n) => sum + (isToday ? (outlets[n].today_mins || 0) : 0), 0);
+    // "Live" = outlets with an outage currently ongoing (no Power On form yet).
+    const live = names.filter(n => (outlets[n].recent_outages || []).some(o => o.on === 'Still Off'));
+    const affectedToday = names.filter(n => (outlets[n].today_mins || 0) > 0);
     let html = `<div class="stat-row">
-      <div class="stat ${affected.length ? 'warn' : 'good'}"><div class="n">${affected.length}</div><div class="l">Outlets Affected</div></div>
+      <div class="stat ${live.length ? 'bad' : 'good'}"><div class="n">${live.length}</div><div class="l">Currently Down</div></div>
+      <div class="stat ${affectedToday.length ? 'warn' : 'good'}"><div class="n">${affectedToday.length}</div><div class="l">Affected Today</div></div>
       <div class="stat"><div class="n">${names.length}</div><div class="l">Total Outlets</div></div>
     </div>`;
-    if (affected.length === 0) {
-      html += `<span class="badge ok">No power outages${isToday ? ' today' : ' on this date'}</span>`;
+    if (affectedToday.length === 0) {
+      html += '<span class="badge ok">No power outages today</span>';
     } else {
-      html += '<table><tr><th>Outlet</th><th>Down Today</th><th>Last 7d</th><th>Last 28d</th></tr>' +
-        affected.slice(0, 40).map(n => {
+      html += '<table><tr><th>Outlet</th><th>Status</th><th>Down Today</th><th>Last 7d</th></tr>' +
+        affectedToday.slice(0, 40).map(n => {
           const o = outlets[n];
-          return `<tr><td>${esc(n)}</td><td><span class="badge warn">${esc(o.today_fmt || (o.today_mins + ' min'))}</span></td><td>${esc(o.last_7_days_fmt)}</td><td>${esc(o.last_28_days_fmt)}</td></tr>`;
+          const isLive = live.includes(n);
+          return `<tr><td>${esc(n)}</td><td>${isLive ? '<span class="badge bad">Still Off</span>' : '<span class="badge ok">Restored</span>'}</td><td><span class="badge warn">${esc(o.today_fmt || (o.today_mins + ' min'))}</span></td><td>${esc(o.last_7_days_fmt)}</td></tr>`;
         }).join('') + '</table>';
     }
     el.innerHTML = html;
   } catch { fmtErr('body-power_status'); }
 }
-function fmtDateForOutageMatch(iso) {
-  const [y, m, d] = iso.split('-');
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${parseInt(d)} ${months[parseInt(m) - 1]}`;
-}
 
 async function loadOutletDb() {
+  const el = document.getElementById('body-outlet_db');
+  el.textContent = 'Loading…';
   try {
-    const d = await api(`/api/admin/ops-review/data/outlet-db?manager_id=${manager.id}&date=${selectedDate}`);
+    const { from, to } = rangeForFilter('outlet_db');
+    const d = await api(`/api/admin/ops-review/data/outlet-db?manager_id=${manager.id}&date_from=${from}&date_to=${to}`);
     const rows = (d.outlets || []).slice().sort((a, b) => (a.net_pct ?? 0) - (b.net_pct ?? 0));
-    const el = document.getElementById('body-outlet_db');
     const worst = rows.filter(r => (r.error_rate_pct || 0) > 5).length;
     let html = `<div class="stat-row">
       <div class="stat"><div class="n">${rows.length}</div><div class="l">Outlets</div></div>
       <div class="stat ${worst ? 'bad' : 'good'}"><div class="n">${worst}</div><div class="l">Error Rate &gt; 5%</div></div>
     </div>`;
     if (rows.length === 0) {
-      html += '<span>No ratings data for this date yet.</span>';
+      html += '<span>No ratings data for this range yet.</span>';
     } else {
       html += '<table><tr><th>Outlet</th><th>Orders</th><th>High%</th><th>Error%</th><th>Net%</th><th>IGCC</th></tr>' +
         rows.map(r => `<tr><td>${esc(r.outlet_code)}</td><td>${esc(r.rista_orders)}</td><td>${esc(r.high_rate_pct)}</td><td><span class="badge ${(r.error_rate_pct||0) > 5 ? 'bad' : 'ok'}">${esc(r.error_rate_pct)}%</span></td><td>${esc(r.net_pct)}</td><td>${esc(r.igcc)}</td></tr>`).join('') +
@@ -324,25 +357,20 @@ async function loadOutletDb() {
 }
 
 async function loadEmployeeDb() {
+  const el = document.getElementById('body-employee_db');
+  el.textContent = 'Loading…';
   try {
-    const [y, m, dd] = selectedDate.split('-').map(Number);
-    const dObj = new Date(Date.UTC(y, m - 1, dd));
-    const day = dObj.getUTCDay();
-    const monday = new Date(dObj); monday.setUTCDate(dObj.getUTCDate() - ((day + 6) % 7));
-    const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
-    const ws = monday.toISOString().slice(0, 10);
-    const we = sunday.toISOString().slice(0, 10);
-    const d = await api(`/api/admin/employee-scorecard?week_start=${ws}&week_end=${we}`);
+    const { from, to } = rangeForFilter('employee_db');
+    const d = await api(`/api/admin/employee-scorecard?week_start=${from}&week_end=${to}`);
     const rows = (d.scorecards || []).slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    const el = document.getElementById('body-employee_db');
     const lowScorers = rows.filter(r => (r.score ?? 0) < 0).length;
     let html = `<div class="stat-row">
       <div class="stat"><div class="n">${rows.length}</div><div class="l">Employees</div></div>
       <div class="stat ${lowScorers ? 'bad' : 'good'}"><div class="n">${lowScorers}</div><div class="l">Score &lt; 0</div></div>
-      <div class="stat"><div class="n">${ws} → ${we}</div><div class="l">Week</div></div>
+      <div class="stat"><div class="n">${from} → ${to}</div><div class="l">Range</div></div>
     </div>`;
     if (rows.length === 0) {
-      html += '<span>No scorecard data for this week.</span>';
+      html += '<span>No scorecard data for this range.</span>';
     } else {
       html += '<table><tr><th>Employee</th><th>Orders</th><th>High</th><th>Errors</th><th>Checklist%</th><th>Late</th><th>Score</th></tr>' +
         rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.total_orders)}</td><td>${esc(r.high_rated)}</td><td>${esc(r.errors)}</td><td>${esc(r.checklist_pct)}</td><td>${esc(r.late_count)}</td><td><span class="badge ${(r.score||0) < 0 ? 'bad' : 'ok'}">${esc(r.score)}</span></td></tr>`).join('') +
@@ -353,7 +381,6 @@ async function loadEmployeeDb() {
 }
 
 async function loadAll() {
-  document.getElementById('banner').textContent = 'Loading…';
   await Promise.all([loadStatus(), loadLateSignins(), loadPowerStatus(), loadOutletDb(), loadEmployeeDb()]);
 }
 
