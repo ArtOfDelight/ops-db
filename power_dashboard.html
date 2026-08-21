@@ -1110,6 +1110,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
       <span class="sb-icon">✅</span> Checklist Status
     </button>
+    <button class="sb-item" id="sbitem-opsreview" onclick="navTo('opsreview')">
+      <span class="sb-icon">🗒️</span> Daily Review Status
+    </button>
     <button class="sb-item" id="sbitem-cashcoll" onclick="navTo('cashcoll')">
       <span class="sb-icon">💵</span> Cash Collection
     </button>
@@ -1172,11 +1175,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','reviews','mango','checklist','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics','comments'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','reviews','mango','checklist','opsreview','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics','comments'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
   _currentPage = page;
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
@@ -1198,6 +1201,7 @@ function navTo(page) {
   if (page === 'reviews')    renderReviewsPage();
   if (page === 'mango')      renderMangoPage();
   if (page === 'checklist')  renderChecklistStatusPage();
+  if (page === 'opsreview') renderOpsReviewStatusPage();
   if (page === 'cashcoll')   renderCashCollectionPage();
   if (page === 'customers')    renderCustomersPage();
   if (page === 'tokenhealth')  renderTokenHealthPage();
@@ -8575,6 +8579,56 @@ function fixDriveUrl(url) {
 let _clSubmissionMap = {};
 
 const CL_SLOT_COLORS = { Morning:'#d97706', 'Mid Day':'#2563eb', Closing:'#7c3aed' };
+
+async function renderOpsReviewStatusPage() {
+  const bodyEl = document.querySelector('.body');
+  bodyEl.style.padding = '';
+  bodyEl.style.overflow = '';
+  const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const pageBody = document.getElementById('pageBody');
+  pageBody.innerHTML = `
+<style>
+.or-wrap { padding:16px; }
+.or-hdr { font-size:13px; color:var(--ink-2); margin-bottom:14px; }
+.or-table { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh); }
+.or-table th { background:var(--navy); color:#fff; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:9px 10px; text-align:left; }
+.or-table td { padding:10px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+.or-table tr:last-child td { border-bottom:none; }
+.or-badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+.or-badge.ok { background:#dcfce7; color:#16a34a; }
+.or-badge.miss { background:#fee2e2; color:#dc2626; }
+.or-manager { font-weight:600; }
+.or-full { font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
+.or-full.yes { background:#dcfce7; color:#16a34a; }
+.or-full.no { background:#fffbeb; color:#d97706; }
+</style>
+<div class="or-wrap">
+  <div class="or-hdr">Manager sign-off on Late Sign-ins / Power Status / Outlet DB / Employee DB — due by 1:00 PM daily.</div>
+  <div id="orTableHost">Loading…</div>
+</div>`;
+
+  try {
+    const r = await fetch(`${API}/api/admin/ops-review/daily-status?date=${todayISO}`, {
+      headers: { 'Authorization': `Bearer ${_lsToken}` }
+    });
+    const d = await r.json();
+    const host = document.getElementById('orTableHost');
+    if (!r.ok || !d.managers) { host.textContent = 'Unable to load review status.'; return; }
+    const sectionLabels = { late_signins: 'Late Sign-Ins', power_status: 'Power Status', outlet_db: 'Outlet DB', employee_db: 'Employee DB' };
+    const sections = Object.keys(sectionLabels);
+    host.innerHTML = `<table class="or-table"><tr><th>Manager</th>${sections.map(s => `<th>${sectionLabels[s]}</th>`).join('')}<th>All Done</th></tr>` +
+      d.managers.map(m => {
+        const cells = sections.map(s => {
+          const found = (m.sections || []).find(x => x.section === s);
+          const ok = found && found.approved;
+          return `<td><span class="or-badge ${ok ? 'ok' : 'miss'}">${ok ? '✓ Done' : 'Missed'}</span></td>`;
+        }).join('');
+        return `<tr><td class="or-manager">${m.manager_name}</td>${cells}<td><span class="or-full ${m.fully_approved ? 'yes' : 'no'}">${m.fully_approved ? 'Yes' : 'No'}</span></td></tr>`;
+      }).join('') + '</table>';
+  } catch (e) {
+    document.getElementById('orTableHost').textContent = 'Network error loading review status.';
+  }
+}
 
 function renderChecklistStatusPage() {
   _clDate = _clTodayISO();

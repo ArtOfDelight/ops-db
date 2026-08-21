@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ops Review — Zaān</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f9fafb; --surface: #ffffff; --border: #e5e7eb; --border-2: #d1d5db;
+  --ink: #111827; --ink-2: #6b7280; --ink-3: #9ca3af;
+  --blue: #111827; --blue-dim: rgba(17,24,39,.06);
+  --red: #dc2626; --red-dim: #fef2f2;
+  --amber: #d97706; --amber-dim: #fffbeb;
+  --green: #16a34a; --green-dim: #f0fdf4;
+  --r: 8px; --r-lg: 12px;
+  --sh: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
+.hdr { margin-bottom: 24px; }
+.hdr h1 { font-size: 20px; font-weight: 700; }
+.hdr p { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
+.banner { border-radius: var(--r-lg); padding: 14px 18px; margin-bottom: 20px; font-weight: 600; font-size: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--sh); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.banner .deadline { font-weight: 400; color: var(--ink-2); font-size: 12px; }
+.banner.done { background: var(--green-dim); border-color: #bbf7d0; color: #166534; }
+.banner.pending { background: var(--amber-dim); border-color: #fde68a; color: #92400e; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 16px; box-shadow: var(--sh); overflow: hidden; }
+.card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 10px; flex-wrap: wrap; }
+.card-hdr h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px 18px; font-size: 13px; color: var(--ink-2); min-height: 24px; }
+.card-body table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.card-body td, .card-body th { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+.card-body th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 10.5px; }
+.badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .02em; }
+.badge.ok { background: var(--green-dim); color: var(--green); }
+.badge.warn { background: var(--amber-dim); color: var(--amber); }
+.approve-btn { border: none; border-radius: var(--r); padding: 8px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--blue); color: #fff; white-space: nowrap; }
+.approve-btn:disabled { background: var(--green); cursor: default; opacity: .9; }
+.approve-btn.loading { opacity: .6; cursor: wait; }
+.approved-note { font-size: 11.5px; color: var(--green); font-weight: 600; }
+.login-box { max-width: 340px; margin: 90px auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px; box-shadow: var(--sh); }
+.login-box h1 { font-size: 17px; margin-bottom: 4px; }
+.login-box p { font-size: 12.5px; color: var(--ink-2); margin-bottom: 18px; }
+.login-box input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: var(--r); font-size: 13px; margin-bottom: 10px; font-family: var(--sans); }
+.login-box button { width: 100%; padding: 10px; border: none; border-radius: var(--r); background: var(--blue); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
+.login-err { font-size: 12px; color: var(--red); min-height: 16px; margin-bottom: 6px; }
+.login-err.ok { color: var(--green); }
+.hidden { display: none !important; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-box">
+  <h1>Ops Review Sign-in</h1>
+  <p id="loginSub">Enter your employee ID and phone number to receive a one-time password.</p>
+  <div class="login-err" id="loginErr"></div>
+  <div id="stepId">
+    <input id="inEmpId" placeholder="Employee ID" oninput="onEmpIdChange()">
+    <input id="inPhone" placeholder="Phone number" inputmode="numeric">
+    <button onclick="sendOtp()">Continue</button>
+  </div>
+  <div id="stepPassword" class="hidden">
+    <input id="inPassword" type="password" placeholder="Password">
+    <button onclick="verifyPassword()">Sign in</button>
+  </div>
+  <div id="stepOtp" class="hidden">
+    <input id="inOtp" placeholder="OTP">
+    <button onclick="verifyOtp()">Sign in</button>
+  </div>
+</div>
+
+<div id="mainScreen" class="wrap hidden">
+  <div class="hdr">
+    <h1>Daily Ops Review</h1>
+    <p>Review each section below and mark it read &amp; approved. All 4 must be approved by 1:00 PM.</p>
+  </div>
+  <div id="banner" class="banner"></div>
+
+  <div class="card" data-section="late_signins">
+    <div class="card-hdr">
+      <h2>🕐 Late Sign-Ins</h2>
+      <button class="approve-btn" onclick="approve('late_signins')">Mark as Read &amp; Approved</button>
+    </div>
+    <div class="card-body" id="body-late_signins">Loading…</div>
+  </div>
+
+  <div class="card" data-section="power_status">
+    <div class="card-hdr">
+      <h2>⚡ Power Status</h2>
+      <button class="approve-btn" onclick="approve('power_status')">Mark as Read &amp; Approved</button>
+    </div>
+    <div class="card-body" id="body-power_status">Loading…</div>
+  </div>
+
+  <div class="card" data-section="outlet_db">
+    <div class="card-hdr">
+      <h2>⭐ Outlet DB</h2>
+      <button class="approve-btn" onclick="approve('outlet_db')">Mark as Read &amp; Approved</button>
+    </div>
+    <div class="card-body" id="body-outlet_db">Loading…</div>
+  </div>
+
+  <div class="card" data-section="employee_db">
+    <div class="card-hdr">
+      <h2>👥 Employee DB</h2>
+      <button class="approve-btn" onclick="approve('employee_db')">Mark as Read &amp; Approved</button>
+    </div>
+    <div class="card-body" id="body-employee_db">Loading…</div>
+  </div>
+</div>
+
+<script>
+const API = 'https://aodapp-backend.onrender.com';
+const SECTIONS = ['late_signins', 'power_status', 'outlet_db', 'employee_db'];
+const PASSWORD_AUTH_IDS = ['AOD001'];
+let token = localStorage.getItem('adminToken') || '';
+let phone = '';
+let today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+let approvedState = {};
+
+function setErr(msg, ok) {
+  const el = document.getElementById('loginErr');
+  el.textContent = msg || '';
+  el.className = 'login-err' + (ok ? ' ok' : '');
+}
+
+function onEmpIdChange() {
+  const id = document.getElementById('inEmpId').value.trim().toUpperCase();
+  const isPw = PASSWORD_AUTH_IDS.includes(id);
+  document.getElementById('inPhone').style.display = isPw ? 'none' : '';
+  document.getElementById('loginSub').textContent = isPw
+    ? 'Enter your employee ID and password to login.'
+    : 'Enter your employee ID and phone number to receive a one-time password.';
+}
+
+async function sendOtp() {
+  const empId = document.getElementById('inEmpId').value.trim();
+  if (!empId) { setErr('Enter your Employee ID'); return; }
+  if (PASSWORD_AUTH_IDS.includes(empId.toUpperCase())) {
+    document.getElementById('stepId').classList.add('hidden');
+    document.getElementById('stepPassword').classList.remove('hidden');
+    return;
+  }
+  phone = document.getElementById('inPhone').value.trim();
+  if (!/^\d{10}$/.test(phone)) { setErr('Enter a valid 10-digit phone number'); return; }
+  setErr('Sending OTP…');
+  try {
+    const r = await fetch(`${API}/api/auth/send-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: empId, phone })
+    });
+    const d = await r.json();
+    if (!r.ok) { setErr(d.detail || 'Failed to send OTP'); return; }
+    setErr('OTP sent!', true);
+    document.getElementById('stepId').classList.add('hidden');
+    document.getElementById('stepOtp').classList.remove('hidden');
+  } catch { setErr('Network error'); }
+}
+
+async function verifyPassword() {
+  const empId = document.getElementById('inEmpId').value.trim();
+  const password = document.getElementById('inPassword').value;
+  if (!password) { setErr('Enter your password'); return; }
+  setErr('Verifying…');
+  try {
+    const r = await fetch(`${API}/api/auth/login-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: empId, password })
+    });
+    const d = await r.json();
+    if (!r.ok) { setErr(d.detail || 'Invalid credentials'); return; }
+    if (d.role !== 'admin') { setErr('This account does not have admin access.'); return; }
+    token = d.token;
+    localStorage.setItem('adminToken', token);
+    showMain();
+  } catch { setErr('Network error'); }
+}
+
+async function verifyOtp() {
+  const empId = document.getElementById('inEmpId').value.trim();
+  const otp = document.getElementById('inOtp').value.trim();
+  setErr('Verifying…');
+  try {
+    const r = await fetch(`${API}/api/auth/verify-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: empId, phone, otp })
+    });
+    const d = await r.json();
+    if (!r.ok) { setErr(d.detail || 'Invalid OTP'); return; }
+    if (d.role !== 'admin') { setErr('This account does not have admin access.'); return; }
+    token = d.token;
+    localStorage.setItem('adminToken', token);
+    showMain();
+  } catch { setErr('Network error'); }
+}
+
+function showMain() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+  loadAll();
+}
+
+async function api(path, opts) {
+  const r = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts && opts.headers) }
+  });
+  if (r.status === 401 || r.status === 403) {
+    localStorage.removeItem('adminToken');
+    location.reload();
+    throw new Error('auth');
+  }
+  return r.json();
+}
+
+function renderBanner() {
+  const doneCount = SECTIONS.filter(s => approvedState[s]).length;
+  const el = document.getElementById('banner');
+  const complete = doneCount === SECTIONS.length;
+  el.className = 'banner ' + (complete ? 'done' : 'pending');
+  el.innerHTML = `<span>${complete ? '✅ All 4 sections approved for today' : `${doneCount} of ${SECTIONS.length} sections approved`}</span><span class="deadline">Due by 1:00 PM daily · ${today}</span>`;
+}
+
+function renderApproveButton(section) {
+  const card = document.querySelector(`.card[data-section="${section}"]`);
+  const btn = card.querySelector('.approve-btn');
+  const info = approvedState[section];
+  if (info) {
+    btn.disabled = true;
+    btn.textContent = '✓ Approved';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Mark as Read & Approved';
+  }
+}
+
+async function loadStatus() {
+  const d = await api(`/api/admin/ops-review/status?date=${today}`);
+  approvedState = {};
+  (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
+  SECTIONS.forEach(renderApproveButton);
+  renderBanner();
+}
+
+async function approve(section) {
+  const card = document.querySelector(`.card[data-section="${section}"]`);
+  const btn = card.querySelector('.approve-btn');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  try {
+    const d = await api('/api/admin/ops-review/approve', { method: 'POST', body: JSON.stringify({ date: today, section }) });
+    approvedState = {};
+    (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
+    SECTIONS.forEach(renderApproveButton);
+    renderBanner();
+  } catch (e) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+function fmtErr(id) { document.getElementById(id).textContent = 'Unable to load — try refreshing.'; }
+
+function todayDDMMYYYY() {
+  const [y, m, d] = today.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+async function loadLateSignins() {
+  try {
+    const dd = todayDDMMYYYY();
+    const d = await api(`/api/admin/attendance-late-report?start_date=${dd}&end_date=${dd}`);
+    const rows = (d.records || []).filter(r => r.type === 'late');
+    const el = document.getElementById('body-late_signins');
+    if (rows.length === 0) { el.innerHTML = '<span class="badge ok">All on time today</span>'; return; }
+    el.innerHTML = '<table><tr><th>Employee</th><th>Outlet</th><th>Late by</th></tr>' +
+      rows.slice(0, 25).map(r => `<tr><td>${r.employee_name || r.employee_id || '—'}</td><td>${r.outlet_code || r.outlet || '—'}</td><td><span class="badge warn">${r.late_by_minutes ?? '—'} min</span></td></tr>`).join('') +
+      '</table>';
+  } catch { fmtErr('body-late_signins'); }
+}
+
+async function loadPowerStatus() {
+  try {
+    const d = await api('/api/power/summary');
+    const outlets = d.outlets || {};
+    const names = Object.keys(outlets);
+    const affected = names.filter(n => (outlets[n].today_mins || 0) > 0);
+    const el = document.getElementById('body-power_status');
+    if (affected.length === 0) { el.innerHTML = '<span class="badge ok">No power outages today</span>'; return; }
+    el.innerHTML = '<table><tr><th>Outlet</th><th>Downtime today</th></tr>' +
+      affected.slice(0, 25).map(n => `<tr><td>${n}</td><td><span class="badge warn">${outlets[n].today_fmt || outlets[n].today_mins + ' min'}</span></td></tr>`).join('') +
+      '</table>';
+  } catch { fmtErr('body-power_status'); }
+}
+
+async function loadOutletDb() {
+  try {
+    const d = await api(`/api/admin/outlet-ratings-summary?date_from=${today}&date_to=${today}`);
+    const rows = d.outlets || [];
+    const el = document.getElementById('body-outlet_db');
+    if (rows.length === 0) { el.innerHTML = '<span>No ratings data for today yet.</span>'; return; }
+    el.innerHTML = '<table><tr><th>Outlet</th><th>High Rate %</th><th>Error Rate %</th><th>Net %</th></tr>' +
+      rows.slice(0, 25).map(r => `<tr><td>${r.outlet_code || '—'}</td><td>${r.high_rate_pct ?? '—'}</td><td>${r.error_rate_pct ?? '—'}</td><td>${r.net_pct ?? '—'}</td></tr>`).join('') +
+      '</table>';
+  } catch { fmtErr('body-outlet_db'); }
+}
+
+async function loadEmployeeDb() {
+  try {
+    const d = await api('/api/admin/employee-scorecard');
+    const rows = d.scorecards || [];
+    const el = document.getElementById('body-employee_db');
+    if (rows.length === 0) { el.innerHTML = '<span>No scorecard data available.</span>'; return; }
+    el.innerHTML = '<table><tr><th>Employee</th><th>Score</th></tr>' +
+      rows.slice(0, 25).map(r => `<tr><td>${r.name || r.employee_id || '—'}</td><td>${r.score ?? '—'}</td></tr>`).join('') +
+      '</table>';
+  } catch { fmtErr('body-employee_db'); }
+}
+
+async function loadAll() {
+  await Promise.all([loadStatus(), loadLateSignins(), loadPowerStatus(), loadOutletDb(), loadEmployeeDb()]);
+}
+
+if (token) { showMain(); }
+</script>
+</body>
+</html>
