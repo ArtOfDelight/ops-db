@@ -20,202 +20,171 @@
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
-.wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
-.hdr { margin-bottom: 24px; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 80px; }
+.hdr { margin-bottom: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .hdr h1 { font-size: 20px; font-weight: 700; }
 .hdr p { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
+.who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.who b { color: var(--ink); }
+.who button { border: 1px solid var(--border-2); background: var(--surface); border-radius: var(--r); padding: 5px 10px; font-size: 11.5px; cursor: pointer; color: var(--ink-2); }
+.datebar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 14px; box-shadow: var(--sh); flex-wrap: wrap; }
+.datebar label { font-size: 11.5px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: .03em; }
+.datebar input[type=date] { border: 1px solid var(--border-2); border-radius: var(--r); padding: 6px 10px; font-size: 13px; font-family: var(--sans); }
+.datebar .today-btn { border: 1px solid var(--border-2); background: var(--bg); border-radius: var(--r); padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
+.datebar .today-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 .banner { border-radius: var(--r-lg); padding: 14px 18px; margin-bottom: 20px; font-weight: 600; font-size: 14px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--sh); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .banner .deadline { font-weight: 400; color: var(--ink-2); font-size: 12px; }
 .banner.done { background: var(--green-dim); border-color: #bbf7d0; color: #166534; }
 .banner.pending { background: var(--amber-dim); border-color: #fde68a; color: #92400e; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 16px; box-shadow: var(--sh); overflow: hidden; }
 .card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 10px; flex-wrap: wrap; }
 .card-hdr h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.card-body { padding: 16px 18px; font-size: 13px; color: var(--ink-2); min-height: 24px; }
+.card-hdr .sub { font-size: 11.5px; color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+.card-body { padding: 14px 18px; font-size: 13px; color: var(--ink-2); min-height: 24px; max-height: 340px; overflow-y: auto; }
 .card-body table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.card-body td, .card-body th { padding: 5px 6px; text-align: left; border-bottom: 1px solid var(--border); }
-.card-body th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 10.5px; }
+.card-body td, .card-body th { padding: 6px 7px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.card-body th { color: var(--ink-3); font-weight: 600; text-transform: uppercase; font-size: 10px; position: sticky; top: 0; background: var(--surface); }
+.stat-row { display: flex; gap: 18px; padding: 12px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat .n { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .03em; }
+.stat.warn .n { color: var(--amber); }
+.stat.bad .n { color: var(--red); }
+.stat.good .n { color: var(--green); }
 .badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .02em; }
 .badge.ok { background: var(--green-dim); color: var(--green); }
 .badge.warn { background: var(--amber-dim); color: var(--amber); }
+.badge.bad { background: var(--red-dim); color: var(--red); }
 .approve-btn { border: none; border-radius: var(--r); padding: 8px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; background: var(--blue); color: #fff; white-space: nowrap; }
 .approve-btn:disabled { background: var(--green); cursor: default; opacity: .9; }
 .approve-btn.loading { opacity: .6; cursor: wait; }
-.approved-note { font-size: 11.5px; color: var(--green); font-weight: 600; }
-.login-box { max-width: 340px; margin: 90px auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px; box-shadow: var(--sh); }
-.login-box h1 { font-size: 17px; margin-bottom: 4px; }
-.login-box p { font-size: 12.5px; color: var(--ink-2); margin-bottom: 18px; }
-.login-box input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: var(--r); font-size: 13px; margin-bottom: 10px; font-family: var(--sans); }
-.login-box button { width: 100%; padding: 10px; border: none; border-radius: var(--r); background: var(--blue); color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
-.login-err { font-size: 12px; color: var(--red); min-height: 16px; margin-bottom: 6px; }
-.login-err.ok { color: var(--green); }
+.who-box { max-width: 360px; margin: 100px auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px; box-shadow: var(--sh); text-align: center; }
+.who-box h1 { font-size: 17px; margin-bottom: 6px; }
+.who-box p { font-size: 12.5px; color: var(--ink-2); margin-bottom: 22px; }
+.who-picks { display: flex; gap: 12px; justify-content: center; }
+.who-pick { flex: 1; padding: 22px 10px; border: 1.5px solid var(--border-2); border-radius: var(--r-lg); background: var(--surface); cursor: pointer; font-size: 15px; font-weight: 700; color: var(--ink); transition: border-color .12s, background .12s; }
+.who-pick:hover { border-color: var(--blue); background: var(--blue-dim); }
+.who-pick .emoji { display: block; font-size: 28px; margin-bottom: 8px; }
 .hidden { display: none !important; }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<div id="loginScreen" class="login-box">
-  <h1>Ops Review Sign-in</h1>
-  <p id="loginSub">Enter your employee ID and phone number to receive a one-time password.</p>
-  <div class="login-err" id="loginErr"></div>
-  <div id="stepId">
-    <input id="inEmpId" placeholder="Employee ID" oninput="onEmpIdChange()">
-    <input id="inPhone" placeholder="Phone number" inputmode="numeric">
-    <button onclick="sendOtp()">Continue</button>
-  </div>
-  <div id="stepPassword" class="hidden">
-    <input id="inPassword" type="password" placeholder="Password">
-    <button onclick="verifyPassword()">Sign in</button>
-  </div>
-  <div id="stepOtp" class="hidden">
-    <input id="inOtp" placeholder="OTP">
-    <button onclick="verifyOtp()">Sign in</button>
+<div id="whoScreen" class="who-box">
+  <h1>Daily Ops Review</h1>
+  <p>Who's filling this out?</p>
+  <div class="who-picks">
+    <button class="who-pick" onclick="selectManager('AOD021','Jimmy')"><span class="emoji">🧑‍💼</span>Jimmy</button>
+    <button class="who-pick" onclick="selectManager('AOD091','Sanu')"><span class="emoji">🧑‍💼</span>Sanu</button>
   </div>
 </div>
 
 <div id="mainScreen" class="wrap hidden">
   <div class="hdr">
-    <h1>Daily Ops Review</h1>
-    <p>Review each section below and mark it read &amp; approved. All 4 must be approved by 1:00 PM.</p>
+    <div>
+      <h1>Daily Ops Review</h1>
+      <p>Review each section below and mark it read &amp; approved. All 4 must be approved by 1:00 PM.</p>
+    </div>
+    <div class="who">
+      Signed in as <b id="whoName"></b>
+      <button onclick="switchManager()">Switch</button>
+    </div>
   </div>
+
+  <div class="datebar">
+    <label>Date</label>
+    <input type="date" id="datePicker" onchange="onDateChange()">
+    <button class="today-btn" id="todayBtn" onclick="goToday()">Today</button>
+  </div>
+
   <div id="banner" class="banner"></div>
 
-  <div class="card" data-section="late_signins">
-    <div class="card-hdr">
-      <h2>🕐 Late Sign-Ins</h2>
-      <button class="approve-btn" onclick="approve('late_signins')">Mark as Read &amp; Approved</button>
+  <div class="grid2">
+    <div class="card" data-section="late_signins">
+      <div class="card-hdr">
+        <h2>🕐 Late Sign-Ins</h2>
+        <button class="approve-btn" onclick="approve('late_signins')">Mark as Read &amp; Approved</button>
+      </div>
+      <div class="card-body" id="body-late_signins">Loading…</div>
     </div>
-    <div class="card-body" id="body-late_signins">Loading…</div>
-  </div>
 
-  <div class="card" data-section="power_status">
-    <div class="card-hdr">
-      <h2>⚡ Power Status</h2>
-      <button class="approve-btn" onclick="approve('power_status')">Mark as Read &amp; Approved</button>
+    <div class="card" data-section="power_status">
+      <div class="card-hdr">
+        <h2>⚡ Power Status</h2>
+        <button class="approve-btn" onclick="approve('power_status')">Mark as Read &amp; Approved</button>
+      </div>
+      <div class="card-body" id="body-power_status">Loading…</div>
     </div>
-    <div class="card-body" id="body-power_status">Loading…</div>
-  </div>
 
-  <div class="card" data-section="outlet_db">
-    <div class="card-hdr">
-      <h2>⭐ Outlet DB</h2>
-      <button class="approve-btn" onclick="approve('outlet_db')">Mark as Read &amp; Approved</button>
+    <div class="card" data-section="outlet_db">
+      <div class="card-hdr">
+        <h2>⭐ Outlet DB</h2>
+        <button class="approve-btn" onclick="approve('outlet_db')">Mark as Read &amp; Approved</button>
+      </div>
+      <div class="card-body" id="body-outlet_db">Loading…</div>
     </div>
-    <div class="card-body" id="body-outlet_db">Loading…</div>
-  </div>
 
-  <div class="card" data-section="employee_db">
-    <div class="card-hdr">
-      <h2>👥 Employee DB</h2>
-      <button class="approve-btn" onclick="approve('employee_db')">Mark as Read &amp; Approved</button>
+    <div class="card" data-section="employee_db">
+      <div class="card-hdr">
+        <h2>👥 Employee DB</h2>
+        <button class="approve-btn" onclick="approve('employee_db')">Mark as Read &amp; Approved</button>
+      </div>
+      <div class="card-body" id="body-employee_db">Loading…</div>
     </div>
-    <div class="card-body" id="body-employee_db">Loading…</div>
   </div>
 </div>
 
 <script>
 const API = 'https://aodapp-backend.onrender.com';
 const SECTIONS = ['late_signins', 'power_status', 'outlet_db', 'employee_db'];
-const PASSWORD_AUTH_IDS = ['AOD001'];
-let token = localStorage.getItem('adminToken') || '';
-let phone = '';
-let today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+let manager = JSON.parse(localStorage.getItem('opsReviewManager') || 'null');
+let selectedDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+const realToday = selectedDate;
 let approvedState = {};
 
-function setErr(msg, ok) {
-  const el = document.getElementById('loginErr');
-  el.textContent = msg || '';
-  el.className = 'login-err' + (ok ? ' ok' : '');
+function selectManager(id, name) {
+  manager = { id, name };
+  localStorage.setItem('opsReviewManager', JSON.stringify(manager));
+  showMain();
 }
 
-function onEmpIdChange() {
-  const id = document.getElementById('inEmpId').value.trim().toUpperCase();
-  const isPw = PASSWORD_AUTH_IDS.includes(id);
-  document.getElementById('inPhone').style.display = isPw ? 'none' : '';
-  document.getElementById('loginSub').textContent = isPw
-    ? 'Enter your employee ID and password to login.'
-    : 'Enter your employee ID and phone number to receive a one-time password.';
-}
-
-async function sendOtp() {
-  const empId = document.getElementById('inEmpId').value.trim();
-  if (!empId) { setErr('Enter your Employee ID'); return; }
-  if (PASSWORD_AUTH_IDS.includes(empId.toUpperCase())) {
-    document.getElementById('stepId').classList.add('hidden');
-    document.getElementById('stepPassword').classList.remove('hidden');
-    return;
-  }
-  phone = document.getElementById('inPhone').value.trim();
-  if (!/^\d{10}$/.test(phone)) { setErr('Enter a valid 10-digit phone number'); return; }
-  setErr('Sending OTP…');
-  try {
-    const r = await fetch(`${API}/api/auth/send-otp`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: empId, phone })
-    });
-    const d = await r.json();
-    if (!r.ok) { setErr(d.detail || 'Failed to send OTP'); return; }
-    setErr('OTP sent!', true);
-    document.getElementById('stepId').classList.add('hidden');
-    document.getElementById('stepOtp').classList.remove('hidden');
-  } catch { setErr('Network error'); }
-}
-
-async function verifyPassword() {
-  const empId = document.getElementById('inEmpId').value.trim();
-  const password = document.getElementById('inPassword').value;
-  if (!password) { setErr('Enter your password'); return; }
-  setErr('Verifying…');
-  try {
-    const r = await fetch(`${API}/api/auth/login-password`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: empId, password })
-    });
-    const d = await r.json();
-    if (!r.ok) { setErr(d.detail || 'Invalid credentials'); return; }
-    if (d.role !== 'admin') { setErr('This account does not have admin access.'); return; }
-    token = d.token;
-    localStorage.setItem('adminToken', token);
-    showMain();
-  } catch { setErr('Network error'); }
-}
-
-async function verifyOtp() {
-  const empId = document.getElementById('inEmpId').value.trim();
-  const otp = document.getElementById('inOtp').value.trim();
-  setErr('Verifying…');
-  try {
-    const r = await fetch(`${API}/api/auth/verify-otp`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: empId, phone, otp })
-    });
-    const d = await r.json();
-    if (!r.ok) { setErr(d.detail || 'Invalid OTP'); return; }
-    if (d.role !== 'admin') { setErr('This account does not have admin access.'); return; }
-    token = d.token;
-    localStorage.setItem('adminToken', token);
-    showMain();
-  } catch { setErr('Network error'); }
+function switchManager() {
+  localStorage.removeItem('opsReviewManager');
+  manager = null;
+  document.getElementById('mainScreen').classList.add('hidden');
+  document.getElementById('whoScreen').classList.remove('hidden');
 }
 
 function showMain() {
-  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('whoScreen').classList.add('hidden');
   document.getElementById('mainScreen').classList.remove('hidden');
+  document.getElementById('whoName').textContent = manager.name;
+  document.getElementById('datePicker').value = selectedDate;
+  updateTodayBtn();
   loadAll();
 }
 
-async function api(path, opts) {
-  const r = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts && opts.headers) }
-  });
-  if (r.status === 401 || r.status === 403) {
-    localStorage.removeItem('adminToken');
-    location.reload();
-    throw new Error('auth');
-  }
+function updateTodayBtn() {
+  document.getElementById('todayBtn').classList.toggle('active', selectedDate === realToday);
+}
+
+function goToday() {
+  selectedDate = realToday;
+  document.getElementById('datePicker').value = selectedDate;
+  updateTodayBtn();
+  loadAll();
+}
+
+function onDateChange() {
+  selectedDate = document.getElementById('datePicker').value || realToday;
+  updateTodayBtn();
+  loadAll();
+}
+
+async function api(path) {
+  const r = await fetch(`${API}${path}`);
   return r.json();
 }
 
@@ -224,7 +193,7 @@ function renderBanner() {
   const el = document.getElementById('banner');
   const complete = doneCount === SECTIONS.length;
   el.className = 'banner ' + (complete ? 'done' : 'pending');
-  el.innerHTML = `<span>${complete ? '✅ All 4 sections approved for today' : `${doneCount} of ${SECTIONS.length} sections approved`}</span><span class="deadline">Due by 1:00 PM daily · ${today}</span>`;
+  el.innerHTML = `<span>${complete ? '✅ All 4 sections approved' : `${doneCount} of ${SECTIONS.length} sections approved`}</span><span class="deadline">Due by 1:00 PM daily · ${selectedDate}</span>`;
 }
 
 function renderApproveButton(section) {
@@ -233,7 +202,7 @@ function renderApproveButton(section) {
   const info = approvedState[section];
   if (info) {
     btn.disabled = true;
-    btn.textContent = '✓ Approved';
+    btn.textContent = `✓ Approved by ${info.approved_by || manager.name}`;
   } else {
     btn.disabled = false;
     btn.textContent = 'Mark as Read & Approved';
@@ -241,7 +210,7 @@ function renderApproveButton(section) {
 }
 
 async function loadStatus() {
-  const d = await api(`/api/admin/ops-review/status?date=${today}`);
+  const d = await api(`/api/admin/ops-review/status?manager_id=${manager.id}&date=${selectedDate}`);
   approvedState = {};
   (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
   SECTIONS.forEach(renderApproveButton);
@@ -254,7 +223,11 @@ async function approve(section) {
   btn.classList.add('loading');
   btn.disabled = true;
   try {
-    const d = await api('/api/admin/ops-review/approve', { method: 'POST', body: JSON.stringify({ date: today, section }) });
+    const r = await fetch(`${API}/api/admin/ops-review/approve`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: selectedDate, section, manager_id: manager.id })
+    });
+    const d = await r.json();
     approvedState = {};
     (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
     SECTIONS.forEach(renderApproveButton);
@@ -266,22 +239,34 @@ async function approve(section) {
 }
 
 function fmtErr(id) { document.getElementById(id).textContent = 'Unable to load — try refreshing.'; }
-
-function todayDDMMYYYY() {
-  const [y, m, d] = today.split('-');
-  return `${d}/${m}/${y}`;
-}
+function esc(s) { return String(s ?? '—').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
 async function loadLateSignins() {
   try {
-    const dd = todayDDMMYYYY();
-    const d = await api(`/api/admin/attendance-late-report?start_date=${dd}&end_date=${dd}`);
-    const rows = (d.records || []).filter(r => r.type === 'late');
+    const d = await api(`/api/admin/ops-review/data/late-signins?manager_id=${manager.id}&date=${selectedDate}`);
+    const all = d.records || [];
+    const late = all.filter(r => r.type === 'late');
+    const missedIn = all.filter(r => r.type === 'missed_signin');
+    const missedOut = all.filter(r => r.type === 'missed_signout');
     const el = document.getElementById('body-late_signins');
-    if (rows.length === 0) { el.innerHTML = '<span class="badge ok">All on time today</span>'; return; }
-    el.innerHTML = '<table><tr><th>Employee</th><th>Outlet</th><th>Late by</th></tr>' +
-      rows.slice(0, 25).map(r => `<tr><td>${r.employee_name || r.employee_id || '—'}</td><td>${r.outlet_code || r.outlet || '—'}</td><td><span class="badge warn">${r.late_by_minutes ?? '—'} min</span></td></tr>`).join('') +
-      '</table>';
+    let html = `<div class="stat-row">
+      <div class="stat ${late.length ? 'warn' : 'good'}"><div class="n">${late.length}</div><div class="l">Late</div></div>
+      <div class="stat ${missedIn.length ? 'bad' : 'good'}"><div class="n">${missedIn.length}</div><div class="l">Missed Sign-in</div></div>
+      <div class="stat ${missedOut.length ? 'warn' : 'good'}"><div class="n">${missedOut.length}</div><div class="l">Missed Sign-out</div></div>
+    </div>`;
+    if (all.length === 0) {
+      html += '<span class="badge ok">All clear</span>';
+    } else {
+      const rows = [...late, ...missedIn, ...missedOut];
+      html += '<table><tr><th>Employee</th><th>Outlet</th><th>Shift</th><th>Sign In</th><th>Issue</th></tr>' +
+        rows.map(r => {
+          const issue = r.type === 'late' ? `<span class="badge warn">Late ${r.late_by_minutes ?? '—'}m</span>`
+            : r.type === 'missed_signin' ? `<span class="badge bad">No sign-in</span>`
+            : `<span class="badge warn">No sign-out</span>`;
+          return `<tr><td>${esc(r.employee_name || r.employee_id)}</td><td>${esc(r.outlet_code || r.outlet)}</td><td>${esc(r.start_time)}–${esc(r.end_time)}</td><td>${esc(r.sign_in) || '—'}</td><td>${issue}</td></tr>`;
+        }).join('') + '</table>';
+    }
+    el.innerHTML = html;
   } catch { fmtErr('body-late_signins'); }
 }
 
@@ -290,44 +275,89 @@ async function loadPowerStatus() {
     const d = await api('/api/power/summary');
     const outlets = d.outlets || {};
     const names = Object.keys(outlets);
-    const affected = names.filter(n => (outlets[n].today_mins || 0) > 0);
+    const isToday = selectedDate === realToday;
+    const affected = names.filter(n => isToday ? (outlets[n].today_mins || 0) > 0 : true)
+      .filter(n => isToday ? true : (outlets[n].recent_outages || []).some(o => (o.off || '').includes(fmtDateForOutageMatch(selectedDate))));
     const el = document.getElementById('body-power_status');
-    if (affected.length === 0) { el.innerHTML = '<span class="badge ok">No power outages today</span>'; return; }
-    el.innerHTML = '<table><tr><th>Outlet</th><th>Downtime today</th></tr>' +
-      affected.slice(0, 25).map(n => `<tr><td>${n}</td><td><span class="badge warn">${outlets[n].today_fmt || outlets[n].today_mins + ' min'}</span></td></tr>`).join('') +
-      '</table>';
+    const totalDownMins = names.reduce((sum, n) => sum + (isToday ? (outlets[n].today_mins || 0) : 0), 0);
+    let html = `<div class="stat-row">
+      <div class="stat ${affected.length ? 'warn' : 'good'}"><div class="n">${affected.length}</div><div class="l">Outlets Affected</div></div>
+      <div class="stat"><div class="n">${names.length}</div><div class="l">Total Outlets</div></div>
+    </div>`;
+    if (affected.length === 0) {
+      html += `<span class="badge ok">No power outages${isToday ? ' today' : ' on this date'}</span>`;
+    } else {
+      html += '<table><tr><th>Outlet</th><th>Down Today</th><th>Last 7d</th><th>Last 28d</th></tr>' +
+        affected.slice(0, 40).map(n => {
+          const o = outlets[n];
+          return `<tr><td>${esc(n)}</td><td><span class="badge warn">${esc(o.today_fmt || (o.today_mins + ' min'))}</span></td><td>${esc(o.last_7_days_fmt)}</td><td>${esc(o.last_28_days_fmt)}</td></tr>`;
+        }).join('') + '</table>';
+    }
+    el.innerHTML = html;
   } catch { fmtErr('body-power_status'); }
+}
+function fmtDateForOutageMatch(iso) {
+  const [y, m, d] = iso.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(d)} ${months[parseInt(m) - 1]}`;
 }
 
 async function loadOutletDb() {
   try {
-    const d = await api(`/api/admin/outlet-ratings-summary?date_from=${today}&date_to=${today}`);
-    const rows = d.outlets || [];
+    const d = await api(`/api/admin/ops-review/data/outlet-db?manager_id=${manager.id}&date=${selectedDate}`);
+    const rows = (d.outlets || []).slice().sort((a, b) => (a.net_pct ?? 0) - (b.net_pct ?? 0));
     const el = document.getElementById('body-outlet_db');
-    if (rows.length === 0) { el.innerHTML = '<span>No ratings data for today yet.</span>'; return; }
-    el.innerHTML = '<table><tr><th>Outlet</th><th>High Rate %</th><th>Error Rate %</th><th>Net %</th></tr>' +
-      rows.slice(0, 25).map(r => `<tr><td>${r.outlet_code || '—'}</td><td>${r.high_rate_pct ?? '—'}</td><td>${r.error_rate_pct ?? '—'}</td><td>${r.net_pct ?? '—'}</td></tr>`).join('') +
-      '</table>';
+    const worst = rows.filter(r => (r.error_rate_pct || 0) > 5).length;
+    let html = `<div class="stat-row">
+      <div class="stat"><div class="n">${rows.length}</div><div class="l">Outlets</div></div>
+      <div class="stat ${worst ? 'bad' : 'good'}"><div class="n">${worst}</div><div class="l">Error Rate &gt; 5%</div></div>
+    </div>`;
+    if (rows.length === 0) {
+      html += '<span>No ratings data for this date yet.</span>';
+    } else {
+      html += '<table><tr><th>Outlet</th><th>Orders</th><th>High%</th><th>Error%</th><th>Net%</th><th>IGCC</th></tr>' +
+        rows.map(r => `<tr><td>${esc(r.outlet_code)}</td><td>${esc(r.rista_orders)}</td><td>${esc(r.high_rate_pct)}</td><td><span class="badge ${(r.error_rate_pct||0) > 5 ? 'bad' : 'ok'}">${esc(r.error_rate_pct)}%</span></td><td>${esc(r.net_pct)}</td><td>${esc(r.igcc)}</td></tr>`).join('') +
+        '</table>';
+    }
+    el.innerHTML = html;
   } catch { fmtErr('body-outlet_db'); }
 }
 
 async function loadEmployeeDb() {
   try {
-    const d = await api('/api/admin/employee-scorecard');
-    const rows = d.scorecards || [];
+    const [y, m, dd] = selectedDate.split('-').map(Number);
+    const dObj = new Date(Date.UTC(y, m - 1, dd));
+    const day = dObj.getUTCDay();
+    const monday = new Date(dObj); monday.setUTCDate(dObj.getUTCDate() - ((day + 6) % 7));
+    const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+    const ws = monday.toISOString().slice(0, 10);
+    const we = sunday.toISOString().slice(0, 10);
+    const d = await api(`/api/admin/employee-scorecard?week_start=${ws}&week_end=${we}`);
+    const rows = (d.scorecards || []).slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     const el = document.getElementById('body-employee_db');
-    if (rows.length === 0) { el.innerHTML = '<span>No scorecard data available.</span>'; return; }
-    el.innerHTML = '<table><tr><th>Employee</th><th>Score</th></tr>' +
-      rows.slice(0, 25).map(r => `<tr><td>${r.name || r.employee_id || '—'}</td><td>${r.score ?? '—'}</td></tr>`).join('') +
-      '</table>';
+    const lowScorers = rows.filter(r => (r.score ?? 0) < 0).length;
+    let html = `<div class="stat-row">
+      <div class="stat"><div class="n">${rows.length}</div><div class="l">Employees</div></div>
+      <div class="stat ${lowScorers ? 'bad' : 'good'}"><div class="n">${lowScorers}</div><div class="l">Score &lt; 0</div></div>
+      <div class="stat"><div class="n">${ws} → ${we}</div><div class="l">Week</div></div>
+    </div>`;
+    if (rows.length === 0) {
+      html += '<span>No scorecard data for this week.</span>';
+    } else {
+      html += '<table><tr><th>Employee</th><th>Orders</th><th>High</th><th>Errors</th><th>Checklist%</th><th>Late</th><th>Score</th></tr>' +
+        rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.total_orders)}</td><td>${esc(r.high_rated)}</td><td>${esc(r.errors)}</td><td>${esc(r.checklist_pct)}</td><td>${esc(r.late_count)}</td><td><span class="badge ${(r.score||0) < 0 ? 'bad' : 'ok'}">${esc(r.score)}</span></td></tr>`).join('') +
+        '</table>';
+    }
+    el.innerHTML = html;
   } catch { fmtErr('body-employee_db'); }
 }
 
 async function loadAll() {
+  document.getElementById('banner').textContent = 'Loading…';
   await Promise.all([loadStatus(), loadLateSignins(), loadPowerStatus(), loadOutletDb(), loadEmployeeDb()]);
 }
 
-if (token) { showMain(); }
+if (manager) { showMain(); } else { document.getElementById('whoScreen').classList.remove('hidden'); }
 </script>
 </body>
 </html>
