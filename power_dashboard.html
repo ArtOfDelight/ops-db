@@ -10278,10 +10278,12 @@ async function renderOutletVisitPage() {
         <button id="ovTab-completed" onclick="ovSwitchTab('completed')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">✅ Completed Actions</button>
         <button id="ovTab-summary" onclick="ovSwitchTab('summary')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">📊 Question Summary</button>
         <button id="ovTab-stafffeedback" onclick="ovSwitchTab('stafffeedback')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">💬 Staff Feedback</button>
+        <button id="ovTab-deductions" onclick="ovSwitchTab('deductions')" style="padding:8px 18px;font-size:13px;font-weight:600;border:0;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--ink-3)">💸 Deductions</button>
       </div>
 
       <div id="ovLoading" style="text-align:center;padding:40px;color:var(--ink-3);font-size:13px">Loading…</div>
       <div id="ovContent" style="display:none"></div>
+      <div id="ovDeductPanel" style="display:none"></div>
       <div id="ovSfPanel" style="display:none">
         <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
           <select id="sfStaffFilterOV" onchange="sfFilterStaffOV()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink);min-width:180px">
@@ -10301,7 +10303,7 @@ async function renderOutletVisitPage() {
 
 function ovSwitchTab(tab) {
   _ovTab = tab;
-  ['visits','actions','completed','summary','stafffeedback'].forEach(t => {
+  ['visits','actions','completed','summary','stafffeedback','deductions'].forEach(t => {
     const btn = document.getElementById('ovTab-' + t);
     if (!btn) return;
     if (t === tab) {
@@ -10311,15 +10313,74 @@ function ovSwitchTab(tab) {
     }
   });
   const sfPanel = document.getElementById('ovSfPanel');
+  const deductPanel = document.getElementById('ovDeductPanel');
   const mainContent = document.getElementById('ovContent');
   if (tab === 'stafffeedback') {
     if (mainContent) mainContent.style.display = 'none';
+    if (deductPanel) deductPanel.style.display = 'none';
     if (sfPanel) sfPanel.style.display = '';
     sfLoadOV();
+  } else if (tab === 'deductions') {
+    if (mainContent) mainContent.style.display = 'none';
+    if (sfPanel) sfPanel.style.display = 'none';
+    if (deductPanel) deductPanel.style.display = '';
+    ovLoadDeductions();
   } else {
     if (sfPanel) sfPanel.style.display = 'none';
+    if (deductPanel) deductPanel.style.display = 'none';
     ovRender();
   }
+}
+
+async function ovLoadDeductions() {
+  const API = 'https://aodapp-backend.onrender.com/api';
+  const panel = document.getElementById('ovDeductPanel');
+  if (!panel) return;
+  panel.innerHTML = `<div style="text-align:center;padding:40px;color:var(--ink-3);font-size:13px">Loading…</div>`;
+  try {
+    const res = await fetch(`${API}/admin/compliance-deductions`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    const data = await res.json();
+    const rows = data.deductions || [];
+    const pending = rows.filter(r => r.status === 'pending');
+    const applied = rows.filter(r => r.status === 'applied');
+    const pctColor = p => p >= 50 ? '#DC2626' : '#D97706';
+    const esc = s => String(s ?? '—').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const rowHtml = r => `<tr>
+        <td>${esc(r.found_at)}</td>
+        <td>${esc(r.employee_name)} <span style="color:var(--ink-3);font-size:11px">(${esc(r.employee_id)})</span></td>
+        <td>${esc(r.outlet_code)}</td>
+        <td><span style="font-weight:700;color:${pctColor(r.pct)}">${esc(r.violation_type)} · ${esc(r.pct)}%</span></td>
+        <td style="max-width:220px;white-space:normal;color:var(--ink-2);font-size:11.5px">${esc(r.violation_text)}</td>
+        <td>${r.status === 'applied'
+            ? `<span style="color:#16A34A;font-weight:600">✓ Applied ${esc(r.applied_period)}${r.deducted_amount != null ? ' · ₹'+esc(r.deducted_amount) : ''}</span>`
+            : `<span style="color:#D97706;font-weight:600">⏳ Pending</span>`}</td>
+        <td>${r.status === 'pending' ? `<button onclick="ovVoidDeduction('${r.deduction_id}')" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink-3)">Void</button>` : ''}</td>
+      </tr>`;
+    panel.innerHTML = `
+      <div style="display:flex;gap:16px;margin-bottom:16px">
+        <div style="padding:10px 16px;border-radius:8px;background:var(--bg);border:1px solid var(--border)"><div style="font-size:18px;font-weight:700">${pending.length}</div><div style="font-size:10.5px;color:var(--ink-3);text-transform:uppercase">Pending</div></div>
+        <div style="padding:10px 16px;border-radius:8px;background:var(--bg);border:1px solid var(--border)"><div style="font-size:18px;font-weight:700">${applied.length}</div><div style="font-size:10.5px;color:var(--ink-3);text-transform:uppercase">Applied</div></div>
+      </div>
+      ${rows.length === 0 ? '<div style="color:var(--ink-3);font-size:13px">No compliance deductions logged yet.</div>' : `
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr style="text-align:left;color:var(--ink-3);font-size:10.5px;text-transform:uppercase">
+          <th style="padding:6px 8px">Date</th><th style="padding:6px 8px">Employee</th><th style="padding:6px 8px">Outlet</th>
+          <th style="padding:6px 8px">Violation</th><th style="padding:6px 8px">Detail</th><th style="padding:6px 8px">Status</th><th style="padding:6px 8px"></th>
+        </tr>
+        ${rows.map(rowHtml).join('')}
+      </table>`}`;
+  } catch (e) {
+    panel.innerHTML = `<div style="color:var(--red);font-size:13px">Unable to load — try refreshing.</div>`;
+  }
+}
+
+async function ovVoidDeduction(id) {
+  if (!confirm('Void this pending deduction? This cannot be undone.')) return;
+  const API = 'https://aodapp-backend.onrender.com/api';
+  try {
+    await fetch(`${API}/admin/compliance-deductions/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    ovLoadDeductions();
+  } catch (e) { alert('Failed to void — try again.'); }
 }
 
 async function ovLoad() {
