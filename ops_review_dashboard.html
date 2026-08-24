@@ -108,6 +108,8 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 
   <div id="banner" class="banner"></div>
 
+  <div class="filterbar" id="filterbar-global" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);padding:8px 14px;margin-bottom:12px;flex-shrink:0;"></div>
+
   <div class="stack">
     <div class="card" data-section="late_signins">
       <div class="card-hdr">
@@ -165,6 +167,8 @@ let filterState = {
   outlet_db:    { mode: 'today', customDate: realToday },
   employee_db:  { mode: 'today', customDate: realToday },
 };
+let globalMode = 'today';
+let globalCustomDate = realToday;
 
 function selectManager(id, name) {
   manager = { id, name };
@@ -183,8 +187,33 @@ function showMain() {
   document.getElementById('whoScreen').classList.add('hidden');
   document.getElementById('mainScreen').classList.remove('hidden');
   document.getElementById('whoName').textContent = manager.name;
+  renderGlobalFilterBar();
   FILTERED_SECTIONS.forEach(renderFilterBar);
   loadAll();
+}
+
+function renderGlobalFilterBar() {
+  const el = document.getElementById('filterbar-global');
+  el.innerHTML = '<span style="font-size:11.5px;font-weight:600;color:var(--ink-2);margin-right:4px;">Apply to all:</span>' +
+    FILTER_MODES.map(m =>
+      `<button class="filter-btn ${globalMode === m.id ? 'active' : ''}" onclick="setGlobalFilter('${m.id}')">${m.label}</button>`
+    ).join('') + (globalMode === 'custom' ? `<input type="date" class="filter-date" value="${globalCustomDate}" max="${realToday}" onchange="setGlobalCustomDate(this.value)">` : '');
+}
+
+function setGlobalFilter(mode) {
+  globalMode = mode;
+  if (mode !== 'custom') {
+    FILTERED_SECTIONS.forEach(s => { filterState[s].mode = mode; renderFilterBar(s); loadSection(s); });
+  }
+  renderGlobalFilterBar();
+  if (mode === 'custom') {
+    FILTERED_SECTIONS.forEach(s => { filterState[s].mode = 'custom'; filterState[s].customDate = globalCustomDate; renderFilterBar(s); loadSection(s); });
+  }
+}
+
+function setGlobalCustomDate(date) {
+  globalCustomDate = date || realToday;
+  FILTERED_SECTIONS.forEach(s => { filterState[s].customDate = globalCustomDate; loadSection(s); });
 }
 
 function daysAgoISO(n) {
