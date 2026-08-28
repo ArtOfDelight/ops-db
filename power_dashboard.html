@@ -2643,7 +2643,7 @@ function orRenderTable(outlets, el) {
 }
 
 /* ── PRODUCT RANKINGS PAGE ── */
-let _prSubTab = 'products'; // 'products' | 'scoops' | 'trends' | 'growth'
+let _prSubTab = 'products'; // 'products' | 'scoops' | 'sundaes' | 'trends' | 'growth'
 let _prViewTab = 'online';  // 'online' | 'dinein' | 'combined'
 
 function renderProductsPage() {
@@ -2655,6 +2655,7 @@ function renderProductsPage() {
         <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
           <button class="ptab ${_prSubTab==='products'?'active':''}" id="pgsub-products" onclick="prSwitchSubTab('products')" style="padding:5px 16px;font-size:11px">All Products</button>
           <button class="ptab ${_prSubTab==='scoops'  ?'active':''}" id="pgsub-scoops"   onclick="prSwitchSubTab('scoops')"   style="padding:5px 16px;font-size:11px">🍦 Scoop Flavours</button>
+          <button class="ptab ${_prSubTab==='sundaes' ?'active':''}" id="pgsub-sundaes"  onclick="prSwitchSubTab('sundaes')"  style="padding:5px 16px;font-size:11px">🍨 Sundae COGS</button>
           <button class="ptab ${_prSubTab==='trends'  ?'active':''}" id="pgsub-trends"   onclick="prSwitchSubTab('trends')"   style="padding:5px 16px;font-size:11px">📈 Rating Trends</button>
           <button class="ptab ${_prSubTab==='growth'  ?'active':''}" id="pgsub-growth"   onclick="prSwitchSubTab('growth')"   style="padding:5px 16px;font-size:11px">📦 Growth</button>
         </div>
@@ -2667,7 +2668,7 @@ function renderProductsPage() {
 
 function prSwitchSubTab(tab, skipState) {
   if (!skipState) _prSubTab = tab;
-  ['products','scoops','trends','growth'].forEach(t => {
+  ['products','scoops','sundaes','trends','growth'].forEach(t => {
     const btn = document.getElementById('pgsub-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
@@ -2775,6 +2776,43 @@ function prSwitchSubTab(tab, skipState) {
       </div>
       <div id="scp-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
     scpSetPreset(7);
+  }
+  if (tab === 'sundaes') {
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          <button class="ptab active" id="sntab-7"  onclick="sndSetPreset(7)"  style="padding:4px 12px;font-size:10px">7 Days</button>
+          <button class="ptab"        id="sntab-28" onclick="sndSetPreset(28)" style="padding:4px 12px;font-size:10px">28 Days</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">From</label>
+          <input type="date" id="snd-start" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">To</label>
+          <input type="date" id="snd-end" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="font-size:10px;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em">Outlet</label>
+          <select id="snd-outlet" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;font-family:var(--mono);background:var(--surface);color:var(--ink)" onchange="sndLoad()">
+            <option value="">All</option>
+          </select>
+        </div>
+        <button class="ptab active" onclick="sndLoad()" style="padding:4px 14px;font-size:10px">Load</button>
+        <span class="as-of-label" id="snd-status"></span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <input type="file" id="snd-file-input" accept=".csv" style="display:none" onchange="sndUploadCsv(this.files[0])"/>
+          <button class="ptab" onclick="document.getElementById('snd-file-input').click()" style="padding:4px 14px;font-size:10px">⬆️ Upload Sales CSV</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--ink-3);font-family:var(--mono);margin-bottom:14px;line-height:1.6">
+        Online only (Swiggy / Zomato / Ownly / Magicpin), dine-in excluded. Overall totals are exact.
+        Per-topping / per-scoop-upgrade breakdown only exists in Rista's <strong>"Sales Items By Transaction"</strong> CSV export
+        (not the live API) — upload it here whenever you want the breakdown refreshed for a date range. Click a sundae row to see its breakdown.
+      </div>
+      <div id="snd-upload-status"></div>
+      <div id="snd-content"><div class="loader-box"><div class="loader"></div> Loading…</div></div>`;
+    sndSetPreset(7);
   }
   if (tab === 'trends') {
     // ── Rating Trends tab ──
@@ -3826,6 +3864,185 @@ function scpSortBy(key) {
     _scpSort = { key, dir: -1 };
   }
   scpDrawTable();
+}
+
+/* ── SUNDAE COGS ── */
+let _sndData = null;
+let _sndOpenSku = null;
+
+function sndSetPreset(days) {
+  [7,28].forEach(d => {
+    const btn = document.getElementById('sntab-' + d);
+    if (btn) btn.classList.toggle('active', d === days);
+  });
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const from = new Date(yesterday); from.setDate(yesterday.getDate() - (days - 1));
+  const fmt = d => d.toISOString().split('T')[0];
+  const s = document.getElementById('snd-start');
+  const e = document.getElementById('snd-end');
+  if (s) s.value = fmt(from);
+  if (e) e.value = fmt(yesterday);
+  sndLoad();
+}
+
+async function sndUploadCsv(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('snd-upload-status');
+  if (statusEl) statusEl.innerHTML = '<div class="loader-box" style="padding:10px 0"><div class="loader"></div> Uploading &amp; parsing CSV…</div>';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${API}/api/admin/sundae-cogs/upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_lsToken}` },
+      body: fd,
+    });
+    if (res.status === 401 || res.status === 403) { lsLogout(); renderProductsPage(); return; }
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Upload failed');
+    const range = d.date_range && d.date_range.length ? `${d.date_range[0]} → ${d.date_range[1]}` : '—';
+    if (statusEl) statusEl.innerHTML = `<div style="font-size:11px;color:var(--green);font-family:var(--mono);padding:6px 0">
+      ✓ Parsed ${d.rows_parsed.toLocaleString('en-IN')} rows · ${d.sundaes_found.toLocaleString('en-IN')} sundae lines · ${d.days_written} day/branch/sundae buckets written · covers ${range} · ${(d.branches||[]).length} branches
+    </div>`;
+    document.getElementById('snd-file-input').value = '';
+    sndLoad();
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `<div style="font-size:11px;color:var(--red);font-family:var(--mono);padding:6px 0">⚠️ ${e.message || e}</div>`;
+  }
+}
+
+async function sndLoad() {
+  const from = document.getElementById('snd-start')?.value;
+  const to   = document.getElementById('snd-end')?.value;
+  if (!from || !to) return;
+  const outlet = document.getElementById('snd-outlet')?.value || '';
+  const outletQ = outlet ? `&outlet=${encodeURIComponent(outlet)}` : '';
+  const el = document.getElementById('snd-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  try {
+    const res = await fetch(`${API}/api/admin/sundae-cogs?date_from=${from}&date_to=${to}${outletQ}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (res.status === 401 || res.status === 403) { lsLogout(); renderProductsPage(); return; }
+    const d = await res.json();
+    _sndData = d;
+    const outSel = document.getElementById('snd-outlet');
+    if (outSel && d.outlets && outSel.options.length <= 1) {
+      d.outlets.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        outSel.appendChild(opt);
+      });
+      if (outlet) outSel.value = outlet;
+    }
+    const statusEl = document.getElementById('snd-status');
+    if (statusEl) statusEl.textContent = (d.sundaes||[]).length ? `${d.sundaes.length} sundaes · ${d.date_from} → ${d.date_to}${outlet ? ' · ' + outlet : ''}` : '';
+    sndDrawTable(el);
+  } catch(e) {
+    if (el) el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div class="state-body">'+e+'</div></div>';
+  }
+}
+
+function sndToggleRow(sku) {
+  _sndOpenSku = (_sndOpenSku === sku) ? null : sku;
+  sndDrawTable();
+}
+
+function sndDrawTable(el) {
+  if (!el) el = document.getElementById('snd-content');
+  if (!el || !_sndData) return;
+  const sundaes = _sndData.sundaes || [];
+  const total = _sndData.total || {};
+  if (!sundaes.length) {
+    el.innerHTML = '<div class="no-outages" style="padding:40px">No sundae COGS data for this range. Upload a "Sales Items By Transaction" CSV above to populate it.</div>';
+    return;
+  }
+
+  const fmt  = v => v == null ? '—' : Number(v).toLocaleString('en-IN', {minimumFractionDigits:2,maximumFractionDigits:2});
+  const cogsColor = pct => pct != null && pct < 30 ? 'color:var(--green);font-weight:700' : pct != null && pct < 40 ? 'color:var(--amber);font-weight:700' : 'color:var(--red);font-weight:700';
+
+  const thS  = 'padding:10px 13px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono);color:var(--ink-3)';
+  const thSR = thS + ';text-align:right';
+  const thead = `<thead><tr>
+    <th style="${thS}"></th>
+    <th style="${thS};text-align:left">Sundae</th>
+    <th style="${thSR}">Orders</th>
+    <th style="${thSR}">Units</th>
+    <th style="${thSR}">Gross</th>
+    <th style="${thSR}">Final Sale (Net+Pkg)</th>
+    <th style="${thSR}">COGS (Mat+Sup)</th>
+    <th style="${thSR}">COGS %</th>
+    <th style="${thSR}">COGS / Unit</th>
+  </tr></thead>`;
+
+  const tdL = (v, bold=false) => `<td style="padding:9px 13px;font-size:12px;border-bottom:1px solid var(--border);${bold?'font-weight:700;':''}color:var(--ink)">${v}</td>`;
+  const tdR = (v, extra='') => `<td style="padding:9px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);${extra}">${v}</td>`;
+
+  const subitemTable = (row) => {
+    const subs = row.subitems || [];
+    if (!subs.length) return `<div style="padding:14px 20px;font-size:11px;color:var(--ink-3);font-family:var(--mono)">No add-on/option sub-items recorded for this sundae in this range.</div>`;
+    const rows = subs.map(s => `<tr>
+      <td style="padding:7px 13px 7px 40px;font-size:11px;border-bottom:1px solid var(--border);color:var(--ink)">${s.name}</td>
+      <td style="padding:7px 13px;font-size:10px;border-bottom:1px solid var(--border);font-family:var(--mono);color:var(--ink-3)">${s.type}</td>
+      <td style="padding:7px 13px;text-align:right;font-size:11px;border-bottom:1px solid var(--border);font-family:var(--mono)">${s.units ?? '—'}</td>
+      <td style="padding:7px 13px;text-align:right;font-size:11px;border-bottom:1px solid var(--border);font-family:var(--mono);${s.cogs ? 'font-weight:700' : 'color:var(--ink-3)'}">${fmt(s.cogs)}</td>
+    </tr>`).join('');
+    return `<div style="padding:8px 0;background:#f8fafd">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:6px 13px 6px 40px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--mono);text-align:left">Sub-item</th>
+          <th style="padding:6px 13px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--mono);text-align:left">Type</th>
+          <th style="padding:6px 13px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--mono);text-align:right">Units</th>
+          <th style="padding:6px 13px;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--mono);text-align:right">COGS</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  };
+
+  const bodyRows = sundaes.map(r => {
+    const finalSale = (r.net || 0) + (r.pkg || 0);
+    const cogsAmt   = (r.mat || 0) + (r.sup || 0);
+    const open = _sndOpenSku === r.sku;
+    const arrow = open ? '▾' : '▸';
+    const mainRow = `<tr style="cursor:pointer" onclick="sndToggleRow('${r.sku}')">
+      ${tdL(arrow)}
+      ${tdL(r.name, true)}
+      ${tdR(r.orders)}
+      ${tdR(r.units)}
+      ${tdR(fmt(r.gross))}
+      ${tdR(fmt(finalSale))}
+      ${tdR(fmt(cogsAmt))}
+      ${tdR(r.cogs_pct != null ? r.cogs_pct.toFixed(2)+'%' : '—', cogsColor(r.cogs_pct))}
+      ${tdR(r.units ? fmt(cogsAmt / r.units) : '—')}
+    </tr>`;
+    const detailRow = open ? `<tr><td colspan="9" style="padding:0;border-bottom:1px solid var(--border)">${subitemTable(r)}</td></tr>` : '';
+    return mainRow + detailRow;
+  }).join('');
+
+  const tFS   = (total.net||0)+(total.pkg||0);
+  const tCOGS = (total.mat||0)+(total.sup||0);
+  const totalRow = `<tr style="background:#f8fafd">
+    ${tdL('')}
+    ${tdL('<strong>Total</strong>', true)}
+    ${tdR(`<strong>${total.orders||0}</strong>`)}
+    ${tdR(`<strong>${total.units||0}</strong>`)}
+    ${tdR(`<strong>${fmt(total.gross)}</strong>`)}
+    ${tdR(`<strong>${fmt(tFS)}</strong>`)}
+    ${tdR(`<strong>${fmt(tCOGS)}</strong>`)}
+    ${tdR(total.cogs_pct != null ? `<strong>${total.cogs_pct.toFixed(2)}%</strong>` : '—', cogsColor(total.cogs_pct))}
+    ${tdR(total.units ? `<strong>${fmt(tCOGS/total.units)}</strong>` : '—')}
+  </tr>`;
+
+  el.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink)">
+        🍨 Sundae COGS (Online only)
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:820px">
+          ${thead}<tbody>${bodyRows}${totalRow}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 /* ── OUT OF STOCK PAGE ── */
