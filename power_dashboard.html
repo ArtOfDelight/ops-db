@@ -8665,10 +8665,11 @@ async function renderOpsReviewStatusPage() {
 let _otAllEmployees = [];
 
 async function renderOutletsPage() {
+  const pageBody = document.getElementById('pageBody');
+  if (!_lsToken) { renderSigninLogin(pageBody); return; }
   const bodyEl = document.querySelector('.body');
   bodyEl.style.padding = '';
   bodyEl.style.overflow = '';
-  const pageBody = document.getElementById('pageBody');
   pageBody.innerHTML = `
 <style>
 .ot-wrap { padding:16px; max-width:1100px; }
@@ -8703,6 +8704,7 @@ async function renderOutletsPage() {
       fetch(`${API}/api/admin/outlet-staffing`, { headers: { Authorization: `Bearer ${_lsToken}` } }),
       fetch(`${API}/api/admin/employees?status_filter=Active`, { headers: { Authorization: `Bearer ${_lsToken}` } }),
     ]);
+    if (stagingRes.status === 401 || empRes.status === 401) { lsLogout(); return; }
     const staging = await stagingRes.json();
     const empData = await empRes.json();
     if (!stagingRes.ok) { host.textContent = 'Unable to load outlet staffing.'; return; }
