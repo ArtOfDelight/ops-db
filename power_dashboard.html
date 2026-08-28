@@ -8892,9 +8892,9 @@ async function renderOutletsPage() {
 .ot-wrap { padding:16px; max-width:1100px; }
 .ot-hdr { font-size:13px; color:var(--ink-2); margin-bottom:14px; }
 .ot-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--sh); margin-bottom:14px; overflow:hidden; }
-.ot-card-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--navy); color:#fff; }
-.ot-card-hdr .ot-name { font-weight:700; font-size:14px; }
-.ot-card-hdr .ot-code { font-size:11px; opacity:.75; margin-left:6px; }
+.ot-card-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--navy-2); border-bottom:1px solid var(--border); color:var(--ink); }
+.ot-card-hdr .ot-name { font-weight:700; font-size:14px; color:var(--ink); }
+.ot-card-hdr .ot-code { font-size:11px; color:var(--ink-3); margin-left:6px; }
 .ot-card-body { padding:12px 14px; }
 .ot-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 .ot-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); min-width:70px; }
@@ -8908,7 +8908,8 @@ async function renderOutletsPage() {
 .ot-chip button:hover { color:var(--red); }
 .ot-empty { font-size:12px; color:var(--ink-3); font-style:italic; }
 .ot-unassigned { border-color:#fde8e8; }
-.ot-unassigned .ot-card-hdr { background:#dc2626; }
+.ot-unassigned .ot-card-hdr { background:#fee2e2; color:#dc2626; }
+.ot-unassigned .ot-card-hdr .ot-name { color:#dc2626; }
 </style>
 <div class="ot-wrap">
   <div class="ot-hdr">Assign each outlet's manager and its roster staff pool. Staff assignments here (not last-worked history) now drive who's available when a manager builds that outlet's roster.</div>
