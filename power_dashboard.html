@@ -1098,6 +1098,9 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
       <span class="sb-icon">🍳</span> Roster
     </button>
+    <button class="sb-item" id="sbitem-outlets" onclick="navTo('outlets')">
+      <span class="sb-icon">🏬</span> Outlets & Managers
+    </button>
     <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
       <span class="sb-icon">🚨</span> Complaints Review
     </button>
@@ -1175,11 +1178,11 @@ tickClock(); setInterval(tickClock, 1000);
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','complaints','reviews','mango','checklist','opsreview','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics','comments'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','outlets','complaints','reviews','mango','checklist','opsreview','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics','comments'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
   _currentPage = page;
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
@@ -1197,6 +1200,7 @@ function navTo(page) {
   if (page === 'rrrecon')    renderRRReconPage();
   if (page === 'payouts')    renderPayoutsPage();
   if (page === 'roster')     renderRosterPage();
+  if (page === 'outlets')    renderOutletsPage();
   if (page === 'complaints') renderComplaintsPage();
   if (page === 'reviews')    renderReviewsPage();
   if (page === 'mango')      renderMangoPage();
@@ -8656,6 +8660,143 @@ async function renderOpsReviewStatusPage() {
   } catch (e) {
     document.getElementById('orTableHost').textContent = 'Network error loading review status.';
   }
+}
+
+let _otAllEmployees = [];
+
+async function renderOutletsPage() {
+  const bodyEl = document.querySelector('.body');
+  bodyEl.style.padding = '';
+  bodyEl.style.overflow = '';
+  const pageBody = document.getElementById('pageBody');
+  pageBody.innerHTML = `
+<style>
+.ot-wrap { padding:16px; max-width:1100px; }
+.ot-hdr { font-size:13px; color:var(--ink-2); margin-bottom:14px; }
+.ot-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--sh); margin-bottom:14px; overflow:hidden; }
+.ot-card-hdr { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--navy); color:#fff; }
+.ot-card-hdr .ot-name { font-weight:700; font-size:14px; }
+.ot-card-hdr .ot-code { font-size:11px; opacity:.75; margin-left:6px; }
+.ot-card-body { padding:12px 14px; }
+.ot-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.ot-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); min-width:70px; }
+.ot-select { border:1px solid var(--border-2); border-radius:6px; padding:5px 8px; font-size:13px; color:var(--ink); background:var(--surface); }
+.ot-btn { border:1px solid var(--border-2); border-radius:6px; padding:5px 10px; font-size:12px; background:var(--surface); cursor:pointer; }
+.ot-btn:hover { background:var(--border); }
+.ot-btn.danger { color:var(--red); border-color:var(--red); }
+.ot-staff-list { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 10px; }
+.ot-chip { display:flex; align-items:center; gap:6px; background:#f1f5f9; border-radius:20px; padding:4px 6px 4px 10px; font-size:12px; }
+.ot-chip button { border:none; background:none; cursor:pointer; color:var(--ink-3); font-size:13px; line-height:1; padding:2px; }
+.ot-chip button:hover { color:var(--red); }
+.ot-empty { font-size:12px; color:var(--ink-3); font-style:italic; }
+.ot-unassigned { border-color:#fde8e8; }
+.ot-unassigned .ot-card-hdr { background:#dc2626; }
+</style>
+<div class="ot-wrap">
+  <div class="ot-hdr">Assign each outlet's manager and its roster staff pool. Staff assignments here (not last-worked history) now drive who's available when a manager builds that outlet's roster.</div>
+  <div id="otHost">Loading…</div>
+</div>`;
+
+  const host = document.getElementById('otHost');
+  try {
+    const [stagingRes, empRes] = await Promise.all([
+      fetch(`${API}/api/admin/outlet-staffing`, { headers: { Authorization: `Bearer ${_lsToken}` } }),
+      fetch(`${API}/api/admin/employees?status_filter=Active`, { headers: { Authorization: `Bearer ${_lsToken}` } }),
+    ]);
+    const staging = await stagingRes.json();
+    const empData = await empRes.json();
+    if (!stagingRes.ok) { host.textContent = 'Unable to load outlet staffing.'; return; }
+    _otAllEmployees = (empData.employees || empData || []).filter(e => e.employee_id);
+    _otRenderHost(staging);
+  } catch (e) {
+    host.textContent = 'Network error loading outlet staffing.';
+  }
+}
+
+function _otEmpLabel(id) {
+  const e = _otAllEmployees.find(x => x.employee_id === id);
+  return e ? `${e.short_name || e.full_name || id} (${id})` : id;
+}
+
+function _otRenderHost(staging) {
+  const host = document.getElementById('otHost');
+  const assignedIds = new Set(staging.outlets.flatMap(o => o.staff.map(s => s.employee_id)));
+  const pickable = _otAllEmployees.slice().sort((a, b) => (a.short_name || a.full_name || '').localeCompare(b.short_name || b.full_name || ''));
+
+  const cards = staging.outlets.map(o => {
+    const managerOpts = ['<option value="">— none —</option>'].concat(
+      pickable.map(e => `<option value="${e.employee_id}" ${o.manager && o.manager.employee_id === e.employee_id ? 'selected' : ''}>${e.short_name || e.full_name} (${e.employee_id})</option>`)
+    ).join('');
+    const staffChips = o.staff.length
+      ? `<div class="ot-staff-list">${o.staff.map(s => `<span class="ot-chip">${s.short_name || s.full_name} (${s.employee_id})<button onclick="_otRemoveStaff('${s.employee_id}')" title="Remove from ${o.code}">✕</button></span>`).join('')}</div>`
+      : `<div class="ot-empty">No staff assigned yet.</div>`;
+    const addOpts = ['<option value="">+ add staff…</option>'].concat(
+      pickable.filter(e => !(o.staff.some(s => s.employee_id === e.employee_id))).map(e => `<option value="${e.employee_id}">${e.short_name || e.full_name} (${e.employee_id})</option>`)
+    ).join('');
+    return `
+    <div class="ot-card">
+      <div class="ot-card-hdr"><span><span class="ot-name">${o.name}</span><span class="ot-code">${o.code}</span></span></div>
+      <div class="ot-card-body">
+        <div class="ot-row">
+          <span class="ot-label">Manager</span>
+          <select class="ot-select" onchange="_otSetManager('${o.code}', this.value)">${managerOpts}</select>
+        </div>
+        <div class="ot-row">
+          <span class="ot-label">Staff</span>
+          <select class="ot-select" onchange="if(this.value) _otAddStaff(this.value, '${o.code}'); this.value=''">${addOpts}</select>
+        </div>
+        ${staffChips}
+      </div>
+    </div>`;
+  }).join('');
+
+  const allAccessNote = staging.all_access_managers.length
+    ? `<div class="ot-hdr">All-outlet managers: ${staging.all_access_managers.map(m => `${m.short_name || m.full_name} (${m.employee_id})`).join(', ')}</div>`
+    : '';
+
+  const unassignedChips = staging.unassigned.length
+    ? `<div class="ot-staff-list">${staging.unassigned.map(s => `<span class="ot-chip">${s.short_name || s.full_name} (${s.employee_id})</span>`).join('')}</div>`
+    : `<div class="ot-empty">Everyone is assigned to an outlet.</div>`;
+
+  host.innerHTML = allAccessNote + cards + `
+    <div class="ot-card ot-unassigned">
+      <div class="ot-card-hdr"><span class="ot-name">Unassigned</span></div>
+      <div class="ot-card-body">${unassignedChips}</div>
+    </div>`;
+}
+
+async function _otRefresh() {
+  const r = await fetch(`${API}/api/admin/outlet-staffing`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+  const d = await r.json();
+  if (r.ok) _otRenderHost(d);
+}
+
+async function _otSetManager(outletCode, employeeId) {
+  if (!employeeId) return;
+  await fetch(`${API}/api/admin/managers/${employeeId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+    body: JSON.stringify({ manager_status: 'Outlet Manager', manager_outlet: outletCode }),
+  });
+  _otRefresh();
+}
+
+async function _otAddStaff(employeeId, outletCode) {
+  await fetch(`${API}/api/admin/employees/${employeeId}/default-outlet`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+    body: JSON.stringify({ outlet: outletCode }),
+  });
+  _otRefresh();
+}
+
+async function _otRemoveStaff(employeeId) {
+  await fetch(`${API}/api/admin/employees/${employeeId}/default-outlet`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+    body: JSON.stringify({ outlet: null }),
+  });
+  _otRefresh();
 }
 
 function renderChecklistStatusPage() {
