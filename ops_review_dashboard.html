@@ -81,6 +81,9 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .plat.red { background: var(--red-dim); color: var(--red); }
 .plat.gray { background: var(--bg); color: var(--ink-3); border: 1px solid var(--border); }
 .hidden { display: none !important; }
+.who-box input { width: 100%; padding: 10px 12px; margin-top: 10px; border: 1px solid var(--border-2); border-radius: var(--r); font-size: 14px; font-family: var(--sans); }
+.who-box button.primary { width: 100%; margin-top: 12px; padding: 10px; border: none; border-radius: var(--r); background: var(--blue); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+.who-box #loginError { color: var(--red); font-size: 12.5px; margin-top: 10px; min-height: 1em; }
 </style>
 </head>
 <body>
@@ -89,9 +92,24 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
   <h1>Daily Ops Review</h1>
   <p>Who's filling this out?</p>
   <div class="who-picks">
-    <button class="who-pick" onclick="selectManager('AOD021','Jimmy')"><span class="emoji">🧑‍💼</span>Jimmy</button>
-    <button class="who-pick" onclick="selectManager('AOD091','Sanu')"><span class="emoji">🧑‍💼</span>Sanu</button>
+    <button class="who-pick" onclick="pickReviewer('AOD021','Jimmy')"><span class="emoji">🧑‍💼</span>Jimmy</button>
+    <button class="who-pick" onclick="pickReviewer('AOD091','Sanu')"><span class="emoji">🧑‍💼</span>Sanu</button>
   </div>
+</div>
+
+<div id="otpScreen" class="who-box hidden">
+  <h1>Verify it's you</h1>
+  <p id="otpScreenName"></p>
+  <div id="otpStep1">
+    <input type="tel" id="otpPhone" placeholder="Phone number (10 digits)" maxlength="10"/>
+    <button class="primary" onclick="sendReviewerOTP()">Send OTP</button>
+  </div>
+  <div id="otpStep2" class="hidden">
+    <input type="text" id="otpCode" placeholder="Enter OTP" maxlength="6"/>
+    <button class="primary" onclick="verifyReviewerOTP()">Login</button>
+  </div>
+  <div id="loginError"></div>
+  <button style="margin-top:14px;background:none;border:none;color:var(--ink-2);font-size:12.5px;cursor:pointer;" onclick="backToWho()">← Back</button>
 </div>
 
 <div id="mainScreen" class="wrap hidden">
@@ -160,6 +178,8 @@ const FILTER_MODES = [
   { id: 'custom',    label: 'Custom' },
 ];
 let manager = JSON.parse(localStorage.getItem('opsReviewManager') || 'null');
+let reviewToken = localStorage.getItem('opsReviewToken');
+let pendingReviewer = null; // { id, name } chosen on the who-screen, awaiting OTP
 const realToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 let approvedState = {};
 let filterState = {
@@ -170,21 +190,76 @@ let filterState = {
 let globalMode = 'today';
 let globalCustomDate = realToday;
 
-function selectManager(id, name) {
-  manager = { id, name };
-  localStorage.setItem('opsReviewManager', JSON.stringify(manager));
-  showMain();
+function setLoginError(msg) { document.getElementById('loginError').textContent = msg || ''; }
+
+function pickReviewer(id, name) {
+  pendingReviewer = { id, name };
+  document.getElementById('otpScreenName').textContent = `Logging in as ${name}`;
+  document.getElementById('otpStep1').classList.remove('hidden');
+  document.getElementById('otpStep2').classList.add('hidden');
+  document.getElementById('otpPhone').value = '';
+  document.getElementById('otpCode').value = '';
+  setLoginError('');
+  document.getElementById('whoScreen').classList.add('hidden');
+  document.getElementById('otpScreen').classList.remove('hidden');
+}
+
+function backToWho() {
+  pendingReviewer = null;
+  document.getElementById('otpScreen').classList.add('hidden');
+  document.getElementById('whoScreen').classList.remove('hidden');
+}
+
+async function sendReviewerOTP() {
+  const phone = document.getElementById('otpPhone').value.replace(/\D/g, '');
+  if (phone.length !== 10) { setLoginError('Enter a valid 10-digit phone number'); return; }
+  setLoginError('Sending OTP…');
+  try {
+    const r = await fetch(`${API}/api/auth/send-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: pendingReviewer.id, phone })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.success) { setLoginError(d.message || d.detail || 'Failed to send OTP'); return; }
+    setLoginError('OTP sent.');
+    document.getElementById('otpStep1').classList.add('hidden');
+    document.getElementById('otpStep2').classList.remove('hidden');
+  } catch (e) { setLoginError('Network error sending OTP'); }
+}
+
+async function verifyReviewerOTP() {
+  const phone = document.getElementById('otpPhone').value.replace(/\D/g, '');
+  const otp = document.getElementById('otpCode').value.trim();
+  if (!otp) { setLoginError('Enter the OTP'); return; }
+  setLoginError('Verifying…');
+  try {
+    const r = await fetch(`${API}/api/auth/verify-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: pendingReviewer.id, phone, otp })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.success || !d.token) { setLoginError(d.message || d.detail || 'Invalid OTP'); return; }
+    reviewToken = d.token;
+    manager = { id: pendingReviewer.id, name: pendingReviewer.name };
+    localStorage.setItem('opsReviewToken', reviewToken);
+    localStorage.setItem('opsReviewManager', JSON.stringify(manager));
+    document.getElementById('otpScreen').classList.add('hidden');
+    showMain();
+  } catch (e) { setLoginError('Network error verifying OTP'); }
 }
 
 function switchManager() {
   localStorage.removeItem('opsReviewManager');
+  localStorage.removeItem('opsReviewToken');
   manager = null;
+  reviewToken = null;
   document.getElementById('mainScreen').classList.add('hidden');
   document.getElementById('whoScreen').classList.remove('hidden');
 }
 
 function showMain() {
   document.getElementById('whoScreen').classList.add('hidden');
+  document.getElementById('otpScreen').classList.add('hidden');
   document.getElementById('mainScreen').classList.remove('hidden');
   document.getElementById('whoName').textContent = manager.name;
   renderGlobalFilterBar();
@@ -257,7 +332,9 @@ function loadSection(section) {
 }
 
 async function api(path) {
-  const r = await fetch(`${API}${path}`);
+  const headers = reviewToken ? { 'Authorization': `Bearer ${reviewToken}` } : {};
+  const r = await fetch(`${API}${path}`, { headers });
+  if (r.status === 401 || r.status === 403) { switchManager(); throw new Error('Session expired'); }
   return r.json();
 }
 
@@ -283,7 +360,7 @@ function renderApproveButton(section) {
 }
 
 async function loadStatus() {
-  const d = await api(`/api/admin/ops-review/status?manager_id=${manager.id}&date=${realToday}`);
+  const d = await api(`/api/admin/ops-review/status?date=${realToday}`);
   approvedState = {};
   (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
   SECTIONS.forEach(renderApproveButton);
@@ -297,9 +374,11 @@ async function approve(section) {
   btn.disabled = true;
   try {
     const r = await fetch(`${API}/api/admin/ops-review/approve`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: realToday, section, manager_id: manager.id })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${reviewToken}` },
+      body: JSON.stringify({ date: realToday, section })
     });
+    if (r.status === 401 || r.status === 403) { switchManager(); return; }
     const d = await r.json();
     approvedState = {};
     (d.sections || []).forEach(s => { if (s.approved) approvedState[s.section] = s; });
@@ -319,7 +398,7 @@ async function loadLateSignins() {
   el.textContent = 'Loading…';
   try {
     const { from, to } = rangeForFilter('late_signins');
-    const d = await api(`/api/admin/ops-review/data/late-signins?manager_id=${manager.id}&date_from=${from}&date_to=${to}`);
+    const d = await api(`/api/admin/ops-review/data/late-signins?date_from=${from}&date_to=${to}`);
     const all = d.records || [];
     const late = all.filter(r => r.type === 'late');
     const missedIn = all.filter(r => r.type === 'missed_signin');
@@ -409,7 +488,7 @@ async function loadOutletDb() {
   el.textContent = 'Loading…';
   try {
     const { from, to } = rangeForFilter('outlet_db');
-    const d = await api(`/api/admin/ops-review/data/outlet-db?manager_id=${manager.id}&date_from=${from}&date_to=${to}`);
+    const d = await api(`/api/admin/ops-review/data/outlet-db?date_from=${from}&date_to=${to}`);
     const rows = (d.outlets || []).slice().sort((a, b) => (a.net_pct ?? 0) - (b.net_pct ?? 0));
     const worst = rows.filter(r => (r.error_rate_pct || 0) > 5).length;
     let html = `<div class="stat-row">
@@ -455,7 +534,7 @@ async function loadAll() {
   await Promise.all([loadStatus(), loadLateSignins(), loadPowerStatus(), loadOutletDb(), loadEmployeeDb()]);
 }
 
-if (manager) { showMain(); } else { document.getElementById('whoScreen').classList.remove('hidden'); }
+if (manager && reviewToken) { showMain(); } else { document.getElementById('whoScreen').classList.remove('hidden'); }
 </script>
 </body>
 </html>
