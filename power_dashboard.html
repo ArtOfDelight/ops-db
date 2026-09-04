@@ -1545,7 +1545,7 @@ function applyCustomWindow() {
   const qs = `?start=${s}&end=${e}`;
   let _s = null, _p = null;
   function _try() { if (_s && _p) renderPlatform(_s, _p); }
-  fetch(API + '/api/power/summary' + qs).then(r => r.json()).then(d => { _pdSummary = d; _s = d; _try(); }).catch(() => {});
+  fetch(API + '/api/power/summary' + qs, { headers: { Authorization: `Bearer ${_lsToken}` } }).then(r => r.json()).then(d => { _pdSummary = d; _s = d; _try(); }).catch(() => {});
   fetch(API + '/api/power/platform_downtime' + qs).then(r => r.json()).then(d => { _pdPlatform = d; _platformData = d.outlets || {}; _p = d; _try(); }).catch(() => {});
 }
 
@@ -1716,7 +1716,7 @@ function loadAll() {
   let done = 0;
   const finish = () => { if (++done === 3) setLoading(false); };
 
-  fetch(API + '/api/power/live')
+  fetch(API + '/api/power/live', { headers: { Authorization: `Bearer ${_lsToken}` } })
     .then(r => r.json())
     .then(d => { if (!stillOnPowerPage()) return; document.getElementById('asOf').textContent = 'As of ' + d.generated_at; renderLive(d); })
     .catch(() => { if (liveEl && stillOnPowerPage()) liveEl.innerHTML = errBox(''); })
@@ -1727,7 +1727,7 @@ function loadAll() {
     if (_summary && _platform && stillOnPowerPage()) { renderLog(_summary); renderPlatform(_summary, _platform); }
   }
 
-  fetch(API + '/api/power/summary')
+  fetch(API + '/api/power/summary', { headers: { Authorization: `Bearer ${_lsToken}` } })
     .then(r => r.json())
     .then(d => { _summary = d; tryRenderLog(); })
     .catch(() => { if (logEl && stillOnPowerPage()) logEl.innerHTML = errBox(''); })
@@ -2236,7 +2236,7 @@ function metSetWindow(days) {
 function metLoadData() {
   const el = document.getElementById('met-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
-  fetch(API + `/api/metrics/kpt_mfr?window=${_metWindow}`)
+  fetch(API + `/api/metrics/kpt_mfr?window=${_metWindow}`, { headers: { Authorization: `Bearer ${_lsToken}` } })
     .then(r => r.json())
     .then(renderMetricsTable)
     .catch(() => { if (el) el.innerHTML = errBox(''); });
@@ -8503,7 +8503,7 @@ let _actionsCache = null;
 
 async function _fetchActionsStore() {
   try {
-    const res = await fetch(`${API}/api/brief-actions`);
+    const res = await fetch(`${API}/api/brief-actions`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     const data = await res.json();
     _actionsCache = data.actions || [];
   } catch { _actionsCache = _actionsCache || []; }
@@ -8513,7 +8513,7 @@ async function _fetchActionsStore() {
 async function clearAllActions() {
   if (!confirm('Clear all actions? Fresh ones will be generated on the next brief.')) return;
   try {
-    await fetch(`${API}/api/brief-actions/clear`, { method: 'POST' });
+    await fetch(`${API}/api/brief-actions/clear`, { method: 'POST', headers: { Authorization: `Bearer ${_lsToken}` } });
     _actionsCache = null;
     const sec = document.getElementById('briefActionSection');
     if (sec) {
@@ -8529,7 +8529,7 @@ async function _mergeActionsIntoStore(newActions) {
   try {
     await fetch(`${API}/api/brief-actions`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
       body: JSON.stringify(newActions),
     });
     _actionsCache = null; // invalidate cache so next render re-fetches
@@ -8723,7 +8723,7 @@ async function confirmActionTaken(id) {
   try {
     await fetch(`${API}/api/brief-actions/${encodeURIComponent(id)}/complete`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
       body: JSON.stringify({ actionTaken }),
     });
     _actionsCache = null; // invalidate so next render re-fetches fresh data
@@ -8775,7 +8775,7 @@ async function confirmSuppress(id) {
   try {
     await fetch(`${API}/api/brief-actions/${encodeURIComponent(id)}/suppress`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
       body: JSON.stringify({ reason }),
     });
     _actionsCache = null;
