@@ -10178,6 +10178,9 @@ function _renderIncPayoutTable(emps) {
     const acctDisplay = e.bank_account
       ? (e.bank_account.length > 4 ? '••••' + e.bank_account.slice(-4) : e.bank_account)
       : '—';
+    const proxyBadge = e.proxy_bank_account_name
+      ? `<div style="font-size:9px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;margin-top:2px;display:inline-block">→ ${e.proxy_bank_account_name}</div>`
+      : '';
     const bankBadge = e.has_bank
       ? (e.bank_verified === 'verified'
           ? `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#166534;font-weight:700">✓ verified</span>`
@@ -10195,7 +10198,7 @@ function _renderIncPayoutTable(emps) {
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${e.incentive > 0 ? fmt(e.incentive) : '<span style="color:var(--ink-3)">—</span>'}</td>
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${e.travel > 0 ? fmt(e.travel) : '<span style="color:var(--ink-3)">—</span>'}</td>
       <td style="font-family:var(--mono);font-size:13px;text-align:right;${amtColor}">${fmt(e.total)}</td>
-      <td><div style="font-family:var(--mono);font-size:11px">${acctDisplay}</div><div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.ifsc || '—'}</div></td>
+      <td><div style="font-family:var(--mono);font-size:11px">${acctDisplay}</div><div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.ifsc || '—'}</div>${proxyBadge}</td>
       <td>${bankBadge}</td>
       <td id="paycell-${i}" style="text-align:right">${payCell}</td>
     </tr>`;
@@ -10263,7 +10266,8 @@ async function _incPay(idx) {
   const e   = _incPayoutData[idx];
   if (!e) return;
   const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const confirmed = confirm(`Pay ${e.name} (${e.emp_id})\nAmount: ${fmt(e.total)}\nAccount: ••••${e.bank_account.slice(-4)}\nIFSC: ${e.ifsc}\n\nThis will initiate a real bank transfer via Bulkpe. Confirm?`);
+  const proxyLine = e.proxy_bank_account_name ? `\n⚠️ Account belongs to: ${e.proxy_bank_account_name}` : '';
+  const confirmed = confirm(`Pay ${e.name} (${e.emp_id})\nAmount: ${fmt(e.total)}\nAccount: ••••${e.bank_account.slice(-4)}\nIFSC: ${e.ifsc}${proxyLine}\n\nThis will initiate a real bank transfer via Bulkpe. Confirm?`);
   if (!confirmed) return;
   await _incPayOne(idx);
 }
