@@ -3768,10 +3768,11 @@ function scpDrawTable(el) {
   const mkTable = (rows) => `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:340px">${thead}<tbody>${mkRows(rows)}</tbody></table></div>`;
 
   const sortFn = (a, b) => { const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity; return typeof av === 'string' ? av.localeCompare(bv) * dir : (av - bv) * dir; };
-  const onlineSorted = [..._scpOnlineData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
-  const dineinSorted = [..._scpDineinData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
+  const onlineSorted  = [..._scpOnlineData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
+  const dineinSorted  = [..._scpDineinData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
+  const blendedSorted = [..._scpData].sort(sortFn).filter(f => f.two_scoop_scoops > 0 || f.three_scoop_scoops > 0);
   const flavourHtml = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
         <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
           🪑 Dine In
@@ -3783,6 +3784,12 @@ function scpDrawTable(el) {
           🌐 Online
         </div>
         ${mkTable(onlineSorted)}
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
+          🔀 Blended
+        </div>
+        ${mkTable(blendedSorted)}
       </div>
     </div>`;
 
