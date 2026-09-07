@@ -7401,6 +7401,21 @@ function rvRenderTable() {
     </table></div>`;
 }
 
+function rvFormatSummary(text) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = line => esc(line).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const blocks = text.replace(/\r\n/g, '\n').split(/\n{2,}/);
+  return blocks.map(block => {
+    const lines = block.split('\n').filter(l => l.trim());
+    if (!lines.length) return '';
+    if (lines.every(l => /^[-•]\s+/.test(l.trim()))) {
+      const items = lines.map(l => `<li>${inline(l.trim().replace(/^[-•]\s+/, ''))}</li>`).join('');
+      return `<ul style="margin:4px 0 12px;padding-left:20px">${items}</ul>`;
+    }
+    return `<p style="margin:0 0 12px">${lines.map(inline).join('<br>')}</p>`;
+  }).join('');
+}
+
 async function rvSummarize() {
   const { start, end } = rvDateRange(_rvWindow);
   const btn = document.getElementById('rvSummarizeBtn');
@@ -7422,7 +7437,7 @@ async function rvSummarize() {
     const d = await r.json();
     const noteBit = d.summarized_count < d.count
       ? `<div style="font-size:10px;color:var(--ink-3);margin-bottom:10px">Summarized the most recent ${d.summarized_count} of ${d.count} comments.</div>` : '';
-    el.innerHTML = `${noteBit}<div style="font-size:13px;line-height:1.65;white-space:pre-wrap">${(d.summary||'').replace(/</g,'&lt;')}</div>`;
+    el.innerHTML = `${noteBit}<div style="font-size:13px;line-height:1.65">${rvFormatSummary(d.summary || '')}</div>`;
   } catch {
     el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
   } finally {
