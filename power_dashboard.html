@@ -114,6 +114,18 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 @keyframes pulse-badge {
   0%,100% { opacity: 1; } 50% { opacity: .6; }
 }
+.sb-group-toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 6px 8px; background: transparent; border: 0; cursor: pointer;
+  font-family: var(--sans); font-size: 9px; font-weight: 700; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .14em; text-align: left;
+}
+.sb-group-toggle:hover { color: var(--navy-text-2); }
+.sb-group-caret { display: inline-block; transition: transform .14s; font-size: 9px; }
+.sb-group.open .sb-group-caret { transform: rotate(90deg); }
+.sb-group-items { display: none; }
+.sb-group.open .sb-group-items { display: block; }
+
 .sb-footer {
   margin-top: auto; padding: 14px 18px;
   border-top: 1px solid var(--navy-border);
@@ -1069,81 +1081,95 @@ td.c { text-align: center; }
     <button class="sb-item" id="sbitem-signin" onclick="navTo('signin')">
       <span class="sb-icon">🕐</span> Attendance Report
     </button>
-    <button class="sb-item" id="sbitem-metrics" onclick="navTo('metrics')">
-      <span class="sb-icon">📊</span> Platform Metrics
+  </div>
+
+  <div class="sb-section sb-group" id="sbgroup-performance">
+    <button class="sb-group-toggle" onclick="toggleSbGroup('performance')">
+      <span class="sb-group-caret">▶</span> Performance
     </button>
-    <button class="sb-item" id="sbitem-scorecard" onclick="navTo('scorecard')">
-      <span class="sb-icon">👥</span> Employee Dashboard
+    <div class="sb-group-items">
+      <button class="sb-item" id="sbitem-metrics" onclick="navTo('metrics')">
+        <span class="sb-icon">📊</span> Platform Metrics
+      </button>
+      <button class="sb-item" id="sbitem-scorecard" onclick="navTo('scorecard')">
+        <span class="sb-icon">👥</span> Employee Dashboard
+      </button>
+      <button class="sb-item" id="sbitem-ratings" onclick="navTo('ratings')">
+        <span class="sb-icon">⭐</span> Outlet Ratings
+      </button>
+      <button class="sb-item" id="sbitem-products" onclick="navTo('products')">
+        <span class="sb-icon">🍽️</span> Product Rankings
+      </button>
+      <button class="sb-item" id="sbitem-reviews" onclick="navTo('reviews')">
+        <span class="sb-icon">📝</span> Reviews & AI Summary
+      </button>
+      <button class="sb-item" id="sbitem-customers" onclick="navTo('customers')">
+        <span class="sb-icon">👤</span> Customers
+      </button>
+      <button class="sb-item" id="sbitem-ownlyanalytics" onclick="navTo('ownlyanalytics')">
+        <span class="sb-icon">📈</span> Ownly Analytics
+      </button>
+    </div>
+  </div>
+
+  <div class="sb-section sb-group" id="sbgroup-finance">
+    <button class="sb-group-toggle" onclick="toggleSbGroup('finance')">
+      <span class="sb-group-caret">▶</span> Finance
     </button>
-    <button class="sb-item" id="sbitem-ratings" onclick="navTo('ratings')">
-      <span class="sb-icon">⭐</span> Outlet Ratings
+    <div class="sb-group-items">
+      <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
+        <span class="sb-icon">💰</span> Daily Recon
+      </button>
+      <button class="sb-item" id="sbitem-rrrecon" onclick="navTo('rrrecon')">
+        <span class="sb-icon">🏦</span> RR Recon
+      </button>
+      <button class="sb-item" id="sbitem-tokenhealth" onclick="navTo('tokenhealth')">
+        <span class="sb-icon">🔑</span> Token Health
+      </button>
+      <button class="sb-item" id="sbitem-incpayout" onclick="navTo('incpayout')">
+        <span class="sb-icon">🏧</span> Incentive Payout
+      </button>
+    </div>
+  </div>
+
+  <div class="sb-section sb-group" id="sbgroup-operations">
+    <button class="sb-group-toggle" onclick="toggleSbGroup('operations')">
+      <span class="sb-group-caret">▶</span> Operations
     </button>
-    <button class="sb-item" id="sbitem-products" onclick="navTo('products')">
-      <span class="sb-icon">🍽️</span> Product Rankings
+    <div class="sb-group-items">
+      <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
+        <span class="sb-icon">🍳</span> Roster
+      </button>
+      <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
+        <span class="sb-icon">✅</span> Checklist Status
+      </button>
+      <button class="sb-item" id="sbitem-opsreview" onclick="navTo('opsreview')">
+        <span class="sb-icon">🗒️</span> Daily Review Status
+      </button>
+      <button class="sb-item" id="sbitem-outletvisit" onclick="navTo('outletvisit')">
+        <span class="sb-icon">🏪</span> Outlet Visit Report
+      </button>
+      <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
+        <span class="sb-icon">⏱️</span> Kitchen Extra Hours
+      </button>
+    </div>
+  </div>
+
+  <div class="sb-section sb-group" id="sbgroup-management">
+    <button class="sb-group-toggle" onclick="toggleSbGroup('management')">
+      <span class="sb-group-caret">▶</span> Management
     </button>
-    <button class="sb-item" id="sbitem-inventory" onclick="navTo('inventory')">
-      <span class="sb-icon">📦</span> OOS Report
-    </button>
-    <button class="sb-item" id="sbitem-master" onclick="navTo('master')">
-      <span class="sb-icon">🗂️</span> OOS Master List
-    </button>
-    <button class="sb-item" id="sbitem-recon" onclick="navTo('recon')">
-      <span class="sb-icon">💰</span> Daily Recon
-    </button>
-    <button class="sb-item" id="sbitem-rrrecon" onclick="navTo('rrrecon')">
-      <span class="sb-icon">🏦</span> RR Recon
-    </button>
-    <button class="sb-item" id="sbitem-payouts" onclick="navTo('payouts')">
-      <span class="sb-icon">💸</span> Swiggy Payouts
-    </button>
-    <button class="sb-item" id="sbitem-roster" onclick="navTo('roster')">
-      <span class="sb-icon">🍳</span> Roster
-    </button>
-    <button class="sb-item" id="sbitem-outlets" onclick="navTo('outlets')">
-      <span class="sb-icon">🏬</span> Outlets & Managers
-    </button>
-    <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
-      <span class="sb-icon">🚨</span> Complaints Review
-    </button>
-    <button class="sb-item" id="sbitem-reviews" onclick="navTo('reviews')">
-      <span class="sb-icon">📝</span> Reviews & AI Summary
-    </button>
-    <button class="sb-item" id="sbitem-mango" onclick="navTo('mango')">
-      <span class="sb-icon">🥭</span> Mango Tracker
-    </button>
-    <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
-      <span class="sb-icon">✅</span> Checklist Status
-    </button>
-    <button class="sb-item" id="sbitem-opsreview" onclick="navTo('opsreview')">
-      <span class="sb-icon">🗒️</span> Daily Review Status
-    </button>
-    <button class="sb-item" id="sbitem-cashcoll" onclick="navTo('cashcoll')">
-      <span class="sb-icon">💵</span> Cash Collection
-    </button>
-    <button class="sb-item" id="sbitem-customers" onclick="navTo('customers')">
-      <span class="sb-icon">👤</span> Customers
-    </button>
-    <button class="sb-item" id="sbitem-tokenhealth" onclick="navTo('tokenhealth')">
-      <span class="sb-icon">🔑</span> Token Health
-    </button>
-    <button class="sb-item" id="sbitem-incpayout" onclick="navTo('incpayout')">
-      <span class="sb-icon">🏧</span> Incentive Payout
-    </button>
-    <button class="sb-item" id="sbitem-outletvisit" onclick="navTo('outletvisit')">
-      <span class="sb-icon">🏪</span> Outlet Visit Report
-    </button>
-    <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
-      <span class="sb-icon">⏱️</span> Kitchen Extra Hours
-    </button>
-    <button class="sb-item" id="sbitem-zomsupport" onclick="navTo('zomsupport')">
-      <span class="sb-icon">💬</span> Zomato Support
-    </button>
-    <button class="sb-item" id="sbitem-ownlyanalytics" onclick="navTo('ownlyanalytics')">
-      <span class="sb-icon">📈</span> Ownly Analytics
-    </button>
-    <button class="sb-item" id="sbitem-comments" onclick="navTo('comments')">
-      <span class="sb-icon">💬</span> Dashboard Comments
-    </button>
+    <div class="sb-group-items">
+      <button class="sb-item" id="sbitem-outlets" onclick="navTo('outlets')">
+        <span class="sb-icon">🏬</span> Outlets & Managers
+      </button>
+      <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
+        <span class="sb-icon">🚨</span> Complaints Review
+      </button>
+      <button class="sb-item" id="sbitem-comments" onclick="navTo('comments')">
+        <span class="sb-icon">💬</span> Dashboard Comments
+      </button>
+    </div>
   </div>
 
   <div class="sb-footer" id="sbClock">—</div>
@@ -1177,13 +1203,24 @@ function tickClock() {
 }
 tickClock(); setInterval(tickClock, 1000);
 
+/* ── SIDEBAR GROUP COLLAPSE ── */
+function toggleSbGroup(name) {
+  const el = document.getElementById('sbgroup-' + name);
+  if (el) el.classList.toggle('open');
+}
+
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','inventory','master','recon','rrrecon','payouts','roster','outlets','complaints','reviews','mango','checklist','opsreview','cashcoll','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','zomsupport','ownlyanalytics','comments'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', zomsupport: '💬 Zomato Support', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', inventory: '📦 Inventory', master: '🗂️ OOS Master List', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', payouts: '💸 Swiggy Payouts', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', mango: '🥭 Mango Tracker', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', cashcoll: '💵 Cash Collection', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚨 Complaints Review', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
+  const groupOf = { metrics:'performance', scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management' };
+  if (groupOf[page]) {
+    const g = document.getElementById('sbgroup-' + groupOf[page]);
+    if (g) g.classList.add('open');
+  }
   _currentPage = page;
   document.getElementById('pageTitle').textContent = titles[page] || '';
   const refreshBtn = document.getElementById('refreshBtn');
