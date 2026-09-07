@@ -11074,6 +11074,9 @@ function ovShowDetail(idx) {
           <span style="font-size:13px;flex-shrink:0">${icon}</span>
           <div style="flex:1">
             <div style="font-size:12px;color:var(--ink)">${item.text || item.id}${item.is_custom ? ' <span style="font-size:9px;font-weight:700;color:#7C3AED;background:#F3E8FF;padding:1px 6px;border-radius:4px;margin-left:4px">CUSTOM</span>' : ''}</div>
+            ${item.weight_grams != null && item.weight_grams !== '' ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px">Entered: ${item.weight_grams}g</div>` : ''}
+            ${item.selected_options && item.selected_options.length ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px">Selected: ${item.selected_options.join(', ')}</div>` : ''}
+            ${item.image_url ? `<a href="${item.image_url}" target="_blank" rel="noopener"><img src="${item.image_url}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border-1);margin-top:4px" /></a>` : ''}
             ${item.note ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">Issue: ${item.note}</div>` : ''}
             ${item.action_taken ? `<div style="font-size:11px;color:#16A34A;margin-top:2px">Action: ${item.action_taken}</div>` : ''}
           </div>
