@@ -7383,20 +7383,29 @@ function rvRenderTable() {
     el.innerHTML = '<div class="no-outages" style="padding:40px">No comments match this range/filter.</div>';
     return;
   }
+  const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const trs = rows.map(r => {
     const bg = RV_SOURCE_COLORS[r.source] || '#f1f5f9';
     const fg = RV_SOURCE_TEXT[r.source] || 'var(--ink-3)';
+    const tip = [
+      `Order ID: ${r.ref || '—'}`,
+      `Date: ${r.date || '—'}`,
+      `Outlet: ${r.outlet || '—'}`,
+      `Rating/Type: ${r.rating || '—'}`,
+    ].join('\n');
     return `<tr>
+      <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">
+        <span title="${esc(tip)}" style="cursor:help;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${(r.text || '').replace(/</g,'&lt;')}
+      </td>
       <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}</td>
       <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap">${r.source}</span></td>
       <td style="font-family:var(--mono);font-size:11px;font-weight:700">${r.outlet || '—'}</td>
       <td style="font-size:11px;color:var(--ink-3)">${r.rating || '—'}</td>
-      <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">${(r.text || '').replace(/</g,'&lt;')}</td>
     </tr>`;
   }).join('');
   el.innerHTML = `<div style="overflow-x:auto;max-height:520px;overflow-y:auto">
     <table class="sc-table">
-      <thead><tr><th style="text-align:left">Date</th><th style="text-align:left">Source</th><th style="text-align:left">Outlet</th><th style="text-align:left">Rating / Type</th><th class="left">Comment</th></tr></thead>
+      <thead><tr><th class="left">Comment</th><th style="text-align:left">Date</th><th style="text-align:left">Source</th><th style="text-align:left">Outlet</th><th style="text-align:left">Rating / Type</th></tr></thead>
       <tbody>${trs}</tbody>
     </table></div>`;
 }
