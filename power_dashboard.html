@@ -7214,7 +7214,16 @@ let _cmpLiveStatuses = {};
 let _rvWindow = 28;          // 28 | 56 | 'custom'
 let _rvCustom = { start: '', end: '' };
 let _rvOutletFilter = '';
+let _rvSentiment = 'all';   // all | pos | neg
 let _rvAll = [];
+
+function rvIsPositive(r) {
+  const n = parseInt(r.rating, 10);
+  return !isNaN(n) && n >= 4;
+}
+function rvIsNegative(r) {
+  return !rvIsPositive(r);
+}
 
 function rvDateRange(days) {
   const end = new Date(); end.setHours(0,0,0,0);
@@ -7250,6 +7259,11 @@ function renderReviewsPage() {
             <span style="font-size:10px;color:var(--ink-3)">→</span>
             <input type="date" id="rvCustomEnd" style="padding:3px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink)">
             <button class="ptab active" onclick="rvApplyCustom()" style="padding:4px 12px;font-size:10px">Load</button>
+          </div>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab active" id="rvsent-all" onclick="rvSetSentiment('all')" style="padding:4px 12px;font-size:10px">All</button>
+            <button class="ptab"        id="rvsent-pos" onclick="rvSetSentiment('pos')" style="padding:4px 12px;font-size:10px">👍 Positive</button>
+            <button class="ptab"        id="rvsent-neg" onclick="rvSetSentiment('neg')" style="padding:4px 12px;font-size:10px">👎 Negative</button>
           </div>
           <input id="rvOutletFilter" placeholder="Filter outlet e.g. WF" style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:var(--mono);background:var(--surface);color:var(--ink);width:120px" oninput="rvApplyOutletFilter()">
           <span class="as-of-label" id="rvStatus"></span>
@@ -7310,6 +7324,17 @@ function rvApplyOutletFilter() {
   rvRenderTable();
 }
 
+function rvSetSentiment(s) {
+  _rvSentiment = s;
+  ['all', 'pos', 'neg'].forEach(k => {
+    const btn = document.getElementById('rvsent-' + k);
+    if (btn) btn.classList.toggle('active', k === s);
+  });
+  rvRenderTable();
+  const sumEl = document.getElementById('rv-summary');
+  if (sumEl) sumEl.innerHTML = '<div class="no-outages" style="padding:24px">Click Summarize to generate an AI summary of the reviews above.</div>';
+}
+
 async function rvLoad() {
   const { start, end } = rvDateRange(_rvWindow);
   const statusEl = document.getElementById('rvStatus');
@@ -7324,10 +7349,7 @@ async function rvLoad() {
     const d = await r.json();
     _rvAll = d.reviews || [];
     if (statusEl) statusEl.textContent = `${_rvAll.length} comments · ${start} to ${end}`;
-    rvRenderTable();
-    // reset the summary panel — it belongs to the previous range/filter
-    const sumEl = document.getElementById('rv-summary');
-    if (sumEl) sumEl.innerHTML = '<div class="no-outages" style="padding:24px">Click Summarize to generate an AI summary of the reviews above.</div>';
+    rvSetSentiment('all');
   } catch {
     if (statusEl) statusEl.textContent = 'Failed to load.';
     contentEl.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
@@ -7335,8 +7357,11 @@ async function rvLoad() {
 }
 
 function rvFiltered() {
-  if (!_rvOutletFilter) return _rvAll;
-  return _rvAll.filter(r => (r.outlet || '').toUpperCase().includes(_rvOutletFilter));
+  let rows = _rvAll;
+  if (_rvOutletFilter) rows = rows.filter(r => (r.outlet || '').toUpperCase().includes(_rvOutletFilter));
+  if (_rvSentiment === 'pos') rows = rows.filter(rvIsPositive);
+  if (_rvSentiment === 'neg') rows = rows.filter(rvIsNegative);
+  return rows;
 }
 
 const RV_SOURCE_COLORS = {
