@@ -1035,6 +1035,7 @@ td.c { text-align: center; }
 .cust-tab { padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:1.5px solid var(--border-2); background:var(--surface); color:var(--ink-3); font-family:var(--sans); transition:all .14s; }
 .cust-tab:hover { border-color:var(--blue); color:var(--blue); }
 .cust-tab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+.rv-info-popup { position:fixed; z-index:9999; background:#1f2937; color:#f9fafb; font-size:11px; line-height:1.6; padding:8px 10px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:320px; pointer-events:none; }
 </style>
 </head>
 <body>
@@ -7388,15 +7389,15 @@ function rvRenderTable() {
     const bg = RV_SOURCE_COLORS[r.source] || '#f1f5f9';
     const fg = RV_SOURCE_TEXT[r.source] || 'var(--ink-3)';
     const tip = [
-      `Order ID: ${r.ref || '—'}`,
-      `Date: ${r.date || '—'}`,
-      `Outlet: ${r.outlet || '—'}`,
-      `Rating/Type: ${r.rating || '—'}`,
-      `Items: ${r.items || '—'}`,
-    ].join('\n');
+      `<b>Order ID:</b> ${esc(r.ref) || '—'}`,
+      `<b>Date:</b> ${esc(r.date) || '—'}`,
+      `<b>Outlet:</b> ${esc(r.outlet) || '—'}`,
+      `<b>Rating/Type:</b> ${esc(r.rating) || '—'}`,
+      `<b>Items:</b> ${esc(r.items) || '—'}`,
+    ].join('<br>').replace(/"/g, '&quot;');
     return `<tr>
       <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">
-        <span title="${esc(tip)}" style="cursor:default;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${(r.text || '').replace(/</g,'&lt;')}
+        <span class="rv-info" data-tip="${tip}" style="cursor:default;position:relative;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${(r.text || '').replace(/</g,'&lt;')}
       </td>
       <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}</td>
       <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap">${r.source}</span></td>
@@ -7410,6 +7411,27 @@ function rvRenderTable() {
       <tbody>${trs}</tbody>
     </table></div>`;
 }
+
+let _rvPopupEl = null;
+document.addEventListener('mouseover', e => {
+  const t = e.target.closest && e.target.closest('.rv-info');
+  if (!t) return;
+  if (!_rvPopupEl) {
+    _rvPopupEl = document.createElement('div');
+    _rvPopupEl.className = 'rv-info-popup';
+    document.body.appendChild(_rvPopupEl);
+  }
+  _rvPopupEl.innerHTML = t.getAttribute('data-tip') || '';
+  const rect = t.getBoundingClientRect();
+  _rvPopupEl.style.display = 'block';
+  _rvPopupEl.style.left = `${Math.min(rect.left, window.innerWidth - 330)}px`;
+  _rvPopupEl.style.top = `${rect.bottom + 6}px`;
+});
+document.addEventListener('mouseout', e => {
+  const t = e.target.closest && e.target.closest('.rv-info');
+  if (!t || !_rvPopupEl) return;
+  _rvPopupEl.style.display = 'none';
+});
 
 function rvFormatSummary(text) {
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
