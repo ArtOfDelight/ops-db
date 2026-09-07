@@ -9196,7 +9196,7 @@ async function _clLoadDaily(date) {
   content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span> Loading…</div>';
   chips.style.display = 'none';
   try {
-    const r = await fetch(`${API}/api/admin/checklist/daily-status?date=${date}`);
+    const r = await fetch(`${API}/api/admin/checklist/daily-status?date=${date}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     _clData = data;
@@ -9281,7 +9281,7 @@ async function clOpenResponses(submissionId, slot, by, time) {
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
   try {
-    const r = await fetch(`${API}/api/admin/checklist/submission/${encodeURIComponent(submissionId)}/responses`);
+    const r = await fetch(`${API}/api/admin/checklist/submission/${encodeURIComponent(submissionId)}/responses`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     const body = document.getElementById('cl-modal-body');
@@ -9314,7 +9314,7 @@ async function clLoadMissed() {
   const result = document.getElementById('cl-missed-result');
   result.innerHTML = '<div style="padding:20px;text-align:center"><span class="cl-spin"></span> Loading…</div>';
   try {
-    const r = await fetch(`${API}/api/admin/checklist/missed-by-employee?start_date=${from}&end_date=${to}`);
+    const r = await fetch(`${API}/api/admin/checklist/missed-by-employee?start_date=${from}&end_date=${to}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     const rows = (data.employees||[]).filter(e=>e.scheduled>0);
@@ -9344,7 +9344,7 @@ async function _clLoadCritical(date) {
   content.dataset.loaded = '1';
   content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--ink-3)"><span class="cl-spin"></span> Loading…</div>';
   try {
-    const r = await fetch(`${API}/api/admin/checklist/critical-summary?date=${date}`);
+    const r = await fetch(`${API}/api/admin/checklist/critical-summary?date=${date}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data.has_critical_questions) { content.innerHTML='<div style="padding:60px;text-align:center;color:var(--ink-3)">No critical questions set up yet.</div>'; return; }
