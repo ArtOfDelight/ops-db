@@ -10728,7 +10728,7 @@ function ovRenderActionsList(container, showCompleted) {
   const allNoItems = [];
   _ovVisits.forEach(v => {
     (v.checklist_items || []).forEach(item => {
-      if (item.answer === 'no') {
+      if (item.answer === 'no' && item.actionable === true) {
         const resolved = item.action_resolved === true;
         const cleared = item.action_cleared === true;
         if (showCompleted && resolved && !cleared) allNoItems.push({ visit: v, item });
