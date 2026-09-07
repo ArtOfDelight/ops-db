@@ -10830,6 +10830,7 @@ function ovRenderActionsList(container, showCompleted) {
             <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">${item.section} · ${dtStr}</div>
             <div style="font-size:13px;color:var(--ink);margin-bottom:8px">${item.text}</div>
             ${item.note ? `<div style="font-size:12px;color:#6B7280;font-style:italic;margin-bottom:8px">Observed: ${item.note}</div>` : ''}
+            ${item.date_value ? `<div style="font-size:12px;color:#6B7280;margin-bottom:8px">Last done: ${item.date_value}</div>` : ''}
             ${item.image_url ? `<a href="${item.image_url}" target="_blank" rel="noopener"><img src="${item.image_url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #FECACA;margin-bottom:8px" /></a>` : ''}
             ${logHtml}
             <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
@@ -11075,6 +11076,7 @@ function ovShowDetail(idx) {
           <div style="flex:1">
             <div style="font-size:12px;color:var(--ink)">${item.text || item.id}${item.is_custom ? ' <span style="font-size:9px;font-weight:700;color:#7C3AED;background:#F3E8FF;padding:1px 6px;border-radius:4px;margin-left:4px">CUSTOM</span>' : ''}</div>
             ${item.weight_grams != null && item.weight_grams !== '' ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px">Entered: ${item.weight_grams}g</div>` : ''}
+            ${item.date_value ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px">Date entered: ${item.date_value}</div>` : ''}
             ${item.selected_options && item.selected_options.length ? `<div style="font-size:11px;color:var(--ink-3);margin-top:2px">Selected: ${item.selected_options.join(', ')}</div>` : ''}
             ${item.image_url ? `<a href="${item.image_url}" target="_blank" rel="noopener"><img src="${item.image_url}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border-1);margin-top:4px" /></a>` : ''}
             ${item.note ? `<div style="font-size:11px;color:#DC2626;margin-top:2px">Issue: ${item.note}</div>` : ''}
