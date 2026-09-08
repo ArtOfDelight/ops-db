@@ -7534,6 +7534,18 @@ function rvFormatSummary(text) {
       const items = lines.map(l => `<li>${inline(l.trim().replace(/^[-•]\s+/, ''))}</li>`).join('');
       return `<ul style="margin:4px 0 12px;padding-left:20px">${items}</ul>`;
     }
+    if (lines.length > 1 && lines.every(l => /^\d+[.)]\s+/.test(l.trim()))) {
+      const items = lines.map(l => `<li>${inline(l.trim().replace(/^\d+[.)]\s+/, ''))}</li>`).join('');
+      return `<ol style="margin:4px 0 12px;padding-left:20px">${items}</ol>`;
+    }
+    if (lines.some(l => l.includes('|') && l.trim().startsWith('|'))) {
+      // Model ignored formatting instructions and emitted a markdown table —
+      // strip pipe/separator syntax rather than showing raw table markup.
+      const cleaned = lines
+        .filter(l => !/^\|?[\s:|-]+\|?$/.test(l.trim()))
+        .map(l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim()).filter(Boolean).join(' — '));
+      return `<p style="margin:0 0 12px">${cleaned.map(inline).join('<br>')}</p>`;
+    }
     return `<p style="margin:0 0 12px">${lines.map(inline).join('<br>')}</p>`;
   }).join('');
 }
