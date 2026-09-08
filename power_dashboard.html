@@ -7452,13 +7452,15 @@ function rvRenderTable() {
       `<b>Rating/Type:</b> ${esc(r.rating) || '—'}`,
       `<b>Items:</b> ${esc(r.items) || '—'}`,
       `<b>Staff on shift (roster match, not confirmed cause):</b> ${(r.employees || []).map(e => esc(e.emp_name || e.emp_id)).join(', ') || '—'}`,
+      ...(r.also_sources && r.also_sources.length ? [`<b>Also logged as:</b> ${r.also_sources.map(esc).join(', ')} (merged — same complaint, don't double count)`] : []),
     ].join('<br>').replace(/"/g, '&quot;');
+    const sourceBadge = r.also_sources && r.also_sources.length ? `${r.source} +${r.also_sources.length}` : r.source;
     return `<tr>
       <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">
         <span class="rv-info" data-tip="${tip}" style="cursor:default;position:relative;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${(r.text || '').replace(/</g,'&lt;')}
       </td>
       <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}</td>
-      <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap">${r.source}</span></td>
+      <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap" title="${r.also_sources && r.also_sources.length ? 'Also logged as: ' + r.also_sources.join(', ') : ''}">${sourceBadge}</span></td>
       <td style="font-family:var(--mono);font-size:11px;font-weight:700">${r.outlet || '—'}</td>
       <td style="font-size:11px;color:var(--ink-3)">${r.rating || '—'}</td>
     </tr>`;
