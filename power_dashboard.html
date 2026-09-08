@@ -7279,7 +7279,7 @@ function renderReviewsPage() {
           <div class="section-icon blue">📝</div>
           <div>
             <div class="section-title">Reviews & Comments</div>
-            <div class="section-sub">Every free-text customer review or complaint comment — Swiggy, Zomato, IGCC. Staff filter = who was on shift at that outlet that day (roster match), not a confirmed culprit.</div>
+            <div class="section-sub">Every free-text customer review or complaint comment — Swiggy, Zomato, IGCC. Staff filter narrows to whoever's shift actually overlapped the order's timestamp when we have one; falls back to "on shift that day" only when no order time is available. Still a shift match, not a confirmed culprit.</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -7318,11 +7318,27 @@ function renderReviewsPage() {
             <div class="section-sub">Groq · GPT-OSS 120B — summarizes the comments currently loaded above, on demand</div>
           </div>
         </div>
-        <button class="ptab active" id="rvSummarizeBtn" onclick="rvSummarize()" style="padding:6px 16px;font-size:11px">✨ Summarize</button>
+        <div style="display:flex;gap:8px">
+          <button class="ptab active" id="rvSummarizeBtn" onclick="rvSummarize()" style="padding:6px 16px;font-size:11px">✨ Summarize</button>
+          <button class="ptab" id="rvMysteryBtn" onclick="rvMysterySuggest()" style="padding:6px 16px;font-size:11px" disabled>🕵️ Suggest Mystery-Order Items</button>
+        </div>
       </div>
       <div id="rv-summary" style="padding:20px">
         <div class="no-outages" style="padding:24px">Click Summarize to generate an AI summary of the reviews above.</div>
       </div>
+    </div>
+
+    <div class="section-card" id="rvMysteryCard" style="display:none">
+      <div class="section-head">
+        <div class="section-head-left">
+          <div class="section-icon blue">🕵️</div>
+          <div>
+            <div class="section-title" id="rvMysteryTitle">Mystery-Order Suggestions</div>
+            <div class="section-sub">What to order (unannounced) on your next visit to check for real, recurring complaints — filter by outlet first.</div>
+          </div>
+        </div>
+      </div>
+      <div id="rv-mystery" style="padding:20px"></div>
     </div>`;
 
   const s = document.getElementById('rvCustomStart'), e = document.getElementById('rvCustomEnd');
@@ -7331,6 +7347,9 @@ function renderReviewsPage() {
   if (s) s.value = iso(start);
   if (e) e.value = iso(end);
 
+  rvSyncMysteryBtn();
+  const mysteryCard = document.getElementById('rvMysteryCard');
+  if (mysteryCard) mysteryCard.style.display = 'none';
   rvSetWindow(28);
 }
 
@@ -7359,6 +7378,14 @@ function rvApplyCustom() {
 function rvApplyOutletFilter() {
   _rvOutletFilter = (document.getElementById('rvOutletFilter')?.value || '').trim().toUpperCase();
   rvRenderTable();
+  rvSyncMysteryBtn();
+}
+
+function rvSyncMysteryBtn() {
+  const btn = document.getElementById('rvMysteryBtn');
+  if (!btn) return;
+  btn.disabled = !_rvOutletFilter;
+  btn.title = _rvOutletFilter ? '' : 'Filter by a single outlet first';
 }
 
 function rvPopulateStaffFilter(staff) {
@@ -7445,13 +7472,16 @@ function rvRenderTable() {
   const trs = rows.map(r => {
     const bg = RV_SOURCE_COLORS[r.source] || '#f1f5f9';
     const fg = RV_SOURCE_TEXT[r.source] || 'var(--ink-3)';
+    const staffLabel = r.time_matched
+      ? `<b>Staff on shift at order time${r.time ? ' (' + esc(r.time) + ')' : ''} — narrowed by shift window, not a confirmed cause:</b>`
+      : `<b>Staff on shift that day (outlet+date only — no order time to narrow by, not a confirmed cause):</b>`;
     const tip = [
       `<b>Order ID:</b> ${esc(r.ref) || '—'}`,
-      `<b>Date:</b> ${esc(r.date) || '—'}`,
+      `<b>Date:</b> ${esc(r.date)}${r.time ? ' ' + esc(r.time) : ''}`,
       `<b>Outlet:</b> ${esc(r.outlet) || '—'}`,
       `<b>Rating/Type:</b> ${esc(r.rating) || '—'}`,
       `<b>Items:</b> ${esc(r.items) || '—'}`,
-      `<b>Staff on shift (roster match, not confirmed cause):</b> ${(r.employees || []).map(e => esc(e.emp_name || e.emp_id)).join(', ') || '—'}`,
+      `${staffLabel} ${(r.employees || []).map(e => esc(e.emp_name || e.emp_id)).join(', ') || '—'}`,
       ...(r.also_sources && r.also_sources.length ? [`<b>Also logged as:</b> ${r.also_sources.map(esc).join(', ')} (merged — same complaint, don't double count)`] : []),
     ].join('<br>').replace(/"/g, '&quot;');
     const sourceBadge = r.also_sources && r.also_sources.length ? `${r.source} +${r.also_sources.length}` : r.source;
@@ -7459,7 +7489,7 @@ function rvRenderTable() {
       <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">
         <span class="rv-info" data-tip="${tip}" style="cursor:default;position:relative;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${(r.text || '').replace(/</g,'&lt;')}
       </td>
-      <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}</td>
+      <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}${r.time ? ' <span style=\"opacity:.7\">' + r.time + '</span>' : ''}</td>
       <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap" title="${r.also_sources && r.also_sources.length ? 'Also logged as: ' + r.also_sources.join(', ') : ''}">${sourceBadge}</span></td>
       <td style="font-family:var(--mono);font-size:11px;font-weight:700">${r.outlet || '—'}</td>
       <td style="font-size:11px;color:var(--ink-3)">${r.rating || '—'}</td>
@@ -7536,6 +7566,37 @@ async function rvSummarize() {
     el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
   } finally {
     btn.disabled = false; btn.textContent = '✨ Summarize';
+  }
+}
+
+async function rvMysterySuggest() {
+  const { start, end } = rvDateRange(_rvWindow);
+  const btn  = document.getElementById('rvMysteryBtn');
+  const card = document.getElementById('rvMysteryCard');
+  const el   = document.getElementById('rv-mystery');
+  const title = document.getElementById('rvMysteryTitle');
+  if (!start || !end || !el || !_rvOutletFilter) return;
+  card.style.display = 'block';
+  title.textContent = `Mystery-Order Suggestions — ${_rvOutletFilter}`;
+  btn.disabled = true; const oldLabel = btn.textContent; btn.textContent = '⏳ Thinking…';
+  el.innerHTML = '<div class="loader-box"><div class="loader"></div> Asking the model…</div>';
+  try {
+    const qs = `date_from=${start}&date_to=${end}&outlet=${encodeURIComponent(_rvOutletFilter)}`;
+    const r = await fetch(`${API}/api/admin/reviews-mystery-order-suggestions?${qs}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderReviewsPage(); return; }
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      el.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">${d.detail || 'Suggestion failed'}</div></div>`;
+      return;
+    }
+    const d = await r.json();
+    const noteBit = d.summarized_count && d.summarized_count < d.count
+      ? `<div style="font-size:10px;color:var(--ink-3);margin-bottom:10px">Based on the most recent ${d.summarized_count} of ${d.count} negative comments.</div>` : '';
+    el.innerHTML = `${noteBit}<div style="font-size:13px;line-height:1.65">${rvFormatSummary(d.summary || '')}</div>`;
+  } catch {
+    el.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
+  } finally {
+    btn.disabled = !_rvOutletFilter; btn.textContent = oldLabel;
   }
 }
 
