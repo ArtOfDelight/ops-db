@@ -10028,13 +10028,19 @@ async function _incPollStatus(idx, emp_id) {
 function _renderIncPayoutTable(emps) {
   const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  // balance_to_pay/paid_amount (added alongside the Balance to Pay column)
+  // are what's actually left/sent for a partially-paid employee -- e.total is
+  // their full sheet amount, which overcounts once anything's been paid
+  // already. Falls back to e.total for older payload shapes without these.
+  const balOf        = e => e.balance_to_pay != null ? e.balance_to_pay : (e.paid ? 0 : e.total);
+  const paidAmtOf     = e => e.paid_amount != null ? e.paid_amount : (e.paid ? e.total : 0);
   const totalPayout  = emps.reduce((s, e) => s + e.total, 0);
   const withBank     = emps.filter(e => e.has_bank).length;
   const missingBank  = emps.filter(e => !e.has_bank).length;
   const paidEmps     = emps.filter(e => e.paid);
-  const paidTotal    = paidEmps.reduce((s, e) => s + e.total, 0);
-  const payable      = emps.filter(e => e.has_bank && e.total > 0 && !e.paid);
-  const payableTotal = payable.reduce((s, e) => s + e.total, 0);
+  const paidTotal    = emps.reduce((s, e) => s + paidAmtOf(e), 0);
+  const payable      = emps.filter(e => e.has_bank && balOf(e) > 0);
+  const payableTotal = payable.reduce((s, e) => s + balOf(e), 0);
 
   // Stats
   document.getElementById('inc-stats').innerHTML = `
@@ -10202,15 +10208,20 @@ async function _incResetWeek() {
 }
 
 async function _incPayAll() {
+  // Same balance_to_pay fallback as _renderIncPayoutTable's balOf -- a
+  // partially-paid employee (e.total > 0, e.paid false) must be filtered and
+  // summed by what's actually left, not the full sheet amount, or "Pay All"
+  // would try to resend what was already paid.
+  const balOf = e => e.balance_to_pay != null ? e.balance_to_pay : (e.paid ? 0 : e.total);
   const payable = _incPayoutData
     .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e.has_bank && e.total > 0 && !e.paid);
+    .filter(({ e }) => e.has_bank && balOf(e) > 0);
 
-  if (!payable.length) { alert('No payable employees (need bank account + amount > 0).'); return; }
+  if (!payable.length) { alert('No payable employees (need bank account + balance > 0).'); return; }
 
   const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const totalAmt = payable.reduce((s, { e }) => s + e.total, 0);
-  const lines = payable.map(({ e }) => `${e.name} (${e.emp_id}) — ${fmt(e.total)}`).join('\n');
+  const totalAmt = payable.reduce((s, { e }) => s + balOf(e), 0);
+  const lines = payable.map(({ e }) => `${e.name} (${e.emp_id}) — ${fmt(balOf(e))}`).join('\n');
   const confirmed = confirm(`Pay ALL ${payable.length} employees?\n\nTotal: ${fmt(totalAmt)}\n\n${lines}\n\nThis will initiate ${payable.length} real bank transfers via Bulkpe. Confirm?`);
   if (!confirmed) return;
 
