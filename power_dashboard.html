@@ -10051,7 +10051,9 @@ function _renderIncPayoutTable(emps) {
   }
 
   const rows = emps.map((e, i) => {
-    const canPay  = e.has_bank && e.total > 0 && !e.paid;
+    const balance = e.balance_to_pay != null ? e.balance_to_pay : (e.paid ? 0 : e.total);
+    const partiallyPaid = (e.paid_amount || 0) > 0 && balance > 0;
+    const canPay  = e.has_bank && balance > 0;
     const acctDisplay = e.bank_account
       ? (e.bank_account.length > 4 ? '••••' + e.bank_account.slice(-4) : e.bank_account)
       : '—';
@@ -10064,17 +10066,30 @@ function _renderIncPayoutTable(emps) {
           : `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#64748b;font-weight:700">unverified</span>`)
       : `<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700">missing</span>`;
     const amtColor = e.total > 0 ? 'color:var(--ink);font-weight:700' : 'color:var(--ink-3)';
-    const rowBg = e.paid ? 'background:#f0fdf4' : '';
+    const rowBg = e.paid ? 'background:#f0fdf4' : (partiallyPaid ? 'background:#fffbeb' : '');
+    // Balance column: dash when nothing was ever owed, green check when fully
+    // settled, amber "topped-up" badge + remaining amount when a prior partial
+    // payment (e.g. travel-only) means more is now owed than was sent (the
+    // Palet/Selie case, 2026-09-14) -- previously this showed as "✓ Paid" and
+    // silently blocked the rest from ever being paid.
+    const balCell = e.total <= 0
+      ? '<span style="color:var(--ink-3)">—</span>'
+      : e.paid
+        ? '<span style="font-size:11px;color:#166534;font-weight:700">✓ settled</span>'
+        : partiallyPaid
+          ? `<div style="font-family:var(--mono);font-size:12px;font-weight:700;color:#92400e">${fmt(balance)}</div><div style="font-size:9px;color:#92400e">${fmt(e.paid_amount)} already sent</div>`
+          : `<div style="font-family:var(--mono);font-size:12px;font-weight:700">${fmt(balance)}</div>`;
     const payCell = e.paid
       ? `<span style="font-size:11px;color:#166534;font-weight:700">✓ ${e.paid_status || 'Paid'}</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${e.paid_txn_id || ''}</div>`
       : canPay
-        ? `<button id="paybtn-${i}" onclick="_incPay(${i})" style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:none;background:#111827;color:#fff;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">Pay</button>`
+        ? `<button id="paybtn-${i}" onclick="_incPay(${i})" style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:none;background:#111827;color:#fff;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">${partiallyPaid ? 'Pay balance' : 'Pay'}</button>`
         : `<button disabled style="padding:5px 14px;font-size:11px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--ink-3);cursor:not-allowed">Pay</button>`;
     return `<tr id="inc-row-${i}" style="${rowBg}">
       <td><div style="font-weight:700;font-size:12px">${e.name}</div><div style="font-family:var(--mono);font-size:9px;color:var(--ink-3);margin-top:1px">${e.emp_id}</div></td>
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${e.incentive > 0 ? fmt(e.incentive) : '<span style="color:var(--ink-3)">—</span>'}</td>
       <td style="font-family:var(--mono);font-size:12px;text-align:right">${e.travel > 0 ? fmt(e.travel) : '<span style="color:var(--ink-3)">—</span>'}</td>
       <td style="font-family:var(--mono);font-size:13px;text-align:right;${amtColor}">${fmt(e.total)}</td>
+      <td style="text-align:right">${balCell}</td>
       <td><div style="font-family:var(--mono);font-size:11px">${acctDisplay}</div><div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.ifsc || '—'}</div>${proxyBadge}</td>
       <td>${bankBadge}</td>
       <td id="paycell-${i}" style="text-align:right">${payCell}</td>
@@ -10117,6 +10132,7 @@ function _renderIncPayoutTable(emps) {
             <th style="text-align:right">Incentive</th>
             <th style="text-align:right">Travel</th>
             <th style="text-align:right">Total</th>
+            <th style="text-align:right">Balance to Pay</th>
             <th>Bank Account</th>
             <th>Status</th>
             <th></th>
