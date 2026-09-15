@@ -4677,7 +4677,7 @@ function _renderRecon() {
       </div>
       ${rows.length === 0
         ? `<div class="no-outages">${_reconWindow === 'custom' && (!_reconCustomFrom || !_reconCustomTo) ? 'Select a date range above and click Apply' : 'No data for this period'}</div>`
-        : `<table>
+        : `<div style="overflow-x:auto;max-width:100%"><table style="min-width:900px">
           <thead><tr>
             <th>Date</th>
             <th>Outlet / Submitted By</th>
@@ -4694,7 +4694,7 @@ function _renderRecon() {
             <th class="r">Closing Bal</th>
           </tr></thead>
           <tbody>${tableRows.join('')}${totalsRow}</tbody>
-        </table>`}
+        </table></div>`}
     </div>`;
 }
 
