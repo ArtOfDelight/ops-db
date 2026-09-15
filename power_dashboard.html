@@ -3035,6 +3035,45 @@ async function prLoad() {
 let _prData = [];
 let _prPrevData = [];
 let _prSort = { key: 'online_orders', dir: -1 };
+let _prExpanded = new Set(); // product names currently expanded to show review/IGCC detail
+
+function prToggleDetail(name) {
+  if (_prExpanded.has(name)) _prExpanded.delete(name);
+  else _prExpanded.add(name);
+  prDrawTable();
+}
+
+function prDetailRowHtml(p, colspan) {
+  const d = p.details || { high: [], low: [], igcc: [] };
+  const list = (arr, emptyMsg) => {
+    if (!arr.length) return `<div style="color:var(--ink-3);font-size:11px;padding:6px 0">${emptyMsg}</div>`;
+    return arr.map(r => `<div style="padding:7px 9px;border-bottom:1px solid var(--border);font-size:11px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <span style="font-weight:700;color:var(--ink)">${escHtml(r.source||'')}${r.rating!=null?' · ⭐'+r.rating:''}</span>
+          <span style="color:var(--ink-3);font-family:var(--mono)">${escHtml(r.date||'')}</span>
+        </div>
+        ${r.customer ? `<div style="color:var(--ink-3);margin-top:2px">${escHtml(r.customer)}</div>` : ''}
+        ${r.complaint_type ? `<div style="color:var(--ink-3);margin-top:2px">${escHtml(r.complaint_type)}${r.staff_mistake?' · '+escHtml(r.staff_mistake):''}</div>` : ''}
+        ${r.comment ? `<div style="margin-top:4px;color:var(--ink)">"${escHtml(r.comment)}"</div>` : ''}
+      </div>`).join('');
+  };
+  return `<tr class="pr-detail-row"><td colspan="${colspan}" style="padding:0;border-bottom:1px solid var(--border-2);background:var(--bg)">
+    <div style="display:flex;gap:0;padding:14px 20px;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px;border-right:1px solid var(--border);padding-right:14px;margin-right:14px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:6px">⭐ High Rated (${d.high.length})</div>
+        <div style="max-height:260px;overflow-y:auto">${list(d.high,'No high-rated reviews')}</div>
+      </div>
+      <div style="flex:1;min-width:220px;border-right:1px solid var(--border);padding-right:14px;margin-right:14px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--red);margin-bottom:6px">👎 Low Rated (${d.low.length})</div>
+        <div style="max-height:260px;overflow-y:auto">${list(d.low,'No low-rated reviews')}</div>
+      </div>
+      <div style="flex:1;min-width:220px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#e65100;margin-bottom:6px">🚫 IGCC (${d.igcc.length})</div>
+        <div style="max-height:260px;overflow-y:auto">${list(d.igcc,'No IGCC complaints')}</div>
+      </div>
+    </div>
+  </td></tr>`;
+}
 
 function prRenderTable(products, el) {
   if (!products.length) {
@@ -3111,12 +3150,15 @@ function prDrawTable(el) {
       const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
       const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2 ? 'warn' : 'bad';
       const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
-      return `<tr>
-        ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
+      const expanded = _prExpanded.has(p.product);
+      const nameAttr = p.product.replace(/'/g,"\\'");
+      const mainRow = `<tr style="cursor:pointer" onclick="prToggleDetail('${nameAttr}')" title="Click for review/IGCC detail">
+        ${tdL(i+1)} ${tdL((expanded?'▾ ':'▸ ')+p.product,true)} ${tdL(p.category||'—')}
         ${tdB(p.online_orders||'—')} ${tdB(p.total_rated)}
         ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
       </tr>`;
+      return mainRow + (expanded ? prDetailRowHtml(p, 11) : '');
     };
   } else if (view === 'dinein') {
     thead = `<thead><tr>
@@ -3150,13 +3192,16 @@ function prDrawTable(el) {
       const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
       const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2 ? 'warn' : 'bad';
       const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
-      return `<tr>
-        ${tdL(i+1)} ${tdL(p.product,true)} ${tdL(p.category||'—')}
+      const expanded = _prExpanded.has(p.product);
+      const nameAttr = p.product.replace(/'/g,"\\'");
+      const mainRow = `<tr style="cursor:pointer" onclick="prToggleDetail('${nameAttr}')" title="Click for review/IGCC detail">
+        ${tdL(i+1)} ${tdL((expanded?'▾ ':'▸ ')+p.product,true)} ${tdL(p.category||'—')}
         ${tdB(p.online_orders||'—')} ${tdB(p.dine_in_orders||'—')} ${tdB(p.rista_orders||'—')}
         ${tdB(p.total_rated)}
         ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
       </tr>`;
+      return mainRow + (expanded ? prDetailRowHtml(p, 12) : '');
     };
   } else if (view === 'kpt') {
     // Each col = (bucket_pct / 100) × bucket_midpoint
@@ -10733,7 +10778,7 @@ function ovUpdatePendingBadge() {
   let pendingCount = 0;
   _ovVisits.forEach(v => {
     (v.checklist_items || []).forEach(item => {
-      if (item.answer === 'no' && item.action_resolved !== true) pendingCount++;
+      if (item.answer === 'no' && item.actionable === true && item.action_resolved !== true) pendingCount++;
     });
   });
   const badge = document.getElementById('ovActionsPendingBadge');
