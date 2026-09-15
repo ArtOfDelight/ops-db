@@ -4458,7 +4458,7 @@ function renderReconPage() {
   const el = document.getElementById('pageBody');
   el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
 
-  fetch(`${API}/api/ops/daily-recon`)
+  fetch(`${API}/api/ops/daily-recon`, { headers: { Authorization: `Bearer ${_lsToken}` } })
     .then(r => r.json())
     .then(d => {
       _reconData = d.rows || [];
@@ -4712,7 +4712,7 @@ function _saveCash(rid) {
 
   fetch(`${API}/api/ops/daily-recon/cash`, {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${_lsToken}`},
     body: JSON.stringify({row: r.row, cash: parsed})
   })
   .then(res => res.json())
@@ -4765,7 +4765,7 @@ function _saveExpenses(rid) {
 
   fetch(`${API}/api/ops/daily-recon/expenses`, {
     method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type':'application/json', 'Authorization': `Bearer ${_lsToken}`},
     body: JSON.stringify({date: r.date, outlet: r.outlet, expenses: parsed})
   })
   .then(res => res.json().then(d => ({ ok: res.ok, status: res.status, ...d })))
@@ -4800,7 +4800,7 @@ function renderRRReconPage() {
   const el = document.getElementById('pageBody');
   el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
 
-  fetch(`${API}/api/ops/rr-recon`)
+  fetch(`${API}/api/ops/rr-recon`, { headers: { Authorization: `Bearer ${_lsToken}` } })
     .then(r => r.json())
     .then(d => {
       _rrReconData = d.rows || [];
@@ -6720,7 +6720,7 @@ async function loadHomeSummaries() {
 
   // ── Daily Recon — last 2 days ──
   try {
-    const d = await fetch(`${API}/api/ops/daily-recon`).then(r=>r.json());
+    const d = await fetch(`${API}/api/ops/daily-recon`, { headers: { Authorization: `Bearer ${_lsToken}` } }).then(r=>r.json());
     const rows = (d.rows||[]);
     const sorted = [...rows].sort((a,b) => (b.date||'').localeCompare(a.date||''));
     const last2 = sorted.slice(0, 2);

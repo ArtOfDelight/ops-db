@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Audit — Zaān Ops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #0a1628;
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --border: #e3e8f2;
+  --border-2: #d0d8ea;
+  --ink: #0b1829;
+  --ink-2: #3a4f68;
+  --ink-3: #7a92ab;
+  --blue: #2563eb;
+  --blue-glow: rgba(37,99,235,.18);
+  --red: #dc2626;
+  --red-dim: rgba(220,38,38,.09);
+  --amber: #d97706;
+  --amber-dim: rgba(217,119,6,.09);
+  --green: #16a34a;
+  --green-dim: rgba(22,163,74,.09);
+  --sans: 'Instrument Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --r: 8px;
+  --r-lg: 12px;
+  --sh: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+}
+
+html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+.topbar { height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 12px; }
+.topbar-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+.topbar-sub { font-size: 11px; color: var(--ink-3); }
+.topbar-gap { flex: 1; }
+.body { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+
+.hidden { display: none !important; }
+
+/* ── LOGIN ── */
+.login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh); padding: 28px; width: 320px; }
+.login-card h1 { font-size: 15px; margin-bottom: 4px; }
+.login-card p { font-size: 12px; color: var(--ink-3); margin-bottom: 16px; }
+.login-card input { width: 100%; font-family: var(--sans); font-size: 13px; border: 1px solid var(--border-2); border-radius: var(--r); padding: 9px 12px; margin-bottom: 10px; outline: none; }
+.login-card input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.login-err { font-size: 11px; color: var(--red); min-height: 16px; margin-bottom: 6px; }
+
+/* ── BUTTONS / INPUTS ── */
+.btn { font-family: var(--sans); font-size: 12px; font-weight: 600; border: 0; border-radius: var(--r); padding: 8px 14px; cursor: pointer; transition: opacity .15s; width: 100%; }
+.btn:hover { opacity: .88; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-ghost { background: transparent; color: var(--ink-2); border: 1px solid var(--border-2); width: auto; }
+
+.controls-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.select, .text-input { font-family: var(--sans); font-size: 12px; border: 1px solid var(--border-2); border-radius: var(--r); padding: 7px 10px; background: var(--surface); color: var(--ink); }
+.filter-tabs { display: flex; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); padding: 3px; }
+.filter-tab { font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: 6px; border: 0; cursor: pointer; background: transparent; color: var(--ink-3); }
+.filter-tab.active { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--sh); }
+
+/* ── STATS ── */
+.stats-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-pill { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 16px; box-shadow: var(--sh); min-width: 110px; }
+.stat-pill-label { font-size: 10px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.stat-pill-val { font-size: 18px; font-weight: 700; font-family: var(--mono); line-height: 1.4; }
+
+/* ── TABLE ── */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh); overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+tr:hover td { background: var(--bg); }
+.mono { font-family: var(--mono); }
+.dim { color: var(--ink-3); }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+.badge-grey { background: var(--bg); color: var(--ink-3); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+.badge-green { background: var(--green-dim); color: var(--green); }
+
+.empty { text-align: center; padding: 48px 20px; color: var(--ink-3); font-size: 13px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; font-size: 12px; padding: 9px 16px; border-radius: var(--r); opacity: 0; pointer-events: none; transition: all .2s; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-shell">
+  <div class="login-card">
+    <h1>Order Audit</h1>
+    <p>Residency Road — limited testing access</p>
+    <div id="step1">
+      <input id="empId" placeholder="Employee ID" value="AOD019">
+      <input id="phone" placeholder="10-digit phone" maxlength="10">
+      <div id="loginErr" class="login-err"></div>
+      <button class="btn btn-primary" onclick="sendOtp()">Send OTP</button>
+    </div>
+    <div id="step2" class="hidden">
+      <input id="otp" placeholder="OTP code" maxlength="6">
+      <div id="loginErr2" class="login-err"></div>
+      <button class="btn btn-primary" onclick="verifyOtp()">Verify &amp; Continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="mainScreen" class="hidden">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Order Audit — Residency Road</div>
+      <div class="topbar-sub" id="whoami"></div>
+    </div>
+    <div class="topbar-gap"></div>
+    <button class="btn btn-ghost" onclick="logout()">Switch user</button>
+  </div>
+
+  <div class="body">
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="controls-bar">
+      <div class="filter-tabs" id="statusTabs">
+        <button class="filter-tab active" data-status="" onclick="setStatusFilter('')">All</button>
+        <button class="filter-tab" data-status="pending_followup" onclick="setStatusFilter('pending_followup')">Needs Recount</button>
+        <button class="filter-tab" data-status="closed" onclick="setStatusFilter('closed')">Closed</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);">
+        <input type="checkbox" id="flaggedOnly" onchange="loadRecords()"> Flagged only
+      </label>
+      <div class="topbar-gap"></div>
+      <button class="btn btn-ghost" style="width:auto" onclick="loadRecords()">Refresh</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Submitted</th>
+            <th>Status</th>
+            <th>Audit 1</th>
+            <th>Outcome</th>
+            <th>Ice cream rollup</th>
+            <th>Items</th>
+          </tr>
+        </thead>
+        <tbody id="recordsBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty hidden">No audit records match these filters.</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const API = 'https://aodapp-backend.onrender.com';
+let reviewToken = localStorage.getItem('orderAuditToken') || null;
+let statusFilter = '';
+
+// ─── AUTH ───────────────────────────────────────────────────────────────────
+async function sendOtp() {
+  const employee_id = document.getElementById('empId').value.trim();
+  const phone = document.getElementById('phone').value.replace(/\D/g, '');
+  const err = document.getElementById('loginErr');
+  if (!employee_id) { err.textContent = 'Enter an employee ID'; return; }
+  if (phone.length !== 10) { err.textContent = 'Enter a valid 10-digit phone number'; return; }
+  err.textContent = 'Sending OTP…';
+  try {
+    const r = await fetch(`${API}/api/auth/send-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id, phone }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.success) { err.textContent = d.message || d.detail || 'Failed to send OTP'; return; }
+    err.textContent = '';
+    document.getElementById('step1').classList.add('hidden');
+    document.getElementById('step2').classList.remove('hidden');
+  } catch (e) { err.textContent = 'Network error sending OTP'; }
+}
+
+async function verifyOtp() {
+  const employee_id = document.getElementById('empId').value.trim();
+  const phone = document.getElementById('phone').value.replace(/\D/g, '');
+  const otp = document.getElementById('otp').value.trim();
+  const err = document.getElementById('loginErr2');
+  if (!otp) { err.textContent = 'Enter the OTP'; return; }
+  err.textContent = 'Verifying…';
+  try {
+    const r = await fetch(`${API}/api/auth/verify-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id, phone, otp }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.success || !d.token) { err.textContent = d.message || d.detail || 'Invalid OTP'; return; }
+    reviewToken = d.token;
+    localStorage.setItem('orderAuditToken', reviewToken);
+    localStorage.setItem('orderAuditEmp', employee_id);
+    showMain();
+  } catch (e) { err.textContent = 'Network error verifying OTP'; }
+}
+
+function logout() {
+  localStorage.removeItem('orderAuditToken');
+  localStorage.removeItem('orderAuditEmp');
+  reviewToken = null;
+  document.getElementById('mainScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+function showMain() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+  document.getElementById('whoami').textContent = localStorage.getItem('orderAuditEmp') || '';
+  loadRecords();
+}
+
+// ─── API HELPER ─────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${reviewToken}`, ...(opts.headers || {}) },
+    ...opts,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── RENDER HELPERS ─────────────────────────────────────────────────────────
+function statusBadge(status) {
+  const map = {
+    pending_followup: ['badge-amber', 'Needs Recount'],
+    closed: ['badge-grey', 'Closed'],
+  };
+  const [cls, label] = map[status] || ['badge-grey', status || 'Unknown'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function audit1Badge(overallStatus) {
+  if (overallStatus === 'OK') return `<span class="badge badge-green">OK</span>`;
+  if (overallStatus === 'NOK') return `<span class="badge badge-red">NOK</span>`;
+  return `<span class="badge badge-grey">—</span>`;
+}
+
+function outcomeBadge(matrixResult) {
+  const map = {
+    no_comment: ['badge-grey', 'No comment'],
+    initial_error_valid: ['badge-amber', 'Initial error valid'],
+    reversed_mistake_flag_alert: ['badge-red', 'Counting mistake — alert'],
+    different_mismatch_flag: ['badge-red', 'Mismatch flagged'],
+  };
+  if (!matrixResult) return `<span class="badge badge-grey">Pending</span>`;
+  const [cls, label] = map[matrixResult] || ['badge-grey', matrixResult];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function rollupBadge(rollup) {
+  if (!rollup || !rollup.classification || rollup.classification === 'none') return `<span class="dim">—</span>`;
+  const map = { over_scooping: 'badge-red', under_scooping: 'badge-amber', mixed: 'badge-grey' };
+  const cls = map[rollup.classification] || 'badge-grey';
+  return `<span class="badge ${cls}">${rollup.classification.replace('_', ' ')}</span>`;
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._tt);
+  showToast._tt = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── DATA LOADING ───────────────────────────────────────────────────────────
+function setStatusFilter(status) {
+  statusFilter = status;
+  document.querySelectorAll('#statusTabs .filter-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.status === status);
+  });
+  loadRecords();
+}
+
+async function loadRecords() {
+  const flaggedOnly = document.getElementById('flaggedOnly').checked;
+  const params = new URLSearchParams({ outlet: 'RR' });
+  if (statusFilter) params.set('status', statusFilter);
+  if (flaggedOnly) params.set('flagged_only', 'true');
+
+  try {
+    const data = await apiFetch(`/api/order-audit/list?${params.toString()}`);
+    renderRecords(data.records || []);
+  } catch (e) {
+    showToast(e.message);
+    renderRecords([]);
+  }
+}
+
+function renderRecords(records) {
+  const body = document.getElementById('recordsBody');
+  const empty = document.getElementById('emptyState');
+  body.innerHTML = '';
+
+  const total = records.length;
+  const flagged = records.filter(r => r.outcome && r.outcome.flagged).length;
+  const alerts = records.filter(r => r.outcome && r.outcome.alert).length;
+  const open = records.filter(r => r.status !== 'closed').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-pill"><div class="stat-pill-label">Total</div><div class="stat-pill-val">${total}</div></div>
+    <div class="stat-pill"><div class="stat-pill-label">Open</div><div class="stat-pill-val">${open}</div></div>
+    <div class="stat-pill"><div class="stat-pill-label">Flagged</div><div class="stat-pill-val">${flagged}</div></div>
+    <div class="stat-pill"><div class="stat-pill-label">Alerts</div><div class="stat-pill-val">${alerts}</div></div>
+  `;
+
+  if (!records.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  for (const r of records) {
+    const nokCount = (r.items || []).filter(i => i.status === 'NOK').length;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${escHtml(r.rista_order_id)}</td>
+      <td class="dim">${escHtml((r.order_submitted_at || '').slice(0, 16).replace('T', ' '))}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td>${audit1Badge(r.audit1 && r.audit1.overall_status)}</td>
+      <td>${outcomeBadge(r.outcome && r.outcome.matrix_result)}</td>
+      <td>${rollupBadge(r.outcome && r.outcome.ice_cream_rollup)}</td>
+      <td class="mono">${nokCount} / ${(r.items || []).length} flagged</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+if (reviewToken) { showMain(); }
+</script>
+</body>
+</html>
