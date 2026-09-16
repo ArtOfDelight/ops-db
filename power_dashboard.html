@@ -4523,7 +4523,8 @@ function _renderRecon() {
   const el = document.getElementById('pageBody');
   if (!_reconData) return;
 
-  const allRows = _reconRows();
+  const HIDDEN_OUTLETS = ['Jayanagar', 'Sahakar Nagar']; // no longer dine-in as of 2026-09-16
+  const allRows = _reconRows().filter(r => !HIDDEN_OUTLETS.includes(r.outlet));
   const rows    = _reconOutlet === 'All' ? allRows : allRows.filter(r => r.outlet === _reconOutlet);
   const latestInRows = rows.length ? rows[0].date : '';
   const label  = _reconWindow === 'custom'
@@ -4570,7 +4571,7 @@ function _renderRecon() {
   </div>`;
 
   const SHORT = {'Sahakar Nagar':'SKN','Residency Road':'RR','Koramangala':'KOR','Whitefield':'WF','Kalyan Nagar':'KLN','Bellandur':'BLN','Indiranagar':'IND','Arekere':'ARK'};
-  const allOutlets = ['All', ...Array.from(new Set(_reconData.map(r => r.outlet))).sort()];
+  const allOutlets = ['All', ...Array.from(new Set(_reconData.map(r => r.outlet))).filter(o => !HIDDEN_OUTLETS.includes(o)).sort()];
   const outletBar = `<div style="display:flex;gap:6px;flex-wrap:wrap">
     ${allOutlets.map(o => { const lbl = o === 'All' ? 'All Outlets' : (SHORT[o] || o); return `<button onclick="_reconSetOutlet('${o}')" style="padding:4px 14px;border-radius:20px;border:1px solid ${_reconOutlet===o?'var(--blue)':'var(--border-2)'};background:${_reconOutlet===o?'var(--blue-dim)':'var(--surface)'};color:${_reconOutlet===o?'var(--blue)':'var(--ink-2)'};font-size:11px;font-weight:${_reconOutlet===o?'700':'500'};cursor:pointer;font-family:var(--sans)">${lbl}</button>`; }).join('')}
   </div>`;
