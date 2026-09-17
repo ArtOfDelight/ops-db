@@ -12316,11 +12316,27 @@ async function renderBroadcastPage() {
     <div style="max-width:640px">
       <div class="state-box" style="text-align:left;padding:20px;margin-bottom:20px">
         <div style="font-weight:700;font-size:14px;margin-bottom:12px">📣 Send a new broadcast</div>
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SEND TO</label>
-        <select id="bcastDept" multiple style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px;min-height:70px">
-          <option value="">Loading departments…</option>
-        </select>
-        <div style="font-size:11px;color:var(--ink-3);margin:-8px 0 12px">Leave nothing selected to send to every employee. Ctrl/Cmd-click to pick more than one department.</div>
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SEND TO — DEPARTMENT</label>
+        <div style="margin:6px 0 8px">
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="bcastDeptAll" checked onchange="bcastToggleAll('Dept', this.checked)"> All departments
+          </label>
+        </div>
+        <div id="bcastDeptChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+          <span style="font-size:12px;color:var(--ink-3)">Loading…</span>
+        </div>
+
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SEND TO — OUTLET</label>
+        <div style="margin:6px 0 8px">
+          <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="bcastOutletAll" checked onchange="bcastToggleAll('Outlet', this.checked)"> All outlets
+          </label>
+        </div>
+        <div id="bcastOutletChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <span style="font-size:12px;color:var(--ink-3)">Loading…</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink-3);margin:0 0 16px">Outlet targeting matches whoever is on today's roster for that outlet. Picking both a department and an outlet sends only to people matching both.</div>
+
         <label style="font-size:11px;color:var(--ink-3);font-weight:600">TITLE</label>
         <input id="bcastTitle" type="text" placeholder="e.g. New Flavours Are Live" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
         <label style="font-size:11px;color:var(--ink-3);font-weight:600">SUBTITLE (optional)</label>
@@ -12340,21 +12356,49 @@ async function renderBroadcastPage() {
     </div>`;
   _bcastUploadedImages = [];
   bcastLoadDepartments();
+  bcastLoadOutlets();
   bcastLoadHistory();
 }
 
+function bcastChip(value, label) {
+  return `<label class="bcast-chip" style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid #dfe3ea;border-radius:999px;font-size:12px;cursor:pointer;user-select:none">
+    <input type="checkbox" value="${escHtml(value)}" disabled style="margin:0"> ${escHtml(label)}
+  </label>`;
+}
+
+function bcastToggleAll(kind, allChecked) {
+  document.querySelectorAll(`#bcast${kind}Chips input[type=checkbox]`).forEach(cb => {
+    cb.disabled = allChecked;
+    if (allChecked) cb.checked = false;
+  });
+}
+
 async function bcastLoadDepartments() {
-  const sel = document.getElementById('bcastDept');
-  if (!sel) return;
+  const wrap = document.getElementById('bcastDeptChips');
+  if (!wrap) return;
   try {
     const r = await fetch(`${API}/api/admin/departments`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     const d = await r.json();
     const depts = d.departments || [];
-    sel.innerHTML = depts.length
-      ? depts.map(dep => `<option value="${escHtml(dep)}">${escHtml(dep)}</option>`).join('')
-      : '<option value="" disabled>No departments found</option>';
+    wrap.innerHTML = depts.length
+      ? depts.map(dep => bcastChip(dep, dep)).join('')
+      : '<span style="font-size:12px;color:var(--ink-3)">No departments found</span>';
   } catch (e) {
-    sel.innerHTML = '<option value="" disabled>Failed to load departments</option>';
+    wrap.innerHTML = '<span style="font-size:12px;color:#c0392b">Failed to load departments</span>';
+  }
+}
+
+async function bcastLoadOutlets() {
+  const wrap = document.getElementById('bcastOutletChips');
+  if (!wrap) return;
+  try {
+    const r = await fetch(`${API}/api/outlets`);
+    const outlets = await r.json();
+    wrap.innerHTML = (outlets || []).length
+      ? outlets.map(o => bcastChip(o.code, `${o.name || o.code} (${o.code})`)).join('')
+      : '<span style="font-size:12px;color:var(--ink-3)">No outlets found</span>';
+  } catch (e) {
+    wrap.innerHTML = '<span style="font-size:12px;color:#c0392b">Failed to load outlets</span>';
   }
 }
 
@@ -12391,14 +12435,19 @@ async function bcastUploadImages(files) {
 }
 
 async function bcastSend() {
-  const dept = Array.from(document.getElementById('bcastDept').selectedOptions).map(o => o.value).filter(Boolean);
+  const deptAll = document.getElementById('bcastDeptAll').checked;
+  const dept = deptAll ? [] : Array.from(document.querySelectorAll('#bcastDeptChips input:checked')).map(c => c.value);
+  const outletAll = document.getElementById('bcastOutletAll').checked;
+  const outlets = outletAll ? [] : Array.from(document.querySelectorAll('#bcastOutletChips input:checked')).map(c => c.value);
   const title = document.getElementById('bcastTitle').value.trim();
   const subtitle = document.getElementById('bcastSubtitle').value.trim();
   const bodyText = document.getElementById('bcastBody').value.trim();
   const status = document.getElementById('bcastStatus');
   if (!title || !bodyText) { status.textContent = 'Title and message are required.'; status.style.color = '#c0392b'; return; }
-  const targetLabel = dept.length ? dept.join(', ') : 'ALL employees';
-  if (!confirm(`Send this broadcast to ${targetLabel} now?\n\n"${title}"`)) return;
+  if (!deptAll && !dept.length) { status.textContent = 'Pick at least one department, or check "All departments".'; status.style.color = '#c0392b'; return; }
+  if (!outletAll && !outlets.length) { status.textContent = 'Pick at least one outlet, or check "All outlets".'; status.style.color = '#c0392b'; return; }
+  const targetLabel = [dept.length ? dept.join(', ') : 'All departments', outlets.length ? outlets.join(', ') : 'All outlets'].join(' · ');
+  if (!confirm(`Send this broadcast to: ${targetLabel}\n\n"${title}"`)) return;
 
   const btn = document.getElementById('bcastSendBtn');
   btn.disabled = true;
@@ -12411,6 +12460,7 @@ async function bcastSend() {
         title, subtitle: subtitle || undefined, body: bodyText,
         images: _bcastUploadedImages.length ? _bcastUploadedImages : undefined,
         departments: dept.length ? dept : undefined,
+        outlets: outlets.length ? outlets : undefined,
       }),
     });
     const d = await r.json();
@@ -12421,6 +12471,10 @@ async function bcastSend() {
     document.getElementById('bcastBody').value = '';
     document.getElementById('bcastImagePreview').innerHTML = '';
     _bcastUploadedImages = [];
+    document.getElementById('bcastDeptAll').checked = true;
+    document.getElementById('bcastOutletAll').checked = true;
+    bcastToggleAll('Dept', true);
+    bcastToggleAll('Outlet', true);
     bcastLoadHistory();
   } catch (e) {
     status.textContent = 'Failed: ' + e.message; status.style.color = '#c0392b';
@@ -12445,7 +12499,7 @@ async function bcastLoadHistory() {
         </div>
         ${b.subtitle ? `<div class="dc-comment-snippet">${escHtml(b.subtitle)}</div>` : ''}
         <div class="dc-comment-text">${escHtml(b.body)}</div>
-        <div style="font-size:11px;color:var(--ink-3);margin-top:6px">Sent to: ${b.departments && b.departments.length ? escHtml(b.departments.join(', ')) : 'All employees'}</div>
+        <div style="font-size:11px;color:var(--ink-3);margin-top:6px">Sent to: ${b.departments && b.departments.length ? escHtml(b.departments.join(', ')) : 'All departments'} · ${b.outlets && b.outlets.length ? escHtml(b.outlets.join(', ')) : 'All outlets'}</div>
         <div id="bcastAckCount" style="font-size:12px;font-weight:600;margin-top:4px;color:var(--ink-3)">Loading acknowledgements…</div>
         <div class="dc-comment-footer">
           <span class="dc-comment-author">Sent by ${escHtml(b.created_by || '')}</span>
