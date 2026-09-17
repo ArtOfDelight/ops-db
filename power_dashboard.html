@@ -9179,9 +9179,50 @@ async function _clLoadDaily(date) {
     if (outlets.length === 0) { content.innerHTML = '<div style="padding:60px;text-align:center;color:var(--ink-3)">No data for this date.</div>'; return; }
 
     content.innerHTML = '';
+
+    // Kitchen (CK) has its own distinct checklist types — render as its own section
+    // instead of folding it into the generic Morning/Mid Day/Closing groups below.
+    const kitchenOutlet = outlets.find(o => o.outlet_code === 'CK');
+    if (kitchenOutlet) {
+      const kSlotLabels = { 'Morning':'Daily (Morning)', 'Mid Day':'Daily (Mid Day)', 'Closing':'Daily (Closing)', 'Housekeeping Closing':'Housekeeping', 'Monthly':'Monthly' };
+      const kSlots = (kitchenOutlet.slots||[]);
+      if (kSlots.length) {
+        const filledCount = kSlots.filter(s=>s.status==='filled').length;
+        const badgeBg    = filledCount===kSlots.length?'#dcfce7':filledCount>0?'#fef9c3':'#fee2e2';
+        const badgeColor = filledCount===kSlots.length?'#16a34a':filledCount>0?'#d97706':'#dc2626';
+        const group = document.createElement('div');
+        group.className = 'cl-slot-group';
+        group.innerHTML = `
+          <div class="cl-slot-label">
+            <div class="cl-slot-bar" style="background:#8b5cf6"></div>
+            <span class="cl-slot-title">🍳 Kitchen</span>
+            <span class="cl-slot-badge" style="background:${badgeBg};color:${badgeColor}">${filledCount}/${kSlots.length}</span>
+          </div>
+          <div class="cl-card">${kSlots.map(s => {
+            const isFilled = s.status === 'filled';
+            return `<div class="cl-row${isFilled?' clickable':''}"${isFilled?` data-sid="${_clEsc(s.submission_id)}"`:''}>
+              <span class="cl-outlet-badge">${_clEsc(kSlotLabels[s.slot] || s.slot)}</span>
+              <div class="cl-row-right">
+                ${isFilled
+                  ? `<div class="cl-filled-info"><div class="cl-filled-by">${_clEsc(s.submitted_by||'—')}</div><div class="cl-filled-at">${_clFmtTime(s.submitted_at)}</div></div><span style="color:var(--ink-3);font-size:12px">›</span>`
+                  : `<span class="cl-not-filled">Not filled</span>`}
+              </div>
+            </div>`;
+          }).join('')}</div>`;
+        group.querySelectorAll('.cl-row.clickable').forEach(row => {
+          row.addEventListener('click', function() {
+            const sid = this.dataset.sid;
+            const meta = _clSubmissionMap[sid] || {};
+            clOpenResponses(sid, meta.slot||'', meta.submitted_by||'', _clFmtTime(meta.submitted_at||''));
+          });
+        });
+        content.appendChild(group);
+      }
+    }
+
     ['Morning','Mid Day','Closing'].forEach(slot => {
-      // Only show outlets that have this slot in their expected slots list
-      const slotOutlets = outlets.filter(o => (o.slots||[]).some(s => s.slot === slot));
+      // Only show outlets that have this slot in their expected slots list (excluding Kitchen, shown separately above)
+      const slotOutlets = outlets.filter(o => o.outlet_code !== 'CK' && (o.slots||[]).some(s => s.slot === slot));
       if (slotOutlets.length === 0) return;
 
       const color = CL_SLOT_COLORS[slot] || '#6b7280';
