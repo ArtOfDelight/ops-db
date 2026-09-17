@@ -1169,6 +1169,9 @@ td.c { text-align: center; }
       <button class="sb-item" id="sbitem-comments" onclick="navTo('comments')">
         <span class="sb-icon">💬</span> Dashboard Comments
       </button>
+      <button class="sb-item" id="sbitem-broadcast" onclick="navTo('broadcast')">
+        <span class="sb-icon">📣</span> Broadcast
+      </button>
     </div>
   </div>
 
@@ -1211,12 +1214,12 @@ function toggleSbGroup(name) {
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','metrics','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments'].forEach(id => {
+  ['brief','power','signin','metrics','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments' };
-  const groupOf = { metrics:'performance', scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', metrics: '📊 Platform Metrics', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Ratings', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast' };
+  const groupOf = { metrics:'performance', scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1254,6 +1257,7 @@ function navTo(page) {
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
   if (page === 'comments')    renderCommentsPage();
+  if (page === 'broadcast')   renderBroadcastPage();
 }
 
 
@@ -12298,6 +12302,88 @@ async function dcToggleResolved(id, resolved) {
     });
     dcLoad(_dcFilter);
   } catch (e) { alert('Failed to update: ' + e); }
+}
+
+/* ── BROADCAST PAGE ──
+   Sends a broadcast: creates the record employees' app polls on launch (in-app modal)
+   AND fires an Expo push notification to every registered device, in one shot. */
+async function renderBroadcastPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="max-width:640px">
+      <div class="state-box" style="text-align:left;padding:20px;margin-bottom:20px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:12px">📣 Send a new broadcast</div>
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">TITLE</label>
+        <input id="bcTitle" type="text" placeholder="e.g. New Flavours Are Live" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SUBTITLE (optional)</label>
+        <input id="bcSubtitle" type="text" placeholder="e.g. Stock has been sent to your outlet" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">MESSAGE</label>
+        <textarea id="bcBody" rows="4" placeholder="Message shown inside the app and used as the push notification body" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">IMAGE URLS (optional, one per line)</label>
+        <textarea id="bcImages" rows="2" placeholder="https://...&#10;https://..." style="width:100%;margin:4px 0 14px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+        <button id="bcSendBtn" onclick="bcSend()" style="background:#000;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Send Broadcast</button>
+        <span id="bcStatus" style="margin-left:10px;font-size:12px"></span>
+      </div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Last broadcast sent</div>
+      <div id="bcHistory" class="cmp-empty"><div class="cmp-empty-t">Loading…</div></div>
+    </div>`;
+  bcLoadHistory();
+}
+
+async function bcSend() {
+  const title = document.getElementById('bcTitle').value.trim();
+  const subtitle = document.getElementById('bcSubtitle').value.trim();
+  const bodyText = document.getElementById('bcBody').value.trim();
+  const images = document.getElementById('bcImages').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const status = document.getElementById('bcStatus');
+  if (!title || !bodyText) { status.textContent = 'Title and message are required.'; status.style.color = '#c0392b'; return; }
+  if (!confirm(`Send this broadcast to all employees now?\n\n"${title}"`)) return;
+
+  const btn = document.getElementById('bcSendBtn');
+  btn.disabled = true;
+  status.textContent = 'Sending…'; status.style.color = 'var(--ink-3)';
+  try {
+    const r = await fetch(`${API}/api/admin/broadcasts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ title, subtitle: subtitle || undefined, body: bodyText, images: images.length ? images : undefined }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.success) throw new Error(d.detail || 'Failed');
+    status.textContent = `Sent to ${d.sent} device(s).`; status.style.color = '#1a7f37';
+    document.getElementById('bcTitle').value = '';
+    document.getElementById('bcSubtitle').value = '';
+    document.getElementById('bcBody').value = '';
+    document.getElementById('bcImages').value = '';
+    bcLoadHistory();
+  } catch (e) {
+    status.textContent = 'Failed: ' + e.message; status.style.color = '#c0392b';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function bcLoadHistory() {
+  const el = document.getElementById('bcHistory');
+  if (!el) return;
+  try {
+    const r = await fetch(`${API}/api/broadcasts/latest`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await r.json();
+    const b = d.broadcast;
+    if (!b) { el.innerHTML = '<div class="cmp-empty-t">No broadcasts sent yet</div>'; return; }
+    el.innerHTML = `
+      <div class="dc-comment-card">
+        <div class="dc-comment-meta">
+          <span class="dc-comment-page">${escHtml(b.title)}</span>
+          <span class="dc-comment-time">${b.created_at ? new Date(b.created_at).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}</span>
+        </div>
+        ${b.subtitle ? `<div class="dc-comment-snippet">${escHtml(b.subtitle)}</div>` : ''}
+        <div class="dc-comment-text">${escHtml(b.body)}</div>
+        <div class="dc-comment-footer"><span class="dc-comment-author">Sent by ${escHtml(b.created_by || '')}</span></div>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = '<div class="cmp-empty-t">Failed to load history</div>';
+  }
 }
 
 </script>
