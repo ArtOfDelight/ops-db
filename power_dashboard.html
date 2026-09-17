@@ -9184,7 +9184,7 @@ async function _clLoadDaily(date) {
     // instead of folding it into the generic Morning/Mid Day/Closing groups below.
     const kitchenOutlet = outlets.find(o => o.outlet_code === 'CK');
     if (kitchenOutlet) {
-      const kSlotLabels = { 'Morning':'Daily (Morning)', 'Mid Day':'Daily (Mid Day)', 'Closing':'Daily (Closing)', 'Housekeeping Closing':'Housekeeping', 'Monthly':'Monthly' };
+      const kSlotLabels = { 'Closing':'Daily', 'Housekeeping Closing':'Housekeeping', 'Monthly':'Monthly' };
       const kSlots = (kitchenOutlet.slots||[]);
       if (kSlots.length) {
         const filledCount = kSlots.filter(s=>s.status==='filled').length;
