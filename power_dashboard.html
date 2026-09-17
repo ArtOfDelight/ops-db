@@ -12310,47 +12310,51 @@ async function dcToggleResolved(id, resolved) {
    (Prefixed `bcast*` — `bc*` is already taken by the Daily Brief chat assistant.) */
 let _bcastUploadedImages = [];
 
+function bcastSectionHeader(step, title, sub) {
+  return `
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${step}</span>
+      <span style="font-weight:700;font-size:13px">${title}</span>
+      ${sub ? `<span style="font-size:11px;color:var(--ink-3)">${sub}</span>` : ''}
+    </div>`;
+}
+
 async function renderBroadcastPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = `
     <div style="max-width:640px">
-      <div class="state-box" style="text-align:left;padding:20px;margin-bottom:20px">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px">📣 Send a new broadcast</div>
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SEND TO — DEPARTMENT</label>
-        <div style="margin:6px 0 8px">
-          <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" id="bcastDeptAll" checked onchange="bcastToggleAll('Dept', this.checked)"> All departments
-          </label>
-        </div>
-        <div id="bcastDeptChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-          <span style="font-size:12px;color:var(--ink-3)">Loading…</span>
-        </div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:14px">📣 Send a new broadcast</div>
 
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SEND TO — OUTLET</label>
-        <div style="margin:6px 0 8px">
-          <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" id="bcastOutletAll" checked onchange="bcastToggleAll('Outlet', this.checked)"> All outlets
-          </label>
-        </div>
-        <div id="bcastOutletChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-          <span style="font-size:12px;color:var(--ink-3)">Loading…</span>
-        </div>
-        <div style="font-size:11px;color:var(--ink-3);margin:0 0 16px">Outlet targeting matches whoever is on today's roster for that outlet. Picking both a department and an outlet sends only to people matching both.</div>
+      <div class="state-box" style="text-align:left;padding:18px 20px;margin-bottom:14px">
+        ${bcastSectionHeader(1, 'Audience', '— who receives this')}
+        <div style="font-size:11px;color:var(--ink-3);font-weight:600;margin-bottom:2px">DEPARTMENT</div>
+        ${bcastPickerHtml('Dept', 'department')}
+        <div style="font-size:11px;color:var(--ink-3);font-weight:600;margin-bottom:2px">OUTLET</div>
+        ${bcastPickerHtml('Outlet', 'outlet')}
+        <div style="font-size:11px;color:var(--ink-3);background:#f3f5f9;border-radius:6px;padding:8px 10px">Outlet targeting matches whoever is on <b>today's roster</b> for that outlet. Picking both a department and an outlet sends only to people matching both.</div>
+      </div>
 
+      <div class="state-box" style="text-align:left;padding:18px 20px;margin-bottom:14px">
+        ${bcastSectionHeader(2, 'Message', '— shown in the app + as the push notification')}
         <label style="font-size:11px;color:var(--ink-3);font-weight:600">TITLE</label>
         <input id="bcastTitle" type="text" placeholder="e.g. New Flavours Are Live" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
         <label style="font-size:11px;color:var(--ink-3);font-weight:600">SUBTITLE (optional)</label>
         <input id="bcastSubtitle" type="text" placeholder="e.g. Stock has been sent to your outlet" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">MESSAGE</label>
-        <textarea id="bcastBody" rows="4" placeholder="Message shown inside the app and used as the push notification body" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">IMAGES (optional)</label>
-        <div style="margin:4px 0 14px">
-          <input id="bcastImageFile" type="file" accept="image/*" multiple onchange="bcastUploadImages(this.files)" style="font-size:12px">
-          <div id="bcastImagePreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
-        </div>
-        <button id="bcastSendBtn" onclick="bcastSend()" style="background:#000;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Send Broadcast</button>
-        <span id="bcastStatus" style="margin-left:10px;font-size:12px"></span>
+        <label style="font-size:11px;color:var(--ink-3);font-weight:600">BODY</label>
+        <textarea id="bcastBody" rows="4" placeholder="Message shown inside the app and used as the push notification body" style="width:100%;margin:4px 0 0;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
       </div>
+
+      <div class="state-box" style="text-align:left;padding:18px 20px;margin-bottom:14px">
+        ${bcastSectionHeader(3, 'Images', '(optional)')}
+        <input id="bcastImageFile" type="file" accept="image/*" multiple onchange="bcastUploadImages(this.files)" style="font-size:12px">
+        <div id="bcastImagePreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px">
+        <button id="bcastSendBtn" onclick="bcastSend()" style="background:#000;color:#fff;border:none;padding:11px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Send Broadcast</button>
+        <span id="bcastStatus" style="font-size:12px"></span>
+      </div>
+
       <div style="font-weight:700;font-size:13px;margin-bottom:8px">Last broadcast sent</div>
       <div id="bcastHistory" class="cmp-empty"><div class="cmp-empty-t">Loading…</div></div>
     </div>`;
@@ -12360,45 +12364,101 @@ async function renderBroadcastPage() {
   bcastLoadHistory();
 }
 
-function bcastChip(value, label) {
-  return `<label class="bcast-chip" style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid #dfe3ea;border-radius:999px;font-size:12px;cursor:pointer;user-select:none">
-    <input type="checkbox" value="${escHtml(value)}" disabled style="margin:0"> ${escHtml(label)}
+/* Reusable "all / search / scrollable checklist" picker — scales to any
+   number of options (built for outlets, which will keep growing). */
+function bcastPickerHtml(kind, noun) {
+  return `
+    <div style="margin:6px 0 16px">
+      <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="bcast${kind}All" checked onchange="bcastToggleAll('${kind}', this.checked)"> All ${noun}s
+      </label>
+      <div id="bcast${kind}Picker" style="display:none">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <input type="text" id="bcast${kind}Search" placeholder="Search ${noun}s…" oninput="bcastFilterList('${kind}', this.value)"
+            style="flex:1;padding:6px 9px;border:1px solid #dfe3ea;border-radius:6px;font-size:12px">
+          <button type="button" onclick="bcastSelectAllVisible('${kind}')" style="font-size:11px;padding:5px 9px;border:1px solid #dfe3ea;border-radius:6px;background:#fff;cursor:pointer">Select visible</button>
+          <button type="button" onclick="bcastClearList('${kind}')" style="font-size:11px;padding:5px 9px;border:1px solid #dfe3ea;border-radius:6px;background:#fff;cursor:pointer">Clear</button>
+          <span id="bcast${kind}Count" style="font-size:11px;color:var(--ink-3);white-space:nowrap">0 selected</span>
+        </div>
+        <div id="bcast${kind}List" style="border:1px solid #dfe3ea;border-radius:8px;max-height:170px;overflow-y:auto;padding:4px">
+          <div style="font-size:12px;color:var(--ink-3);padding:6px">Loading…</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bcastRow(kind, value, label) {
+  return `<label class="bcast-row" data-label="${escHtml(label.toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;cursor:pointer">
+    <input type="checkbox" value="${escHtml(value)}" onchange="bcastUpdateCount('${kind}')" style="margin:0"> ${escHtml(label)}
   </label>`;
 }
 
 function bcastToggleAll(kind, allChecked) {
-  document.querySelectorAll(`#bcast${kind}Chips input[type=checkbox]`).forEach(cb => {
-    cb.disabled = allChecked;
-    if (allChecked) cb.checked = false;
+  document.getElementById(`bcast${kind}Picker`).style.display = allChecked ? 'none' : 'block';
+  if (allChecked) {
+    document.querySelectorAll(`#bcast${kind}List input[type=checkbox]`).forEach(cb => cb.checked = false);
+    bcastUpdateCount(kind);
+  }
+}
+
+function bcastFilterList(kind, query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll(`#bcast${kind}List .bcast-row`).forEach(row => {
+    row.style.display = (!q || row.dataset.label.includes(q)) ? 'flex' : 'none';
   });
 }
 
+function bcastSelectAllVisible(kind) {
+  document.querySelectorAll(`#bcast${kind}List .bcast-row`).forEach(row => {
+    if (row.style.display !== 'none') row.querySelector('input').checked = true;
+  });
+  bcastUpdateCount(kind);
+}
+
+function bcastClearList(kind) {
+  document.querySelectorAll(`#bcast${kind}List input[type=checkbox]`).forEach(cb => cb.checked = false);
+  bcastUpdateCount(kind);
+}
+
+function bcastUpdateCount(kind) {
+  const n = document.querySelectorAll(`#bcast${kind}List input:checked`).length;
+  const el = document.getElementById(`bcast${kind}Count`);
+  if (el) el.textContent = `${n} selected`;
+}
+
+function bcastResetPicker(kind) {
+  document.getElementById(`bcast${kind}All`).checked = true;
+  bcastToggleAll(kind, true);
+  const search = document.getElementById(`bcast${kind}Search`);
+  if (search) { search.value = ''; bcastFilterList(kind, ''); }
+}
+
 async function bcastLoadDepartments() {
-  const wrap = document.getElementById('bcastDeptChips');
+  const wrap = document.getElementById('bcastDeptList');
   if (!wrap) return;
   try {
     const r = await fetch(`${API}/api/admin/departments`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     const d = await r.json();
-    const depts = d.departments || [];
+    const depts = (d.departments || []).slice().sort((a, b) => a.localeCompare(b));
     wrap.innerHTML = depts.length
-      ? depts.map(dep => bcastChip(dep, dep)).join('')
-      : '<span style="font-size:12px;color:var(--ink-3)">No departments found</span>';
+      ? depts.map(dep => bcastRow('Dept', dep, dep)).join('')
+      : '<div style="font-size:12px;color:var(--ink-3);padding:6px">No departments found</div>';
   } catch (e) {
-    wrap.innerHTML = '<span style="font-size:12px;color:#c0392b">Failed to load departments</span>';
+    wrap.innerHTML = '<div style="font-size:12px;color:#c0392b;padding:6px">Failed to load departments</div>';
   }
 }
 
 async function bcastLoadOutlets() {
-  const wrap = document.getElementById('bcastOutletChips');
+  const wrap = document.getElementById('bcastOutletList');
   if (!wrap) return;
   try {
     const r = await fetch(`${API}/api/outlets`);
-    const outlets = await r.json();
-    wrap.innerHTML = (outlets || []).length
-      ? outlets.map(o => bcastChip(o.code, `${o.name || o.code} (${o.code})`)).join('')
-      : '<span style="font-size:12px;color:var(--ink-3)">No outlets found</span>';
+    const outlets = (await r.json() || []).slice().sort((a, b) => (a.name || a.code).localeCompare(b.name || b.code));
+    wrap.innerHTML = outlets.length
+      ? outlets.map(o => bcastRow('Outlet', o.code, `${o.name || o.code} (${o.code})`)).join('')
+      : '<div style="font-size:12px;color:var(--ink-3);padding:6px">No outlets found</div>';
   } catch (e) {
-    wrap.innerHTML = '<span style="font-size:12px;color:#c0392b">Failed to load outlets</span>';
+    wrap.innerHTML = '<div style="font-size:12px;color:#c0392b;padding:6px">Failed to load outlets</div>';
   }
 }
 
@@ -12436,9 +12496,9 @@ async function bcastUploadImages(files) {
 
 async function bcastSend() {
   const deptAll = document.getElementById('bcastDeptAll').checked;
-  const dept = deptAll ? [] : Array.from(document.querySelectorAll('#bcastDeptChips input:checked')).map(c => c.value);
+  const dept = deptAll ? [] : Array.from(document.querySelectorAll('#bcastDeptList input:checked')).map(c => c.value);
   const outletAll = document.getElementById('bcastOutletAll').checked;
-  const outlets = outletAll ? [] : Array.from(document.querySelectorAll('#bcastOutletChips input:checked')).map(c => c.value);
+  const outlets = outletAll ? [] : Array.from(document.querySelectorAll('#bcastOutletList input:checked')).map(c => c.value);
   const title = document.getElementById('bcastTitle').value.trim();
   const subtitle = document.getElementById('bcastSubtitle').value.trim();
   const bodyText = document.getElementById('bcastBody').value.trim();
@@ -12471,10 +12531,8 @@ async function bcastSend() {
     document.getElementById('bcastBody').value = '';
     document.getElementById('bcastImagePreview').innerHTML = '';
     _bcastUploadedImages = [];
-    document.getElementById('bcastDeptAll').checked = true;
-    document.getElementById('bcastOutletAll').checked = true;
-    bcastToggleAll('Dept', true);
-    bcastToggleAll('Outlet', true);
+    bcastResetPicker('Dept');
+    bcastResetPicker('Outlet');
     bcastLoadHistory();
   } catch (e) {
     status.textContent = 'Failed: ' + e.message; status.style.color = '#c0392b';
