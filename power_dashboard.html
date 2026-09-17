@@ -1048,6 +1048,55 @@ td.c { text-align: center; }
 .cust-tab:hover { border-color:var(--blue); color:var(--blue); }
 .cust-tab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
 .rv-info-popup { position:fixed; z-index:9999; background:#1f2937; color:#f9fafb; font-size:11px; line-height:1.6; padding:8px 10px; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:320px; pointer-events:none; }
+
+/* ── Broadcast page ── */
+.bcast-page { max-width: 640px; }
+.bcast-title { font-weight: 700; font-size: 15px; margin-bottom: 14px; color: var(--ink); }
+.bcast-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh); padding: 20px 24px; margin-bottom: 16px; }
+.bcast-section-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.bcast-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.bcast-section-title { font-weight: 700; font-size: 13px; color: var(--ink); }
+.bcast-section-sub { font-size: 11px; color: var(--ink-3); }
+.bcast-label { font-size: 11px; color: var(--ink-3); font-weight: 600; letter-spacing: .02em; display: block; margin-bottom: 6px; }
+.bcast-field { margin-bottom: 16px; }
+.bcast-field:last-child { margin-bottom: 0; }
+.bcast-input, .bcast-textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border-2); border-radius: 8px; font-size: 13px; color: var(--ink); background: var(--surface); font-family: inherit; outline: none; transition: border-color .12s; }
+.bcast-input:focus, .bcast-textarea:focus { border-color: var(--blue); }
+.bcast-textarea { resize: vertical; }
+.bcast-hint { font-size: 11px; color: var(--ink-2); background: var(--navy-3); border-radius: var(--r); padding: 9px 12px; line-height: 1.5; }
+.bcast-hint b { color: var(--ink); }
+
+.bcast-audience-block { margin-bottom: 18px; }
+.bcast-audience-block:last-of-type { margin-bottom: 16px; }
+.bcast-all-toggle { font-size: 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin-bottom: 8px; color: var(--ink); font-weight: 500; }
+.bcast-all-toggle input { margin: 0; }
+.bcast-picker-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.bcast-search { flex: 1; padding: 6px 10px; border: 1px solid var(--border-2); border-radius: 6px; font-size: 12px; outline: none; background: var(--surface); color: var(--ink); }
+.bcast-search:focus { border-color: var(--blue); }
+.bcast-btn-ghost { font-size: 11px; padding: 5px 10px; border: 1px solid var(--border-2); border-radius: 6px; background: var(--surface); cursor: pointer; color: var(--ink-2); white-space: nowrap; transition: background .12s; }
+.bcast-btn-ghost:hover { background: var(--navy-3); }
+.bcast-count { font-size: 11px; color: var(--ink-3); white-space: nowrap; margin-left: auto; }
+.bcast-list { border: 1px solid var(--border); border-radius: var(--r); max-height: 170px; overflow-y: auto; padding: 4px; background: var(--surface); }
+.bcast-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; font-size: 12px; color: var(--ink); cursor: pointer; }
+.bcast-row:hover { background: var(--navy-3); }
+.bcast-row input { margin: 0; }
+.bcast-empty-note { font-size: 12px; color: var(--ink-3); padding: 8px; }
+.bcast-error-note { font-size: 12px; color: var(--red); padding: 8px; }
+
+.bcast-img-input { font-size: 12px; }
+.bcast-img-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.bcast-img-chip { font-size: 11px; padding: 6px 10px; border-radius: 8px; background: var(--navy-3); color: var(--ink-2); }
+.bcast-img-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+
+.bcast-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.bcast-send-btn { background: var(--blue); color: #fff; border: none; padding: 11px 22px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .12s; }
+.bcast-send-btn:hover { opacity: .88; }
+.bcast-send-btn:disabled { opacity: .5; cursor: default; }
+.bcast-status { font-size: 12px; }
+
+.bcast-history-title { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: var(--ink); }
+.bcast-meta-line { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+.bcast-ack-line { font-size: 12px; font-weight: 600; margin-top: 4px; color: var(--ink-2); }
 </style>
 </head>
 <body>
@@ -12312,50 +12361,60 @@ let _bcastUploadedImages = [];
 
 function bcastSectionHeader(step, title, sub) {
   return `
-    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#111;color:#fff;font-size:10px;font-weight:700;flex-shrink:0">${step}</span>
-      <span style="font-weight:700;font-size:13px">${title}</span>
-      ${sub ? `<span style="font-size:11px;color:var(--ink-3)">${sub}</span>` : ''}
+    <div class="bcast-section-head">
+      <span class="bcast-num">${step}</span>
+      <span class="bcast-section-title">${title}</span>
+      ${sub ? `<span class="bcast-section-sub">${sub}</span>` : ''}
     </div>`;
 }
 
 async function renderBroadcastPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = `
-    <div style="max-width:640px">
-      <div style="font-weight:700;font-size:15px;margin-bottom:14px">📣 Send a new broadcast</div>
+    <div class="bcast-page">
+      <div class="bcast-title">📣 Send a new broadcast</div>
 
-      <div class="state-box" style="text-align:left;padding:18px 20px;margin-bottom:14px">
+      <div class="bcast-card">
         ${bcastSectionHeader(1, 'Audience', '— who receives this')}
-        <div style="font-size:11px;color:var(--ink-3);font-weight:600;margin-bottom:2px">DEPARTMENT</div>
-        ${bcastPickerHtml('Dept', 'department')}
-        <div style="font-size:11px;color:var(--ink-3);font-weight:600;margin-bottom:2px">OUTLET</div>
-        ${bcastPickerHtml('Outlet', 'outlet')}
-        <div style="font-size:11px;color:var(--ink-3);background:#f3f5f9;border-radius:6px;padding:8px 10px">Outlet targeting matches whoever is on <b>today's roster</b> for that outlet. Picking both a department and an outlet sends only to people matching both.</div>
+        <div class="bcast-audience-block">
+          <div class="bcast-label">DEPARTMENT</div>
+          ${bcastPickerHtml('Dept', 'department')}
+        </div>
+        <div class="bcast-audience-block">
+          <div class="bcast-label">OUTLET</div>
+          ${bcastPickerHtml('Outlet', 'outlet')}
+        </div>
+        <div class="bcast-hint">Outlet targeting matches whoever is on <b>today's roster</b> for that outlet. Picking both a department and an outlet sends only to people matching both.</div>
       </div>
 
-      <div class="state-box" style="text-align:left;padding:18px 20px;margin-bottom:14px">
+      <div class="bcast-card">
         ${bcastSectionHeader(2, 'Message', '— shown in the app + as the push notification')}
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">TITLE</label>
-        <input id="bcastTitle" type="text" placeholder="e.g. New Flavours Are Live" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">SUBTITLE (optional)</label>
-        <input id="bcastSubtitle" type="text" placeholder="e.g. Stock has been sent to your outlet" style="width:100%;margin:4px 0 12px;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px">
-        <label style="font-size:11px;color:var(--ink-3);font-weight:600">BODY</label>
-        <textarea id="bcastBody" rows="4" placeholder="Message shown inside the app and used as the push notification body" style="width:100%;margin:4px 0 0;padding:8px 10px;border:1px solid #dfe3ea;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+        <div class="bcast-field">
+          <label class="bcast-label">TITLE</label>
+          <input id="bcastTitle" class="bcast-input" type="text" placeholder="e.g. New Flavours Are Live">
+        </div>
+        <div class="bcast-field">
+          <label class="bcast-label">SUBTITLE (optional)</label>
+          <input id="bcastSubtitle" class="bcast-input" type="text" placeholder="e.g. Stock has been sent to your outlet">
+        </div>
+        <div class="bcast-field">
+          <label class="bcast-label">BODY</label>
+          <textarea id="bcastBody" class="bcast-textarea" rows="4" placeholder="Message shown inside the app and used as the push notification body"></textarea>
+        </div>
       </div>
 
-      <div class="state-box" style="text-align:left;padding:18px 20px;margin-bottom:14px">
+      <div class="bcast-card">
         ${bcastSectionHeader(3, 'Images', '(optional)')}
-        <input id="bcastImageFile" type="file" accept="image/*" multiple onchange="bcastUploadImages(this.files)" style="font-size:12px">
-        <div id="bcastImagePreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+        <input id="bcastImageFile" class="bcast-img-input" type="file" accept="image/*" multiple onchange="bcastUploadImages(this.files)">
+        <div id="bcastImagePreview" class="bcast-img-preview"></div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px">
-        <button id="bcastSendBtn" onclick="bcastSend()" style="background:#000;color:#fff;border:none;padding:11px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Send Broadcast</button>
-        <span id="bcastStatus" style="font-size:12px"></span>
+      <div class="bcast-actions">
+        <button id="bcastSendBtn" class="bcast-send-btn" onclick="bcastSend()">Send Broadcast</button>
+        <span id="bcastStatus" class="bcast-status"></span>
       </div>
 
-      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Last broadcast sent</div>
+      <div class="bcast-history-title">Last broadcast sent</div>
       <div id="bcastHistory" class="cmp-empty"><div class="cmp-empty-t">Loading…</div></div>
     </div>`;
   _bcastUploadedImages = [];
@@ -12368,28 +12427,25 @@ async function renderBroadcastPage() {
    number of options (built for outlets, which will keep growing). */
 function bcastPickerHtml(kind, noun) {
   return `
-    <div style="margin:6px 0 16px">
-      <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:8px">
-        <input type="checkbox" id="bcast${kind}All" checked onchange="bcastToggleAll('${kind}', this.checked)"> All ${noun}s
-      </label>
-      <div id="bcast${kind}Picker" style="display:none">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-          <input type="text" id="bcast${kind}Search" placeholder="Search ${noun}s…" oninput="bcastFilterList('${kind}', this.value)"
-            style="flex:1;padding:6px 9px;border:1px solid #dfe3ea;border-radius:6px;font-size:12px">
-          <button type="button" onclick="bcastSelectAllVisible('${kind}')" style="font-size:11px;padding:5px 9px;border:1px solid #dfe3ea;border-radius:6px;background:#fff;cursor:pointer">Select visible</button>
-          <button type="button" onclick="bcastClearList('${kind}')" style="font-size:11px;padding:5px 9px;border:1px solid #dfe3ea;border-radius:6px;background:#fff;cursor:pointer">Clear</button>
-          <span id="bcast${kind}Count" style="font-size:11px;color:var(--ink-3);white-space:nowrap">0 selected</span>
-        </div>
-        <div id="bcast${kind}List" style="border:1px solid #dfe3ea;border-radius:8px;max-height:170px;overflow-y:auto;padding:4px">
-          <div style="font-size:12px;color:var(--ink-3);padding:6px">Loading…</div>
-        </div>
+    <label class="bcast-all-toggle">
+      <input type="checkbox" id="bcast${kind}All" checked onchange="bcastToggleAll('${kind}', this.checked)"> All ${noun}s
+    </label>
+    <div id="bcast${kind}Picker" style="display:none">
+      <div class="bcast-picker-controls">
+        <input type="text" id="bcast${kind}Search" class="bcast-search" placeholder="Search ${noun}s…" oninput="bcastFilterList('${kind}', this.value)">
+        <button type="button" class="bcast-btn-ghost" onclick="bcastSelectAllVisible('${kind}')">Select visible</button>
+        <button type="button" class="bcast-btn-ghost" onclick="bcastClearList('${kind}')">Clear</button>
+        <span id="bcast${kind}Count" class="bcast-count">0 selected</span>
+      </div>
+      <div id="bcast${kind}List" class="bcast-list">
+        <div class="bcast-empty-note">Loading…</div>
       </div>
     </div>`;
 }
 
 function bcastRow(kind, value, label) {
-  return `<label class="bcast-row" data-label="${escHtml(label.toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12px;cursor:pointer">
-    <input type="checkbox" value="${escHtml(value)}" onchange="bcastUpdateCount('${kind}')" style="margin:0"> ${escHtml(label)}
+  return `<label class="bcast-row" data-label="${escHtml(label.toLowerCase())}">
+    <input type="checkbox" value="${escHtml(value)}" onchange="bcastUpdateCount('${kind}')"> ${escHtml(label)}
   </label>`;
 }
 
@@ -12442,9 +12498,9 @@ async function bcastLoadDepartments() {
     const depts = (d.departments || []).slice().sort((a, b) => a.localeCompare(b));
     wrap.innerHTML = depts.length
       ? depts.map(dep => bcastRow('Dept', dep, dep)).join('')
-      : '<div style="font-size:12px;color:var(--ink-3);padding:6px">No departments found</div>';
+      : '<div class="bcast-empty-note">No departments found</div>';
   } catch (e) {
-    wrap.innerHTML = '<div style="font-size:12px;color:#c0392b;padding:6px">Failed to load departments</div>';
+    wrap.innerHTML = '<div class="bcast-error-note">Failed to load departments</div>';
   }
 }
 
@@ -12456,9 +12512,9 @@ async function bcastLoadOutlets() {
     const outlets = (await r.json() || []).slice().sort((a, b) => (a.name || a.code).localeCompare(b.name || b.code));
     wrap.innerHTML = outlets.length
       ? outlets.map(o => bcastRow('Outlet', o.code, `${o.name || o.code} (${o.code})`)).join('')
-      : '<div style="font-size:12px;color:var(--ink-3);padding:6px">No outlets found</div>';
+      : '<div class="bcast-empty-note">No outlets found</div>';
   } catch (e) {
-    wrap.innerHTML = '<div style="font-size:12px;color:#c0392b;padding:6px">Failed to load outlets</div>';
+    wrap.innerHTML = '<div class="bcast-error-note">Failed to load outlets</div>';
   }
 }
 
@@ -12466,7 +12522,7 @@ async function bcastUploadImages(files) {
   const preview = document.getElementById('bcastImagePreview');
   for (const file of files) {
     const chip = document.createElement('div');
-    chip.style.cssText = 'font-size:11px;padding:6px 10px;border-radius:6px;background:#f3f5f9;color:var(--ink-3)';
+    chip.className = 'bcast-img-chip';
     chip.textContent = `Uploading ${file.name}…`;
     preview.appendChild(chip);
     try {
@@ -12480,15 +12536,15 @@ async function bcastUploadImages(files) {
       const d = await r.json();
       if (!r.ok || !d.success) throw new Error(d.detail || 'Upload failed');
       _bcastUploadedImages.push(d.url);
+      chip.className = '';
       chip.innerHTML = '';
-      chip.style.cssText = 'position:relative';
       const img = document.createElement('img');
       img.src = d.url;
-      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #dfe3ea';
+      img.className = 'bcast-img-thumb';
       chip.appendChild(img);
     } catch (e) {
       chip.textContent = `Failed: ${file.name}`;
-      chip.style.color = '#c0392b';
+      chip.style.color = 'var(--red)';
     }
   }
   document.getElementById('bcastImageFile').value = '';
@@ -12503,9 +12559,9 @@ async function bcastSend() {
   const subtitle = document.getElementById('bcastSubtitle').value.trim();
   const bodyText = document.getElementById('bcastBody').value.trim();
   const status = document.getElementById('bcastStatus');
-  if (!title || !bodyText) { status.textContent = 'Title and message are required.'; status.style.color = '#c0392b'; return; }
-  if (!deptAll && !dept.length) { status.textContent = 'Pick at least one department, or check "All departments".'; status.style.color = '#c0392b'; return; }
-  if (!outletAll && !outlets.length) { status.textContent = 'Pick at least one outlet, or check "All outlets".'; status.style.color = '#c0392b'; return; }
+  if (!title || !bodyText) { status.textContent = 'Title and message are required.'; status.style.color = 'var(--red)'; return; }
+  if (!deptAll && !dept.length) { status.textContent = 'Pick at least one department, or check "All departments".'; status.style.color = 'var(--red)'; return; }
+  if (!outletAll && !outlets.length) { status.textContent = 'Pick at least one outlet, or check "All outlets".'; status.style.color = 'var(--red)'; return; }
   const targetLabel = [dept.length ? dept.join(', ') : 'All departments', outlets.length ? outlets.join(', ') : 'All outlets'].join(' · ');
   if (!confirm(`Send this broadcast to: ${targetLabel}\n\n"${title}"`)) return;
 
@@ -12525,7 +12581,7 @@ async function bcastSend() {
     });
     const d = await r.json();
     if (!r.ok || !d.success) throw new Error(d.detail || 'Failed');
-    status.textContent = `Sent to ${d.sent} device(s), ${d.recipients} recipient(s).`; status.style.color = '#1a7f37';
+    status.textContent = `Sent to ${d.sent} device(s), ${d.recipients} recipient(s).`; status.style.color = 'var(--green)';
     document.getElementById('bcastTitle').value = '';
     document.getElementById('bcastSubtitle').value = '';
     document.getElementById('bcastBody').value = '';
@@ -12535,7 +12591,7 @@ async function bcastSend() {
     bcastResetPicker('Outlet');
     bcastLoadHistory();
   } catch (e) {
-    status.textContent = 'Failed: ' + e.message; status.style.color = '#c0392b';
+    status.textContent = 'Failed: ' + e.message; status.style.color = 'var(--red)';
   } finally {
     btn.disabled = false;
   }
@@ -12557,8 +12613,8 @@ async function bcastLoadHistory() {
         </div>
         ${b.subtitle ? `<div class="dc-comment-snippet">${escHtml(b.subtitle)}</div>` : ''}
         <div class="dc-comment-text">${escHtml(b.body)}</div>
-        <div style="font-size:11px;color:var(--ink-3);margin-top:6px">Sent to: ${b.departments && b.departments.length ? escHtml(b.departments.join(', ')) : 'All departments'} · ${b.outlets && b.outlets.length ? escHtml(b.outlets.join(', ')) : 'All outlets'}</div>
-        <div id="bcastAckCount" style="font-size:12px;font-weight:600;margin-top:4px;color:var(--ink-3)">Loading acknowledgements…</div>
+        <div class="bcast-meta-line">Sent to: ${b.departments && b.departments.length ? escHtml(b.departments.join(', ')) : 'All departments'} · ${b.outlets && b.outlets.length ? escHtml(b.outlets.join(', ')) : 'All outlets'}</div>
+        <div id="bcastAckCount" class="bcast-ack-line">Loading acknowledgements…</div>
         <div class="dc-comment-footer">
           <span class="dc-comment-author">Sent by ${escHtml(b.created_by || '')}</span>
           ${(b.images && b.images.length) ? `<button class="dc-resolve-btn" onclick="bcastDeleteImages('${escHtml(b.id)}')">🗑 Delete Images (${b.images.length})</button>` : ''}
