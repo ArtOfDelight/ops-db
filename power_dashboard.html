@@ -9444,19 +9444,8 @@ async function ccLoad() {
 }
 
 /* ── CUSTOMERS PAGE ── */
-let _custAllData    = null;   // group-level payload []
-let _custOutletData = null;   // outlets array from /reelo/outlets
-
-const REELO_SAMPLE = [
-  {"date":"Apr 19","new":62,"repeat":27},{"date":"Apr 20","new":25,"repeat":18},
-  {"date":"Apr 21","new":28,"repeat":18},{"date":"Apr 22","new":42,"repeat":9},
-  {"date":"Apr 23","new":35,"repeat":22},{"date":"Apr 24","new":54,"repeat":24},
-  {"date":"Apr 25","new":79,"repeat":18},{"date":"Apr 26","new":95,"repeat":25},
-  {"date":"Apr 27","new":21,"repeat":11},{"date":"Apr 28","new":20,"repeat":14},
-  {"date":"Apr 29","new":23,"repeat":16},{"date":"Apr 30","new":40,"repeat":5},
-  {"date":"May 01","new":62,"repeat":24},{"date":"May 16","new":79,"repeat":25},
-  {"date":"May 17","new":54,"repeat":20}
-];
+let _custAllData    = null;   // combined daily payload []
+let _custOutletData = null;   // outlets array from /customers/new-repeat
 
 function custQuick(days, btn) {
   document.querySelectorAll('.cust-quick-btn').forEach(b => b.classList.remove('active'));
@@ -9505,40 +9494,31 @@ async function custFetch() {
     '<div style="padding:40px;text-align:center;color:var(--ink-3);font-size:13px">Loading…</div>';
 
   try {
-    const [r1, r2] = await Promise.all([
-      fetch(`${API}/api/reelo/new-repeat?start=${from}&end=${to}`),
-      fetch(`${API}/api/reelo/outlets?start=${from}&end=${to}`)
-    ]);
+    const r = await fetch(`${API}/api/customers/new-repeat?start=${from}&end=${to}`,
+      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
 
-    if (r1.status === 401 || r2.status === 401) {
+    if (r.status === 401 || r.status === 403) {
       document.getElementById('custTabContent').innerHTML = `
         <div class="cust-expired-box">
-          <div class="cust-expired-title">🔒 Token Expired</div>
-          <div class="cust-expired-sub">Update REELO_TOKEN in Render environment variables and redeploy.</div>
+          <div class="cust-expired-title">🔒 Session expired</div>
+          <div class="cust-expired-sub">Please log in again.</div>
         </div>`;
       return;
     }
-    if (r1.status === 503) {
-      _custAllData = REELO_SAMPLE;
-      _custOutletData = [];
-      custBuildTabs(true);
-      return;
-    }
 
-    const d1 = await r1.json();
-    const d2 = r2.ok ? await r2.json() : { outlets: [] };
-    _custAllData    = d1.payload || [];
-    _custOutletData = d2.outlets || [];
-    custBuildTabs(false);
+    const d = await r.json();
+    _custAllData    = d.payload  || [];
+    _custOutletData = d.outlets  || [];
+    custBuildTabs();
   } catch(e) {
-    _custAllData = REELO_SAMPLE; _custOutletData = [];
-    custBuildTabs(true);
+    document.getElementById('custTabContent').innerHTML =
+      '<div style="padding:40px;text-align:center;color:var(--red)">Failed to load customer data.</div>';
   } finally {
     btn.disabled = false; btn.textContent = 'Load';
   }
 }
 
-function custBuildTabs(isSample) {
+function custBuildTabs() {
   const tabs = [{ key: 'all', label: 'All Outlets' }];
   (_custOutletData || []).forEach(o => tabs.push({ key: o.outlet, label: o.outlet }));
 
@@ -9548,42 +9528,38 @@ function custBuildTabs(isSample) {
     `<button class="cust-tab${t.key==='all'?' active':''}" onclick="custSwitchTab('${t.key}',this)">${t.label}</button>`
   ).join('');
 
-  custSwitchTab('all', tabsRow.querySelector('.cust-tab'), isSample);
+  custSwitchTab('all', tabsRow.querySelector('.cust-tab'));
 }
 
-function custSwitchTab(key, btn, isSample) {
+function custSwitchTab(key, btn) {
   document.querySelectorAll('.cust-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
 
-  let payload, sample = isSample || false;
+  let payload;
   if (key === 'all') {
-    payload = _custAllData || REELO_SAMPLE;
-    if (!_custAllData) sample = true;
+    payload = _custAllData || [];
   } else {
     const outlet = (_custOutletData || []).find(o => o.outlet === key);
     payload = outlet ? outlet.daily : [];
   }
 
-  custRenderTab(key, payload, sample);
+  custRenderTab(key, payload);
 }
 
-function custRenderTab(key, payload, isSample) {
+function custRenderTab(key, payload) {
   const wrap = document.getElementById('custTabContent');
   if (!payload || !payload.length) {
     wrap.innerHTML = `<div style="padding:40px;text-align:center;color:var(--ink-3);font-size:13px">No data for this period.</div>`;
     return;
   }
 
-  const totalNew    = payload.reduce((s,r)=>s+r.new,0);
-  const totalRepeat = payload.reduce((s,r)=>s+r.repeat,0);
+  const totalNew     = payload.reduce((s,r)=>s+r.new,0);
+  const totalRepeat  = payload.reduce((s,r)=>s+r.repeat,0);
+  const totalDormant = payload.reduce((s,r)=>s+(r.dormant||0),0);
   const total       = totalNew + totalRepeat;
   const repeatRate  = total > 0 ? ((totalRepeat/total)*100).toFixed(1) : '0.0';
-  const peak        = payload.reduce((best,r)=> (r.new+r.repeat) > (best.new+best.repeat) ? r : best, payload[0]);
-
-  const sampleNote = isSample ? `<div style="font-size:10px;color:var(--amber);font-weight:700;margin-bottom:10px;">⚠ Showing sample data</div>` : '';
 
   wrap.innerHTML = `
-    ${sampleNote}
     <div class="cust-metrics">
       <div class="cust-metric blue">
         <div class="cust-metric-label">Total New</div>
@@ -9601,9 +9577,9 @@ function custRenderTab(key, payload, isSample) {
         <div class="cust-metric-sub">repeat / (new + repeat)</div>
       </div>
       <div class="cust-metric navy">
-        <div class="cust-metric-label">Peak Day</div>
-        <div class="cust-metric-val" style="font-size:18px">${peak.date}</div>
-        <div class="cust-metric-sub">${(peak.new+peak.repeat).toLocaleString()} customers</div>
+        <div class="cust-metric-label">Total Dormant</div>
+        <div class="cust-metric-val">${totalDormant.toLocaleString()}</div>
+        <div class="cust-metric-sub">Lapsed / inactive customers</div>
       </div>
     </div>
     <div class="cust-chart-wrap">
