@@ -9591,6 +9591,11 @@ function custRenderTab(key, payload) {
       </div>
     </div>
     <div class="cust-chart-wrap">
+      <div class="cust-chart-title">${key === 'all' ? 'By Outlet — Weighted Averages' : 'Summary — ' + key}</div>
+      <div class="cust-chart-sub">${payload.length} days · ${payload[0].date} → ${payload[payload.length-1].date}</div>
+      <div style="overflow-x:auto">${custBuildOutletTable(key, payload)}</div>
+    </div>
+    <div class="cust-chart-wrap">
       <div class="cust-chart-title">Daily New vs Repeat Customers</div>
       <div class="cust-chart-sub">Stacked by day</div>
       <div class="cust-legend">
@@ -9609,11 +9614,6 @@ function custRenderTab(key, payload) {
         <canvas id="custLineCanvas" style="width:100%;display:block"></canvas>
         <div class="cust-tooltip" id="custLineTooltip"></div>
       </div>
-    </div>
-    <div class="cust-chart-wrap">
-      <div class="cust-chart-title">${key === 'all' ? 'By Outlet — Weighted Averages' : 'Summary — ' + key}</div>
-      <div class="cust-chart-sub">${payload.length} days · ${payload[0].date} → ${payload[payload.length-1].date}</div>
-      <div style="overflow-x:auto">${custBuildOutletTable(key, payload)}</div>
     </div>`;
 
   requestAnimationFrame(() => { custDrawBar(payload); custDrawLine(payload); });
