@@ -9611,38 +9611,60 @@ function custRenderTab(key, payload) {
       </div>
     </div>
     <div class="cust-chart-wrap">
-      <div class="cust-chart-title">Daily Breakdown${key !== 'all' ? ' — ' + key : ''}</div>
+      <div class="cust-chart-title">${key === 'all' ? 'By Outlet — Weighted Averages' : 'Summary — ' + key}</div>
       <div class="cust-chart-sub">${payload.length} days · ${payload[0].date} → ${payload[payload.length-1].date}</div>
-      <div style="overflow-x:auto">${custBuildTable(payload)}</div>
+      <div style="overflow-x:auto">${custBuildOutletTable(key, payload)}</div>
     </div>`;
 
   requestAnimationFrame(() => { custDrawBar(payload); custDrawLine(payload); });
 }
 
-function custBuildTable(payload) {
+function custBuildOutletTable(key, payload) {
   const thStyle = 'padding:10px 13px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono)';
   const thL = `style="${thStyle};text-align:left"`;
   const th  = `style="${thStyle}"`;
   const tdStyle = 'padding:9px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);white-space:nowrap';
   const tdL = `style="padding:9px 13px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);color:var(--ink-1);white-space:nowrap"`;
 
-  const rows = [...payload].reverse().map(r => {
-    const total     = r.new + r.repeat;
-    const newPct    = total > 0 ? ((r.new/total)*100).toFixed(1)    : '0.0';
-    const repeatPct = total > 0 ? ((r.repeat/total)*100).toFixed(1) : '0.0';
+  // Per-outlet totals across the selected range — dividing summed counts
+  // (not averaging daily percentages) is what makes this a weighted average.
+  const sumDaily = (daily, k) => (daily||[]).reduce((s,r)=>s+(r[k]||0),0);
+  let outletRows;
+  if (key === 'all') {
+    outletRows = (_custOutletData || []).map(o => ({
+      outlet:  o.outlet,
+      new:     sumDaily(o.daily, 'new'),
+      repeat:  sumDaily(o.daily, 'repeat'),
+      dormant: sumDaily(o.daily, 'dormant'),
+    }));
+  } else {
+    outletRows = [{
+      outlet:  key,
+      new:     sumDaily(payload, 'new'),
+      repeat:  sumDaily(payload, 'repeat'),
+      dormant: sumDaily(payload, 'dormant'),
+    }];
+  }
+  outletRows.sort((a,b) => (b.new+b.repeat) - (a.new+a.repeat));
+
+  const rows = outletRows.map(o => {
+    const total     = o.new + o.repeat;
+    const newPct    = total > 0 ? ((o.new/total)*100).toFixed(1)    : '0.0';
+    const repeatPct = total > 0 ? ((o.repeat/total)*100).toFixed(1) : '0.0';
     return `<tr>
-      <td ${tdL}>${r.date}</td>
-      <td style="${tdStyle};color:#2563eb;font-weight:700">${r.new.toLocaleString()}</td>
-      <td style="${tdStyle}">${newPct}%</td>
-      <td style="${tdStyle};color:#16a34a;font-weight:700">${r.repeat.toLocaleString()}</td>
-      <td style="${tdStyle}">${repeatPct}%</td>
-      <td style="${tdStyle}">${(r.dormant||0).toLocaleString()}</td>
+      <td ${tdL}>${o.outlet}</td>
+      <td style="${tdStyle};color:#2563eb;font-weight:700">${newPct}%</td>
+      <td style="${tdStyle};color:#16a34a;font-weight:700">${repeatPct}%</td>
+      <td style="${tdStyle}">${o.new.toLocaleString()}</td>
+      <td style="${tdStyle}">${o.repeat.toLocaleString()}</td>
+      <td style="${tdStyle}">${o.dormant.toLocaleString()}</td>
       <td style="${tdStyle};font-weight:700">${total.toLocaleString()}</td>
     </tr>`;
   }).join('');
 
-  const sum = k => payload.reduce((s,r)=>s+(r[k]||0),0);
-  const tNew = sum('new'), tRepeat = sum('repeat'), tDormant = sum('dormant');
+  const tNew = outletRows.reduce((s,o)=>s+o.new,0);
+  const tRepeat = outletRows.reduce((s,o)=>s+o.repeat,0);
+  const tDormant = outletRows.reduce((s,o)=>s+o.dormant,0);
   const tTotal = tNew + tRepeat;
   const tNewPct    = tTotal > 0 ? ((tNew/tTotal)*100).toFixed(1)    : '0.0';
   const tRepeatPct = tTotal > 0 ? ((tRepeat/tTotal)*100).toFixed(1) : '0.0';
@@ -9651,21 +9673,21 @@ function custBuildTable(payload) {
 
   return `<table class="sc-table" style="min-width:720px">
     <thead><tr>
-      <th ${thL}>Date</th>
+      <th ${thL}>Outlet</th>
+      <th ${th}>New % (wtd avg)</th>
+      <th ${th}>Repeat % (wtd avg)</th>
       <th ${th}>New</th>
-      <th ${th}>New %</th>
       <th ${th}>Repeat</th>
-      <th ${th}>Repeat %</th>
       <th ${th}>Dormant</th>
       <th ${th}>Total</th>
     </tr></thead>
     <tbody>${rows}
       <tr>
-        <td style="${tdTL}">Total</td>
-        <td style="${tdT};color:#2563eb">${tNew.toLocaleString()}</td>
-        <td style="${tdT}">${tNewPct}%</td>
-        <td style="${tdT};color:#16a34a">${tRepeat.toLocaleString()}</td>
-        <td style="${tdT}">${tRepeatPct}%</td>
+        <td style="${tdTL}">${key === 'all' ? 'Overall' : 'Total'}</td>
+        <td style="${tdT};color:#2563eb">${tNewPct}%</td>
+        <td style="${tdT};color:#16a34a">${tRepeatPct}%</td>
+        <td style="${tdT}">${tNew.toLocaleString()}</td>
+        <td style="${tdT}">${tRepeat.toLocaleString()}</td>
         <td style="${tdT}">${tDormant.toLocaleString()}</td>
         <td style="${tdT}">${tTotal.toLocaleString()}</td>
       </tr>
