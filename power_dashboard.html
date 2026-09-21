@@ -1040,6 +1040,14 @@ td.c { text-align: center; }
 .cust-legend { display:flex; gap:16px; margin-bottom:10px; }
 .cust-legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-2); font-weight:500; }
 .cust-legend-dot  { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+.cust-chart-canvas-wrap { position:relative; }
+.cust-tooltip {
+  position:absolute; pointer-events:none; z-index:5; display:none;
+  background:var(--ink,#1a2332); color:#fff; border-radius:6px;
+  padding:8px 10px; font-size:11px; font-family:var(--mono); line-height:1.5;
+  box-shadow:0 4px 12px rgba(0,0,0,.18); white-space:nowrap;
+}
+.cust-tooltip b { font-weight:700; }
 .cust-expired-box { background:#fff5f5; border:1px solid #fca5a5; border-radius:var(--r-lg); padding:24px; text-align:center; }
 .cust-expired-title { font-size:14px; font-weight:800; color:var(--red); margin-bottom:6px; }
 .cust-expired-sub { font-size:12px; color:var(--ink-3); }
@@ -9589,12 +9597,18 @@ function custRenderTab(key, payload) {
         <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#2563eb"></div>New</div>
         <div class="cust-legend-item"><div class="cust-legend-dot" style="background:#16a34a"></div>Repeat</div>
       </div>
-      <canvas id="custBarCanvas" style="width:100%;display:block"></canvas>
+      <div class="cust-chart-canvas-wrap">
+        <canvas id="custBarCanvas" style="width:100%;display:block"></canvas>
+        <div class="cust-tooltip" id="custBarTooltip"></div>
+      </div>
     </div>
     <div class="cust-chart-wrap">
       <div class="cust-chart-title">7-Day Rolling Average — New Customers</div>
       <div class="cust-chart-sub">Smoothed trend line</div>
-      <canvas id="custLineCanvas" style="width:100%;display:block"></canvas>
+      <div class="cust-chart-canvas-wrap">
+        <canvas id="custLineCanvas" style="width:100%;display:block"></canvas>
+        <div class="cust-tooltip" id="custLineTooltip"></div>
+      </div>
     </div>`;
 
   requestAnimationFrame(() => { custDrawBar(payload); custDrawLine(payload); });
@@ -9663,6 +9677,29 @@ function custDrawBar(payload) {
       ctx.fillText(r.date, x + barW/2, H - PAD_B + 14);
     }
   });
+
+  const tooltip = document.getElementById('custBarTooltip');
+  if (tooltip) {
+    canvas.onmousemove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      if (mx < PAD_L || mx > W - PAD_R) { tooltip.style.display = 'none'; return; }
+      let i = Math.floor((mx - PAD_L) / gap);
+      i = Math.max(0, Math.min(n - 1, i));
+      const r = payload[i];
+      const total = r.new + r.repeat;
+      const newPct    = total > 0 ? ((r.new/total)*100).toFixed(1)    : '0.0';
+      const repeatPct = total > 0 ? ((r.repeat/total)*100).toFixed(1) : '0.0';
+      tooltip.innerHTML = `<b>${r.date}</b><br>` +
+        `New: <b>${r.new.toLocaleString()}</b> (${newPct}%)<br>` +
+        `Repeat: <b>${r.repeat.toLocaleString()}</b> (${repeatPct}%)` +
+        (r.dormant ? `<br>Dormant: <b>${r.dormant.toLocaleString()}</b>` : '');
+      tooltip.style.display = 'block';
+      tooltip.style.left = Math.min(mx + 12, W - 150) + 'px';
+      tooltip.style.top  = Math.max(my - 46, 0) + 'px';
+    };
+    canvas.onmouseleave = () => { tooltip.style.display = 'none'; };
+  }
 }
 
 function custDrawLine(payload) {
@@ -9734,6 +9771,27 @@ function custDrawLine(payload) {
       ctx.fillText(payload[i].date, x, H - PAD_B + 14);
     }
   });
+
+  const tooltip = document.getElementById('custLineTooltip');
+  if (tooltip) {
+    canvas.onmousemove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      if (mx < PAD_L || mx > W - PAD_R) { tooltip.style.display = 'none'; return; }
+      let i = Math.round(((mx - PAD_L) / chartW) * (n - 1 || 1));
+      i = Math.max(0, Math.min(n - 1, i));
+      const r = payload[i];
+      const total = r.new + r.repeat;
+      const repeatPct = total > 0 ? ((r.repeat/total)*100).toFixed(1) : '0.0';
+      tooltip.innerHTML = `<b>${r.date}</b><br>` +
+        `7-day avg new: <b>${Math.round(avgs[i]).toLocaleString()}</b><br>` +
+        `That day — New: <b>${r.new.toLocaleString()}</b>, Repeat: <b>${r.repeat.toLocaleString()}</b> (${repeatPct}% repeat)`;
+      tooltip.style.display = 'block';
+      tooltip.style.left = Math.min(mx + 12, W - 190) + 'px';
+      tooltip.style.top  = Math.max(my - 46, 0) + 'px';
+    };
+    canvas.onmouseleave = () => { tooltip.style.display = 'none'; };
+  }
 }
 
 /* ── TOKEN HEALTH PAGE ── */
