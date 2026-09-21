@@ -6745,8 +6745,8 @@ function buildChatSystemPrompt() {
     'You have access to the following LIVE data fetched right now from the dashboard. ' +
     'Answer questions using this data directly — do not ask the user to look it up themselves.\n\n' +
     'LIVE DATA:\n' + (ctx || 'Data still loading.') + '\n\n' +
-    'Dashboard tabs: Power Status, Late Sign-In, Platform Metrics (KPT/MFR), Employee Dashboard, ' +
-    'Outlet Ratings, Product Rankings, Out of Stock, Daily Recon, CK Kitchen Roster. ' +
+    'Dashboard tabs: Power Status, Late Sign-In, Employee Dashboard, ' +
+    'Outlet Performance (ratings + KPT/MFR), Product Rankings, Out of Stock, Daily Recon, CK Kitchen Roster. ' +
     'Be concise and factual. Use ₹ for currency. Dates are in IST.'
   );
 }
