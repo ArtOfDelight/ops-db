@@ -1239,6 +1239,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-broadcast" onclick="navTo('broadcast')">
         <span class="sb-icon">📣</span> Broadcast
       </button>
+      <button class="sb-item" id="sbitem-expansion" onclick="navTo('expansion')">
+        <span class="sb-icon">🚀</span> Expansion
+      </button>
     </div>
   </div>
 
@@ -1281,12 +1284,12 @@ function toggleSbGroup(name) {
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1324,6 +1327,7 @@ function navTo(page) {
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
   if (page === 'comments')    renderCommentsPage();
   if (page === 'broadcast')   renderBroadcastPage();
+  if (page === 'expansion')   renderExpansionPage();
 }
 
 
@@ -12724,6 +12728,549 @@ async function bcastDeleteImages(broadcastId) {
   }
 }
 
+</script>
+
+<!-- ══ EXPANSION (new outlet openings) ══ -->
+<style>
+.ex-bar      { display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px; }
+.ex-bar .sp  { flex:1; }
+.ex-btn      { font-family:var(--sans);font-size:12px;font-weight:600;padding:7px 13px;border-radius:var(--r);border:1px solid var(--border-2);background:var(--surface);color:var(--ink);cursor:pointer; }
+.ex-btn:hover{ background:var(--navy-3); }
+.ex-btn.pri  { background:var(--ink);color:#fff;border-color:var(--ink); }
+.ex-btn.pri:hover { opacity:.88; }
+.ex-btn.dng  { color:var(--red);border-color:#fecaca; }
+.ex-btn.sm   { font-size:11px;padding:4px 9px; }
+.ex-x        { border:0;background:transparent;color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;border-radius:5px; }
+.ex-x:hover  { color:var(--red);background:var(--red-dim); }
+.ex-save     { font-size:11px;color:var(--ink-3); }
+.ex-save.err { color:var(--red);font-weight:600; }
+.ex-banner   { background:var(--amber-dim);border:1px solid #fde68a;color:#92400e;border-radius:var(--r);padding:9px 13px;font-size:12px;margin-bottom:14px; }
+.ex-card     { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);padding:16px;margin-bottom:14px; }
+.ex-card h3  { font-size:13px;font-weight:700;margin:0 0 10px; }
+.ex-grid     { display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px; }
+.ex-oc       { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;cursor:pointer;box-shadow:var(--sh);transition:box-shadow .14s; }
+.ex-oc:hover { box-shadow:var(--sh-md); }
+.ex-oc-top   { display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px; }
+.ex-oc-name  { font-weight:700;font-size:14px; }
+.ex-oc-meta  { font-size:11px;color:var(--ink-2);line-height:1.7; }
+.ex-st       { font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap; }
+.ex-st.planning    { background:var(--navy-3);color:var(--ink-2); }
+.ex-st.in_progress { background:var(--info-dim);color:var(--info); }
+.ex-st.live        { background:var(--green-dim);color:var(--green); }
+.ex-st.on_hold     { background:var(--amber-dim);color:var(--amber); }
+.ex-prog     { height:6px;background:var(--navy-3);border-radius:99px;overflow:hidden;margin:8px 0 4px; }
+.ex-prog > i { display:block;height:100%;background:var(--green); }
+.ex-tbl      { width:100%;border-collapse:collapse;font-size:12px; }
+.ex-tbl th, .ex-tbl td { padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle; }
+.ex-tbl th   { font-size:11px;color:var(--ink-2);font-weight:600;background:var(--navy-2); }
+.ex-tbl td.num, .ex-tbl th.num { text-align:right;font-variant-numeric:tabular-nums; }
+.ex-tbl td.done { color:var(--green);font-weight:700; }
+.ex-tbl td.part { color:var(--amber);font-weight:600; }
+.ex-tbl tfoot td { font-weight:700;background:var(--navy-2); }
+.ex-scroll   { overflow-x:auto; }
+.ex-fields   { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 14px; }
+.ex-fields label { display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:var(--ink-2); }
+.ex-in       { font-family:var(--sans);font-size:13px;padding:7px 9px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;box-sizing:border-box; }
+.ex-in:focus { outline:2px solid var(--blue-glow);border-color:var(--ink-2); }
+.ex-inl      { font-family:var(--sans);font-size:13px;padding:4px 6px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ink);width:100%;box-sizing:border-box; }
+.ex-inl:hover{ border-color:var(--border); }
+.ex-inl:focus{ border-color:var(--border-2);background:var(--surface);outline:none; }
+.ex-inl.num  { text-align:right; }
+.ex-stage    { border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden;background:var(--surface); }
+.ex-stage-h  { display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;background:var(--navy-2);border-bottom:1px solid var(--border); }
+.ex-stage-h .ex-inl { font-weight:700; }
+.ex-stage-n  { font-size:11px;color:var(--ink-2);white-space:nowrap; }
+.ex-item     { display:flex;align-items:center;gap:8px;padding:3px 8px 3px 10px;border-bottom:1px solid var(--navy-3); }
+.ex-item:last-of-type { border-bottom:0; }
+.ex-item input[type=checkbox] { width:16px;height:16px;flex:none;cursor:pointer;accent-color:var(--green); }
+.ex-item.is-done .ex-inl.txt { color:var(--ink-3);text-decoration:line-through; }
+.ex-item .ex-inl.note { max-width:220px;font-size:12px;color:var(--ink-2); }
+.ex-item-by  { font-size:10px;color:var(--ink-3);white-space:nowrap;flex:none;width:150px;text-align:right;overflow:hidden;text-overflow:ellipsis; }
+.ex-add      { display:flex;gap:6px;padding:6px 8px 8px 10px; }
+.ex-add .ex-in { font-size:12px;padding:5px 8px; }
+.ex-empty    { text-align:center;color:var(--ink-3);padding:36px 12px;font-size:13px; }
+@media (max-width:700px) { .ex-item .ex-inl.note, .ex-item-by { display:none; } }
+</style>
+<script>
+/* Expansion: track new outlet openings — per-outlet dates, the opening
+   checklist (seeded from the Cloud Kitchen Opening SOP) and CAPEX.
+   Backend: /api/admin/expansion/* (see docs/expansion_backend_spec.md).
+   Until those routes are live the page runs in preview mode and saves nothing. */
+
+const EX_STATUSES = { planning: 'Planning', in_progress: 'In progress', live: 'Live', on_hold: 'On hold' };
+
+const EX_DEFAULT_TEMPLATE = {
+  stages: [
+    { name: 'Stage 1 – Pre-Opening Preparation', items: [
+      'Apply for FSSAI licence', 'Apply for ACT internet connection', 'Print SZ & AOD banners',
+      'Order freezers, fridge, sink, tables, chairs and fan', 'Purchase a new SIM and ask SZ to update the outlet number',
+      'Find a nearby staff room', 'Purchase a new outlet phone'] },
+    { name: 'Keep Ready Before Opening', items: [
+      'Marker', 'List to buy for new outlet', 'Scooper dispenser', 'Knife', 'Cutting board', 'Container for sandwiches',
+      'Chocolate sauce pan', 'Containers for toppings', 'Floor wiper', 'Stool', 'Water can & dispenser', 'Curry pan',
+      'Thermometer', 'Weighing machine', 'Rice cooker', 'Ladle', 'Scissors', 'Cello tape dispenser', 'Broom',
+      'Sticky notes', 'Mop', 'Camera'] },
+    { name: 'FSSAI Approval', items: ['FSSAI approval received'] },
+    { name: 'Stage 2 – Platform & System Setup', items: [
+      'Contact platform POCs – Swiggy, Zomato, Ownly, Flipkart', 'Send integration emails for Swiggy, Zomato, Uengage and Rista',
+      'Inform Swiggy not to register under Section 9(5)', 'Complete Rista integration'] },
+    { name: 'Stage 3 – Menu & Inventory Setup', items: [
+      'Add outlet name in Rista sundae recipe', 'Add all SKUs using Item Stock Audit', 'Configure scoop options'] },
+    { name: 'Stage 4 – Final Go-Live Checklist', items: [
+      'Update bill payment sheet', 'Check nearest landmark', 'Install camera', 'Add outlet name in Google Form',
+      'Update BESCOM & rent details', 'Place dummy orders', 'Update GST portal', 'Buy second-hand cycle if required'] },
+  ],
+  capex: ['Security deposit', 'Advance rent', 'Freezers & fridge', 'Sink, tables, chairs & fan', 'Interiors / civil work',
+          'SZ & AOD banners', 'Kitchen equipment & utensils', 'Outlet phone & SIM', 'Camera', 'Internet installation',
+          'FSSAI licence fee', 'Miscellaneous'],
+};
+
+let _ex = { projects: [], template: null, preview: false, loaded: false,
+            view: 'list', curId: null, sub: 'checklist', adding: false, saveTimer: null };
+
+function exId() { return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function exEsc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function exMe() {
+  try { return JSON.parse(atob(_lsToken.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).employee_id || ''; }
+  catch (e) { return ''; }
+}
+function exToday() { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function exFmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function exMoney(n) { return (n === null || n === undefined || n === '') ? '—' : '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+function exNum(v) { const n = parseFloat(String(v).replace(/[₹,\s]/g, '')); return isNaN(n) ? null : n; }
+
+function exBuildDefaultTemplate() {
+  return {
+    stages: EX_DEFAULT_TEMPLATE.stages.map(s => ({ id: exId(), name: s.name, items: s.items.map(t => ({ id: exId(), text: t })) })),
+    capex:  EX_DEFAULT_TEMPLATE.capex.map(item => ({ id: exId(), item })),
+  };
+}
+function exTpl() { return _ex.template || (_ex.template = exBuildDefaultTemplate()); }
+function exCur() { return _ex.projects.find(p => p.id === _ex.curId); }
+
+function exProgress(p) {
+  let done = 0, total = 0;
+  (p.stages || []).forEach(s => (s.items || []).forEach(i => { total++; if (i.done) done++; }));
+  return { done, total, pct: total ? Math.round(done / total * 100) : 0 };
+}
+function exCapexTotals(p) {
+  let budget = 0, actual = 0, paid = 0;
+  (p.capex || []).forEach(c => { budget += c.budget || 0; actual += c.actual || 0; if (c.paid) paid += (c.actual ?? c.budget ?? 0); });
+  return { budget, actual, paid };
+}
+function exDaysTo(iso) {
+  if (!iso) return null;
+  return Math.round((new Date(iso + 'T00:00:00') - new Date(exToday() + 'T00:00:00')) / 86400000);
+}
+
+/* ── API ── */
+async function exApi(method, path, body) {
+  const r = await fetch(`${API}/api/admin/expansion${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${_lsToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let d = {};
+  try { d = await r.json(); } catch (e) {}
+  if (!r.ok) { const err = new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`); err.status = r.status; throw err; }
+  return d;
+}
+
+function exProjectBody(p) {
+  return { name: p.name, address: p.address || '', status: p.status, start_date: p.start_date || '',
+           go_live_date: p.go_live_date || '', stages: p.stages, capex: p.capex };
+}
+
+function exSetSave(text, isErr) {
+  _ex.saveText = text; _ex.saveErr = !!isErr;
+  const el = document.getElementById('exSave');
+  if (el) { el.textContent = text; el.classList.toggle('err', !!isErr); }
+}
+function exSaveHtml() { return `<span class="ex-save${_ex.saveErr ? ' err' : ''}" id="exSave">${exEsc(_ex.saveText || '')}</span>`; }
+
+/* Debounced autosave of whatever is being edited (a project or the template). */
+function exQueueSave() {
+  if (_ex.preview) { exSetSave('Preview: not saved'); return; }
+  exSetSave('Saving…');
+  clearTimeout(_ex.saveTimer);
+  const view = _ex.view, id = _ex.curId;
+  _ex.saveTimer = setTimeout(async () => {
+    try {
+      if (view === 'template') await exApi('PUT', '/template', { stages: exTpl().stages, capex: exTpl().capex });
+      else {
+        const p = _ex.projects.find(x => x.id === id);
+        if (p) await exApi('PUT', `/projects/${encodeURIComponent(id)}`, exProjectBody(p));
+      }
+      exSetSave('All changes saved');
+    } catch (e) {
+      exSetSave('Not saved: ' + e.message, true);
+    }
+  }, 700);
+}
+
+async function exLoad() {
+  try {
+    const [pr, tr] = await Promise.all([exApi('GET', '/projects'), exApi('GET', '/template')]);
+    _ex.projects = pr.projects || [];
+    _ex.template = tr.template && (tr.template.stages || []).length ? tr.template : null;
+    _ex.preview = false;
+  } catch (e) {
+    if (e.status !== 404) throw e;
+    _ex.preview = true;   // routes not deployed yet
+  }
+  _ex.loaded = true;
+}
+
+/* ── PAGE ── */
+async function renderExpansionPage() {
+  const body = document.getElementById('pageBody');
+  if (!_ex.loaded) {
+    body.innerHTML = '<div class="ex-empty">Loading…</div>';
+    try { await exLoad(); }
+    catch (e) { if (_currentPage === 'expansion') body.innerHTML = errBox(escHtml(e.message)); return; }
+  }
+  if (_currentPage === 'expansion') exRender();
+}
+
+function exRender() {
+  const body = document.getElementById('pageBody');
+  if (!body) return;
+  const banner = _ex.preview
+    ? `<div class="ex-banner"><b>Preview mode:</b> the Expansion backend isn't live yet, so nothing you enter here is saved. It will be lost when you reload.</div>`
+    : '';
+  if (_ex.view === 'project' && !exCur()) _ex.view = 'list';
+  body.innerHTML = banner + (_ex.view === 'project' ? exProjectHtml() : _ex.view === 'template' ? exTemplateHtml() : exListHtml());
+}
+
+function exGo(view, id) {
+  _ex.view = view; _ex.curId = id || null; _ex.adding = false;
+  _ex.sub = 'checklist'; _ex.saveText = ''; _ex.saveErr = false;
+  exRender();
+  document.getElementById('pageBody')?.scrollIntoView({ block: 'start' });
+}
+
+/* ── LIST VIEW ── */
+function exListHtml() {
+  const ps = _ex.projects;
+  const active = ps.filter(p => p.status !== 'live').length;
+  const live = ps.filter(p => p.status === 'live').length;
+  const tot = ps.reduce((a, p) => { const c = exCapexTotals(p); a.b += c.budget; a.a += c.actual; return a; }, { b: 0, a: 0 });
+  const next = ps.filter(p => p.status !== 'live' && p.go_live_date && exDaysTo(p.go_live_date) >= 0)
+                 .sort((a, b) => a.go_live_date.localeCompare(b.go_live_date))[0];
+
+  const stats = `
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">In pipeline</div><div class="stat-value neu">${active}</div><div class="stat-sub">Outlets not live yet</div></div>
+      <div class="stat-card"><div class="stat-label">Opened</div><div class="stat-value neu">${live}</div><div class="stat-sub">Marked live</div></div>
+      <div class="stat-card"><div class="stat-label">Next go-live</div><div class="stat-value neu" style="font-size:18px">${next ? exEsc(next.name) : '—'}</div><div class="stat-sub">${next ? exFmtDate(next.go_live_date) + ' · in ' + exDaysTo(next.go_live_date) + ' days' : 'No date set'}</div></div>
+      <div class="stat-card"><div class="stat-label">CAPEX spent / budget</div><div class="stat-value neu" style="font-size:18px">${exMoney(tot.a)}</div><div class="stat-sub">of ${exMoney(tot.b)} budgeted</div></div>
+    </div>`;
+
+  const bar = `
+    <div class="ex-bar">
+      <button class="ex-btn pri" onclick="_ex.adding=!_ex.adding;exRender()">+ New outlet</button>
+      <span class="sp"></span>
+      <button class="ex-btn" onclick="exGo('template')">✏️ Edit master checklist</button>
+    </div>`;
+
+  const addForm = !_ex.adding ? '' : `
+    <div class="ex-card">
+      <h3>New outlet</h3>
+      <div class="ex-fields">
+        <label>Outlet name<input class="ex-in" id="exNewName" placeholder="e.g. HSR Layout" onkeydown="if(event.key==='Enter')exCreate()"></label>
+        <label>Start date<input class="ex-in" type="date" id="exNewStart" value="${exToday()}"></label>
+        <label>Target go-live date<input class="ex-in" type="date" id="exNewLive"></label>
+      </div>
+      <div style="font-size:11px;color:var(--ink-3);margin:10px 0">The checklist and CAPEX lines are copied from the master checklist. You can then add or remove items for this outlet only.</div>
+      <div class="ex-bar" style="margin:0">
+        <button class="ex-btn pri" onclick="exCreate()">Create</button>
+        <button class="ex-btn" onclick="_ex.adding=false;exRender()">Cancel</button>
+      </div>
+    </div>`;
+
+  if (!ps.length) {
+    return stats + bar + addForm + `<div class="ex-card ex-empty">No outlets yet. Click <b>+ New outlet</b> to start tracking one.</div>`;
+  }
+
+  const cards = ps.map(p => {
+    const pr = exProgress(p), c = exCapexTotals(p), dt = exDaysTo(p.go_live_date);
+    const when = p.status === 'live' ? 'Live'
+      : dt === null ? 'No go-live date' : dt < 0 ? `<span style="color:var(--red)">${-dt} days overdue</span>` : `${dt} days to go-live`;
+    return `
+      <div class="ex-oc" onclick="exGo('project','${exEsc(p.id)}')">
+        <div class="ex-oc-top"><span class="ex-oc-name">${exEsc(p.name)}</span><span class="ex-st ${exEsc(p.status)}">${EX_STATUSES[p.status] || exEsc(p.status)}</span></div>
+        <div class="ex-prog"><i style="width:${pr.pct}%"></i></div>
+        <div class="ex-oc-meta">
+          <b>${pr.done}/${pr.total}</b> tasks done (${pr.pct}%) · ${when}<br>
+          Start ${exFmtDate(p.start_date)} · Go-live ${exFmtDate(p.go_live_date)}<br>
+          CAPEX ${exMoney(c.actual)} spent of ${exMoney(c.budget)}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Tracker matrix: stages down the side, one column per outlet (like the paper sheet).
+  const stageNames = [];
+  ps.forEach(p => (p.stages || []).forEach(s => { if (!stageNames.includes(s.name)) stageNames.push(s.name); }));
+  const cell = (p, name) => {
+    const s = (p.stages || []).find(x => x.name === name);
+    if (!s || !s.items.length) return '<td class="num" style="color:var(--ink-3)">—</td>';
+    const d = s.items.filter(i => i.done).length;
+    return `<td class="num ${d === s.items.length ? 'done' : d ? 'part' : ''}">${d === s.items.length ? '✓ ' : ''}${d}/${s.items.length}</td>`;
+  };
+  const matrix = `
+    <div class="ex-card">
+      <h3>Tracker</h3>
+      <div class="ex-scroll"><table class="ex-tbl">
+        <thead><tr><th>Stage</th>${ps.map(p => `<th class="num">${exEsc(p.name)}</th>`).join('')}</tr></thead>
+        <tbody>
+          <tr><td>Start date</td>${ps.map(p => `<td class="num">${exFmtDate(p.start_date)}</td>`).join('')}</tr>
+          ${stageNames.map(n => `<tr><td>${exEsc(n)}</td>${ps.map(p => cell(p, n)).join('')}</tr>`).join('')}
+          <tr><td>Go-live date</td>${ps.map(p => `<td class="num">${exFmtDate(p.go_live_date)}</td>`).join('')}</tr>
+          <tr><td>CAPEX spent</td>${ps.map(p => `<td class="num">${exMoney(exCapexTotals(p).actual)}</td>`).join('')}</tr>
+          <tr><td>CAPEX budget</td>${ps.map(p => `<td class="num">${exMoney(exCapexTotals(p).budget)}</td>`).join('')}</tr>
+        </tbody>
+      </table></div>
+    </div>`;
+
+  return stats + bar + addForm + `<div class="ex-grid" style="margin-bottom:14px">${cards}</div>` + matrix;
+}
+
+async function exCreate() {
+  const name = document.getElementById('exNewName').value.trim();
+  if (!name) { document.getElementById('exNewName').focus(); return; }
+  const tpl = exTpl();
+  const p = {
+    name, address: '', status: 'planning',
+    start_date: document.getElementById('exNewStart').value || '',
+    go_live_date: document.getElementById('exNewLive').value || '',
+    stages: tpl.stages.map(s => ({ id: exId(), name: s.name,
+      items: s.items.map(i => ({ id: exId(), text: i.text, done: false, done_at: null, done_by: null, note: '' })) })),
+    capex: tpl.capex.map(c => ({ id: exId(), item: c.item, budget: null, actual: null, paid: false, notes: '' })),
+  };
+  try {
+    if (_ex.preview) p.id = exId();
+    else p.id = (await exApi('POST', '/projects', exProjectBody(p))).id;
+  } catch (e) { alert('Could not create outlet: ' + e.message); return; }
+  _ex.projects.unshift(p);
+  exGo('project', p.id);
+}
+
+/* ── PROJECT VIEW ── */
+function exProjectHtml() {
+  const p = exCur(), pr = exProgress(p), dt = exDaysTo(p.go_live_date);
+  const head = `
+    <div class="ex-bar">
+      <button class="ex-btn" onclick="exGo('list')">← All outlets</button>
+      <span class="sp"></span>
+      ${exSaveHtml()}
+      <button class="ex-btn dng sm" onclick="exDeleteProject()">Delete outlet</button>
+    </div>
+    <div class="ex-card">
+      <div class="ex-fields">
+        <label>Outlet name<input class="ex-in" value="${exEsc(p.name)}" onchange="exSetField('name',this.value)"></label>
+        <label>Status<select class="ex-in" onchange="exSetField('status',this.value)">
+          ${Object.entries(EX_STATUSES).map(([k, v]) => `<option value="${k}"${p.status === k ? ' selected' : ''}>${v}</option>`).join('')}
+        </select></label>
+        <label>Start date<input class="ex-in" type="date" value="${exEsc(p.start_date)}" onchange="exSetField('start_date',this.value)"></label>
+        <label>Go-live date<input class="ex-in" type="date" value="${exEsc(p.go_live_date)}" onchange="exSetField('go_live_date',this.value)"></label>
+        <label style="grid-column:1/-1">Address / notes<input class="ex-in" value="${exEsc(p.address)}" onchange="exSetField('address',this.value)"></label>
+      </div>
+      <div class="ex-prog" style="margin-top:14px"><i style="width:${pr.pct}%"></i></div>
+      <div class="ex-oc-meta">${pr.done}/${pr.total} tasks done (${pr.pct}%)${p.status !== 'live' && dt !== null ? ` · ${dt < 0 ? `<span style="color:var(--red)">${-dt} days past go-live</span>` : dt + ' days to go-live'}` : ''}</div>
+    </div>
+    <div class="cmp-ftabs" style="display:inline-flex;margin-bottom:12px">
+      <button class="cmp-ftab ${_ex.sub === 'checklist' ? 'active' : ''}" onclick="_ex.sub='checklist';exRender()">Checklist</button>
+      <button class="cmp-ftab ${_ex.sub === 'capex' ? 'active' : ''}" onclick="_ex.sub='capex';exRender()">CAPEX</button>
+    </div>`;
+  return head + (_ex.sub === 'capex' ? exCapexHtml(p.capex, false) : exStagesHtml(p.stages, false));
+}
+
+function exSetField(field, value) {
+  const p = exCur(); if (!p) return;
+  p[field] = field === 'name' ? (value.trim() || p.name) : value;
+  exQueueSave();
+  if (field !== 'address') exRender();
+}
+
+async function exDeleteProject() {
+  const p = exCur(); if (!p) return;
+  if (!confirm(`Delete "${p.name}" and its whole checklist and CAPEX? This can't be undone.`)) return;
+  try { if (!_ex.preview) await exApi('DELETE', `/projects/${encodeURIComponent(p.id)}`); }
+  catch (e) { alert('Could not delete: ' + e.message); return; }
+  _ex.projects = _ex.projects.filter(x => x.id !== p.id);
+  exGo('list');
+}
+
+/* ── TEMPLATE VIEW ── */
+function exTemplateHtml() {
+  const t = exTpl();
+  return `
+    <div class="ex-bar">
+      <button class="ex-btn" onclick="exGo('list')">← All outlets</button>
+      <span class="sp"></span>
+      ${exSaveHtml()}
+    </div>
+    <div class="ex-banner" style="background:var(--info-dim);border-color:#bfdbfe;color:#1e40af">
+      This is the <b>master checklist</b>. New outlets start from a copy of it. Editing it doesn't change outlets you've already created.
+    </div>
+    <div class="cmp-ftabs" style="display:inline-flex;margin-bottom:12px">
+      <button class="cmp-ftab ${_ex.sub !== 'capex' ? 'active' : ''}" onclick="_ex.sub='checklist';exRender()">Checklist</button>
+      <button class="cmp-ftab ${_ex.sub === 'capex' ? 'active' : ''}" onclick="_ex.sub='capex';exRender()">CAPEX lines</button>
+    </div>
+    ${_ex.sub === 'capex' ? exCapexHtml(t.capex, true) : exStagesHtml(t.stages, true)}`;
+}
+
+/* The list being edited: the current outlet's, or the master template's. */
+function exStages() { return _ex.view === 'template' ? exTpl().stages : exCur().stages; }
+function exCapexList() { return _ex.view === 'template' ? exTpl().capex : exCur().capex; }
+
+/* ── CHECKLIST EDITOR (shared by outlet + template) ── */
+function exStagesHtml(stages, isTpl) {
+  const html = stages.map((s, si) => {
+    const d = s.items.filter(i => i.done).length;
+    const items = s.items.map(i => `
+      <div class="ex-item ${!isTpl && i.done ? 'is-done' : ''}">
+        ${isTpl ? '<span style="color:var(--ink-3)">•</span>' : `<input type="checkbox" ${i.done ? 'checked' : ''} onchange="exToggle('${s.id}','${i.id}',this.checked)">`}
+        <input class="ex-inl txt" value="${exEsc(i.text)}" onchange="exEditItem('${s.id}','${i.id}','text',this.value)">
+        ${isTpl ? '' : `<input class="ex-inl note" placeholder="Note" value="${exEsc(i.note)}" onchange="exEditItem('${s.id}','${i.id}','note',this.value)">`}
+        ${isTpl ? '' : `<span class="ex-item-by">${i.done ? exFmtDate(i.done_at) + (i.done_by ? ' · ' + exEsc(i.done_by) : '') : ''}</span>`}
+        <button class="ex-x" title="Remove item" onclick="exRemoveItem('${s.id}','${i.id}')">×</button>
+      </div>`).join('');
+    return `
+      <div class="ex-stage">
+        <div class="ex-stage-h">
+          <input class="ex-inl" value="${exEsc(s.name)}" onchange="exRenameStage('${s.id}',this.value)">
+          ${isTpl ? `<span class="ex-stage-n">${s.items.length} items</span>` : `<span class="ex-stage-n">${d}/${s.items.length}</span>`}
+          <button class="ex-x" title="Move up" onclick="exMoveStage(${si},-1)" ${si === 0 ? 'disabled' : ''}>↑</button>
+          <button class="ex-x" title="Move down" onclick="exMoveStage(${si},1)" ${si === stages.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="ex-x" title="Remove section" onclick="exRemoveStage('${s.id}')">×</button>
+        </div>
+        ${items}
+        <div class="ex-add">
+          <input class="ex-in" id="exAdd-${s.id}" placeholder="Add a task…" onkeydown="if(event.key==='Enter')exAddItem('${s.id}')">
+          <button class="ex-btn sm" onclick="exAddItem('${s.id}')">Add</button>
+        </div>
+      </div>`;
+  }).join('');
+  return html + `
+    <div class="ex-add" style="padding:0">
+      <input class="ex-in" id="exAddStage" placeholder="New section name, e.g. Stage 5 – Launch marketing" onkeydown="if(event.key==='Enter')exAddStage()">
+      <button class="ex-btn" onclick="exAddStage()">+ Add section</button>
+    </div>`;
+}
+
+function exFindStage(sid) { return exStages().find(s => s.id === sid); }
+
+function exToggle(sid, iid, done) {
+  const i = exFindStage(sid)?.items.find(x => x.id === iid); if (!i) return;
+  i.done = done; i.done_at = done ? exToday() : null; i.done_by = done ? exMe() : null;
+  exQueueSave(); exRender();
+}
+function exEditItem(sid, iid, field, value) {
+  const s = exFindStage(sid), i = s?.items.find(x => x.id === iid); if (!i) return;
+  if (field === 'text' && !value.trim()) { exRender(); return; }
+  i[field] = field === 'text' ? value.trim() : value;
+  exQueueSave();
+}
+function exAddItem(sid) {
+  const inp = document.getElementById('exAdd-' + sid), text = inp.value.trim();
+  if (!text) return;
+  const item = { id: exId(), text };
+  if (_ex.view !== 'template') Object.assign(item, { done: false, done_at: null, done_by: null, note: '' });
+  exFindStage(sid).items.push(item);
+  exQueueSave(); exRender();
+  document.getElementById('exAdd-' + sid)?.focus();
+}
+function exRemoveItem(sid, iid) {
+  const s = exFindStage(sid); if (!s) return;
+  s.items = s.items.filter(x => x.id !== iid);
+  exQueueSave(); exRender();
+}
+function exRenameStage(sid, name) {
+  const s = exFindStage(sid); if (!s) return;
+  if (!name.trim()) { exRender(); return; }
+  s.name = name.trim(); exQueueSave();
+}
+function exAddStage() {
+  const name = document.getElementById('exAddStage').value.trim(); if (!name) return;
+  exStages().push({ id: exId(), name, items: [] });
+  exQueueSave(); exRender();
+}
+function exRemoveStage(sid) {
+  const s = exFindStage(sid); if (!s) return;
+  if (s.items.length && !confirm(`Remove "${s.name}" and its ${s.items.length} items?`)) return;
+  const list = exStages(); list.splice(list.indexOf(s), 1);
+  exQueueSave(); exRender();
+}
+function exMoveStage(idx, dir) {
+  const list = exStages(), j = idx + dir;
+  if (j < 0 || j >= list.length) return;
+  [list[idx], list[j]] = [list[j], list[idx]];
+  exQueueSave(); exRender();
+}
+
+/* ── CAPEX EDITOR ── */
+function exCapexHtml(rows, isTpl) {
+  if (isTpl) {
+    return `<div class="ex-stage">
+      <div class="ex-stage-h"><b style="font-size:13px">Default CAPEX lines</b><span class="ex-stage-n" style="margin-left:auto">${rows.length} lines</span></div>
+      ${rows.map(c => `<div class="ex-item"><span style="color:var(--ink-3)">•</span>
+        <input class="ex-inl" value="${exEsc(c.item)}" onchange="exEditCapex('${c.id}','item',this.value)">
+        <button class="ex-x" title="Remove line" onclick="exRemoveCapex('${c.id}')">×</button></div>`).join('')}
+      <div class="ex-add"><input class="ex-in" id="exAddCapex" placeholder="Add a CAPEX line…" onkeydown="if(event.key==='Enter')exAddCapex()">
+        <button class="ex-btn sm" onclick="exAddCapex()">Add</button></div>
+    </div>`;
+  }
+  const t = rows.reduce((a, c) => { a.b += c.budget || 0; a.a += c.actual || 0; return a; }, { b: 0, a: 0 });
+  const numIn = (c, f) => `<input class="ex-inl num" inputmode="decimal" placeholder="—" value="${c[f] ?? ''}" onchange="exEditCapex('${c.id}','${f}',this.value)">`;
+  return `
+    <div class="ex-card" style="padding:0">
+      <div class="ex-scroll"><table class="ex-tbl">
+        <thead><tr><th>Item</th><th class="num" style="width:130px">Budget (₹)</th><th class="num" style="width:130px">Actual (₹)</th><th style="width:50px">Paid</th><th>Notes</th><th style="width:30px"></th></tr></thead>
+        <tbody>${rows.map(c => `
+          <tr>
+            <td><input class="ex-inl" value="${exEsc(c.item)}" onchange="exEditCapex('${c.id}','item',this.value)"></td>
+            <td>${numIn(c, 'budget')}</td>
+            <td>${numIn(c, 'actual')}</td>
+            <td style="text-align:center"><input type="checkbox" ${c.paid ? 'checked' : ''} onchange="exEditCapex('${c.id}','paid',this.checked)" style="accent-color:var(--green);width:16px;height:16px"></td>
+            <td><input class="ex-inl" placeholder="—" value="${exEsc(c.notes)}" onchange="exEditCapex('${c.id}','notes',this.value)"></td>
+            <td><button class="ex-x" title="Remove line" onclick="exRemoveCapex('${c.id}')">×</button></td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr><td>Total</td><td class="num">${exMoney(t.b)}</td><td class="num">${exMoney(t.a)}</td><td></td>
+          <td style="font-weight:500;color:${t.a > t.b && t.b ? 'var(--red)' : 'var(--ink-2)'}">${t.b ? (t.a > t.b ? exMoney(t.a - t.b) + ' over budget' : exMoney(t.b - t.a) + ' left in budget') : ''}</td><td></td></tr></tfoot>
+      </table></div>
+      <div class="ex-add"><input class="ex-in" id="exAddCapex" placeholder="Add a CAPEX line, e.g. Signage board" onkeydown="if(event.key==='Enter')exAddCapex()">
+        <button class="ex-btn sm" onclick="exAddCapex()">Add</button></div>
+    </div>`;
+}
+
+function exEditCapex(cid, field, value) {
+  const c = exCapexList().find(x => x.id === cid); if (!c) return;
+  if (field === 'item') { if (!value.trim()) { exRender(); return; } c.item = value.trim(); }
+  else if (field === 'budget' || field === 'actual') c[field] = exNum(value);
+  else c[field] = value;
+  exQueueSave();
+  if (field !== 'item' && field !== 'notes') exRender();
+}
+function exAddCapex() {
+  const item = document.getElementById('exAddCapex').value.trim(); if (!item) return;
+  exCapexList().push(_ex.view === 'template' ? { id: exId(), item }
+    : { id: exId(), item, budget: null, actual: null, paid: false, notes: '' });
+  exQueueSave(); exRender();
+  document.getElementById('exAddCapex')?.focus();
+}
+function exRemoveCapex(cid) {
+  const list = exCapexList(), i = list.findIndex(x => x.id === cid);
+  if (i >= 0) list.splice(i, 1);
+  exQueueSave(); exRender();
+}
 </script>
 <div class="dc-ctxmenu" id="dcCtxMenu">
   <div class="dc-ctxmenu-item" onclick="dcOpenAddComment()">💬 Add Comment</div>
