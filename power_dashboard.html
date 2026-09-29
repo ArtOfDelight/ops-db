@@ -12820,14 +12820,6 @@ async function bcastDeleteImages(broadcastId) {
 .ex-st.on_hold     { background:var(--amber-dim);color:var(--amber); }
 .ex-prog     { height:6px;background:var(--navy-3);border-radius:99px;overflow:hidden; }
 .ex-prog > i { display:block;height:100%;background:var(--green); }
-.ex-tbl      { width:100%;border-collapse:collapse;font-size:12px; }
-.ex-tbl th, .ex-tbl td { padding:7px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle; }
-.ex-tbl th   { font-size:11px;color:var(--ink-2);font-weight:600;background:var(--navy-2); }
-.ex-tbl td.num, .ex-tbl th.num { text-align:right;font-variant-numeric:tabular-nums; }
-.ex-tbl td.done { color:var(--green);font-weight:700; }
-.ex-tbl td.part { color:var(--amber);font-weight:600; }
-.ex-tbl tfoot td { font-weight:700;background:var(--navy-2); }
-.ex-scroll   { overflow-x:auto; }
 .ex-fields   { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 14px; }
 .ex-fields label { display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:var(--ink-2); }
 .ex-in       { font-family:var(--sans);font-size:13px;padding:7px 9px;border:1px solid var(--border-2);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;box-sizing:border-box; }
@@ -12836,23 +12828,47 @@ async function bcastDeleteImages(broadcastId) {
 .ex-inl:hover{ border-color:var(--border); }
 .ex-inl:focus{ border-color:var(--border-2);background:var(--surface);outline:none; }
 .ex-inl.num  { text-align:right; }
-.ex-car      { border:0;background:transparent;cursor:pointer;font-size:11px;color:var(--ink-2);width:22px;height:22px;border-radius:5px;flex:none;transition:transform .12s; }
+.ex-car      { display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;cursor:pointer;font-size:11px;color:var(--ink-2);width:22px;height:22px;border-radius:5px;flex:none;transition:transform .12s; }
 .ex-car:hover{ background:var(--navy-3); }
 .ex-car.open { transform:rotate(90deg); }
 
-/* outlet block */
-.ex-out      { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);margin-bottom:14px;overflow:hidden; }
-.ex-out-h    { display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--border); }
-.ex-out-h .ex-out-name { font-size:15px;font-weight:700;width:auto;flex:1 1 160px;max-width:260px; }
-.ex-dt       { display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--ink-2);white-space:nowrap; }
-.ex-dt input { font-size:12px;width:132px; }
-.ex-out-p    { display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:180px;font-size:11px;color:var(--ink-2);white-space:nowrap; }
-.ex-out-p .ex-prog { flex:1;min-width:60px; }
-.ex-out-b    { padding:8px 12px 12px; }
-.ex-out-foot { display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--ink-2); }
-.ex-out-foot .ex-inl { flex:1;min-width:200px;font-size:12px; }
+/* tracker grid: sections down the side, one column per outlet */
+.ex-trk      { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);margin-bottom:14px;overflow-x:auto; }
+.ex-tr       { border-collapse:separate;border-spacing:0;width:100%;font-size:12px; }
+.ex-tr th, .ex-tr td { padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle;text-align:center;background:var(--surface); }
+.ex-tr .ex-tr-first { text-align:left;position:sticky;left:0;z-index:1;min-width:260px;max-width:360px;border-right:1px solid var(--border); }
+.ex-tr th    { background:var(--navy-2);font-weight:600;vertical-align:top; }
+.ex-tr th.ex-tr-first { font-size:11px;color:var(--ink-2);vertical-align:bottom; }
+.ex-tr-out   { min-width:200px; }
+.ex-tr-oh    { display:flex;align-items:center;gap:4px;justify-content:space-between;margin-bottom:4px; }
+.ex-tr-name  { font-weight:700;font-size:13px; }
+.ex-tr-pct   { font-size:11px;color:var(--ink-2);white-space:nowrap; }
+.ex-tr-top td { background:var(--navy-2); }
+.ex-tr-top .ex-inl[type=date] { width:140px;font-size:12px;text-align:center; }
+.ex-tr-sub   { font-size:10px;color:var(--ink-3);margin-top:2px; }
+.ex-tr-sec > td { font-weight:600; }
+.ex-tr-sec > td.ex-tr-first { cursor:pointer; }
+.ex-tr-sec > td.ex-tr-first:hover { background:var(--navy-2); }
+.ex-tr-sec.open > td { border-bottom-color:var(--border-2); }
+.ex-tr-task > td { background:#fcfcfd;font-weight:400; }
+.ex-tr-task > td.ex-tr-first { padding-left:30px; }
+.ex-tr-task > td.is-done { background:var(--green-dim); }
+.ex-tr-na    { color:var(--ink-3); }
+.ex-tick     { display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;align-items:center;justify-content:center;font-weight:700;font-size:13px; }
+.ex-tr-cnt   { font-weight:600;color:var(--ink-3); }
+.ex-tr-cnt.part { color:var(--amber); }
+.ex-prog.sm  { height:4px;width:70px;margin:4px auto 0; }
+.ex-tr-cell  { display:flex;align-items:center;gap:4px;justify-content:center; }
+.ex-tr-cell input[type=checkbox] { width:16px;height:16px;flex:none;cursor:pointer;accent-color:var(--green); }
+.ex-tr-cell .ex-asg { width:140px; }
+.ex-tr-lbl   { display:flex;align-items:center;gap:4px; }
+.ex-tr-lbl .ex-inl { font-weight:inherit; }
+.ex-tr-cap   { display:flex;align-items:center;gap:4px;justify-content:center; }
+.ex-tr-cap .ex-inl { width:78px; }
+.ex-tr-cap label { font-size:10px;color:var(--ink-3);display:flex;gap:2px;align-items:center;white-space:nowrap; }
+.ex-tr-add td { background:var(--surface); }
 
-/* stage (main topic) rows */
+/* master checklist rows */
 .ex-stage    { border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden;background:var(--surface); }
 .ex-stage-h  { display:flex;align-items:center;gap:6px;padding:5px 8px 5px 4px;background:var(--navy-2); }
 .ex-stage.open > .ex-stage-h { border-bottom:1px solid var(--border); }
@@ -12863,31 +12879,24 @@ async function bcastDeleteImages(broadcastId) {
 .ex-item     { display:flex;align-items:center;gap:8px;padding:3px 8px 3px 12px;border-bottom:1px solid var(--navy-3); }
 .ex-item input[type=checkbox] { width:16px;height:16px;flex:none;cursor:pointer;accent-color:var(--green); }
 .ex-item .ex-inl.txt { flex:1 1 200px; }
-.ex-item.is-done .ex-inl.txt { color:var(--ink-3);text-decoration:line-through; }
-.ex-item .ex-inl.note { flex:0 1 180px;font-size:12px;color:var(--ink-2); }
 .ex-asg      { font-family:var(--sans);font-size:12px;padding:3px 4px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ink);width:150px;flex:none;cursor:pointer; }
 .ex-asg:hover{ border-color:var(--border); }
 .ex-asg.none { color:var(--ink-3); }
-.ex-item-by  { font-size:10px;color:var(--ink-3);white-space:nowrap;flex:none;width:130px;text-align:right;overflow:hidden;text-overflow:ellipsis; }
-.ex-where    { font-size:10px;color:var(--ink-3);white-space:nowrap;flex:none; }
 .ex-add      { display:flex;gap:6px;padding:6px 8px 8px 12px; }
 .ex-add .ex-in { font-size:12px;padding:5px 8px; }
 .ex-empty    { text-align:center;color:var(--ink-3);padding:36px 12px;font-size:13px; }
 .ex-person   { display:flex;gap:18px;align-items:center;flex-wrap:wrap; }
 .ex-person b { font-size:22px;display:block; }
-@media (max-width:760px) {
-  .ex-item { flex-wrap:wrap; }
-  .ex-item .ex-inl.txt { flex-basis:calc(100% - 60px); }
-  .ex-item .ex-inl.note, .ex-item-by { display:none; }
-  .ex-asg { margin-left:24px; }
-}
+@media (max-width:760px) { .ex-tr .ex-tr-first { min-width:180px; } }
 </style>
 <script>
-/* Expansion: track new outlet openings on one screen. Each outlet shows its
-   stages (main topics); each stage drops down to its checklist. Tasks can be
-   assigned to employees, and the person filter shows one person's done and
-   pending tasks across every outlet. The checklist is seeded from the Cloud
-   Kitchen Opening SOP. Backend: /api/admin/expansion/* (docs/expansion_backend_spec.md).
+/* Expansion: track new outlet openings in one tracker grid, like the paper
+   sheet: sections down the side, one column per outlet, with start date,
+   go-live date and CAPEX on top. Each section row drops down into its tasks
+   (tick + assignee per outlet), and a section cell turns into a check mark
+   once all its tasks are done. The person filter shows one person's done and
+   pending tasks. The checklist is seeded from the Cloud Kitchen Opening SOP.
+   Backend: /api/admin/expansion/* (docs/expansion_backend_spec.md).
    Until those routes are live the page runs in preview mode and saves nothing. */
 
 const EX_STATUSES = { planning: 'Planning', in_progress: 'In progress', live: 'Live', on_hold: 'On hold' };
@@ -13159,81 +13168,197 @@ function exListHtml() {
     </div>`;
   }
 
-  const outlets = ps.map(exOutletHtml).filter(Boolean).join('');
-  const body = outlets || `<div class="ex-card ex-empty">No tasks match this filter.</div>`;
-  return stats + bar + addForm + summary + body + (filt ? '' : exMatrixHtml(ps));
+  // Columns left to right in the order outlets started; undated ones last.
+  const cols = [...ps].sort((a, b) => (a.start_date || '9999').localeCompare(b.start_date || '9999'));
+  return stats + bar + addForm + summary + exTrackerHtml(cols);
 }
 
-/* One outlet: editable header, then its stages as dropdowns, then CAPEX. */
-function exOutletHtml(p) {
-  const filt = exFiltering();
-  const stagesHtml = exStagesHtml(p.id, p.stages);
-  if (filt && !stagesHtml) return '';
-  const k = 'p:' + p.id, open = filt || exIsOpen(k);
-  const pr = exProgress(p), c = exCapexTotals(p), dt = exDaysTo(p.go_live_date);
-  const when = p.status === 'live' ? 'Live'
-    : dt === null ? 'no go-live date' : dt < 0 ? `<span style="color:var(--red)">${-dt}d overdue</span>` : `${dt}d to go-live`;
-  const pid = exEsc(p.id);
-  const capOpen = exIsOpen('c:' + p.id);
-  return `
-    <div class="ex-out" id="exOut-${pid}">
-      <div class="ex-out-h">
-        <button class="ex-car ${open ? 'open' : ''}" title="${open ? 'Collapse' : 'Expand'}" onclick="exToggleOpen('${k}')">▶</button>
-        <input class="ex-inl ex-out-name" value="${exEsc(p.name)}" onchange="exSetField('${pid}','name',this.value)">
+/* The tracker lines outlets up by section name and task text (each outlet's
+   checklist is its own copy of the master, so ids differ between outlets).
+   Rebuilt on every render; row handlers refer to rows by index into it. */
+function exTrBuild(ps) {
+  const sections = [], capex = [];
+  ps.forEach(p => p.stages.forEach(s => {
+    let sec = sections.find(x => x.name === s.name);
+    if (!sec) sections.push(sec = { name: s.name, tasks: [] });
+    s.items.forEach(i => { if (!sec.tasks.includes(i.text)) sec.tasks.push(i.text); });
+  }));
+  ps.forEach(p => p.capex.forEach(c => { if (!capex.includes(c.item)) capex.push(c.item); }));
+  return _ex.tr = { sections, capex };
+}
+function exTrStage(p, si) { return p.stages.find(s => s.name === _ex.tr.sections[si].name); }
+function exTrItem(p, si, ti) { const s = exTrStage(p, si); return s && s.items.find(i => i.text === _ex.tr.sections[si].tasks[ti]); }
+function exTrCap(p, ci) { return p.capex.find(c => c.item === _ex.tr.capex[ci]); }
+
+function exTrackerHtml(ps) {
+  const tr = exTrBuild(ps), filt = exFiltering(), cols = ps.length;
+  const blank = `<td colspan="${cols}"></td>`;
+
+  const head = `<tr><th class="ex-tr-first">Section</th>${ps.map(p => {
+    const pr = exProgress(p), pid = exEsc(p.id);
+    return `<th class="ex-tr-out">
+      <div class="ex-tr-oh">
+        <input class="ex-inl ex-tr-name" value="${exEsc(p.name)}" onchange="exSetField('${pid}','name',this.value)">
+        <button class="ex-x" title="Delete outlet" onclick="exDeleteProject('${pid}')">🗑</button>
+      </div>
+      <div class="ex-tr-oh">
         <select class="ex-st ${exEsc(p.status)}" onchange="exSetField('${pid}','status',this.value)">
           ${Object.entries(EX_STATUSES).map(([v, l]) => `<option value="${v}"${p.status === v ? ' selected' : ''}>${l}</option>`).join('')}
         </select>
-        <label class="ex-dt">Start<input class="ex-inl" type="date" value="${exEsc(p.start_date)}" onchange="exSetField('${pid}','start_date',this.value)"></label>
-        <label class="ex-dt">Go-live<input class="ex-inl" type="date" value="${exEsc(p.go_live_date)}" onchange="exSetField('${pid}','go_live_date',this.value)"></label>
-        <div class="ex-out-p"><div class="ex-prog"><i style="width:${pr.pct}%"></i></div><span><b>${pr.done}/${pr.total}</b> · ${when}</span></div>
-        <button class="ex-x" title="Delete outlet" onclick="exDeleteProject('${pid}')">🗑</button>
+        <span class="ex-tr-pct">${pr.done}/${pr.total} tasks</span>
       </div>
-      ${!open ? '' : `<div class="ex-out-b">
-        ${stagesHtml}
-        ${filt ? '' : `
-          <div class="ex-add" style="padding:2px 0 8px">
-            <input class="ex-in" id="exAddStage-${pid}" placeholder="New section for this outlet, e.g. Launch marketing" onkeydown="if(event.key==='Enter')exAddStage('${pid}')">
-            <button class="ex-btn sm" onclick="exAddStage('${pid}')">+ Section</button>
-          </div>
-          <div class="ex-stage ${capOpen ? 'open' : ''}">
-            <div class="ex-stage-h">
-              <button class="ex-car ${capOpen ? 'open' : ''}" onclick="exToggleOpen('c:${pid}')">▶</button>
-              <span style="font-weight:600;font-size:13px;flex:1;padding:4px 6px;cursor:pointer" onclick="exToggleOpen('c:${pid}')">💰 CAPEX</span>
-              <span class="ex-stage-n" style="min-width:0">${exMoney(c.actual)} spent of ${exMoney(c.budget)}</span>
-            </div>
-            ${capOpen ? exCapexHtml(p.id, p.capex) : ''}
-          </div>
-          <div class="ex-out-foot"><span>Address / notes</span>
-            <input class="ex-inl" placeholder="—" value="${exEsc(p.address)}" onchange="exSetField('${pid}','address',this.value)">
-          </div>`}
-      </div>`}
-    </div>`;
+      <div class="ex-prog"><i style="width:${pr.pct}%"></i></div>
+    </th>`;
+  }).join('')}</tr>`;
+
+  const dateRow = (label, f) => `<tr class="ex-tr-top"><td class="ex-tr-first">${label}</td>${ps.map(p => {
+    const dt = exDaysTo(p.go_live_date);
+    const sub = f !== 'go_live_date' || p.status === 'live' || dt === null ? ''
+      : `<div class="ex-tr-sub">${dt < 0 ? `<span style="color:var(--red)">${-dt} days overdue</span>` : dt + ' days to go'}</div>`;
+    return `<td><input class="ex-inl" type="date" value="${exEsc(p[f])}" onchange="exSetField('${exEsc(p.id)}','${f}',this.value)">${sub}</td>`;
+  }).join('')}</tr>`;
+
+  // CAPEX spent, dropping down into the CAPEX lines.
+  const cOpen = exIsOpen('tc');
+  let capex = `<tr class="ex-tr-top ex-tr-sec ${cOpen ? 'open' : ''}">
+    <td class="ex-tr-first" onclick="exToggleOpen('tc')"><span class="ex-car ${cOpen ? 'open' : ''}">▶</span> 💰 CAPEX spent</td>
+    ${ps.map(p => { const c = exCapexTotals(p);
+      return `<td><b>${exMoney(c.actual)}</b><div class="ex-tr-sub">of ${exMoney(c.budget)} budget</div></td>`; }).join('')}
+  </tr>`;
+  if (cOpen) {
+    capex += tr.capex.map((name, ci) => `<tr class="ex-tr-task">
+      <td class="ex-tr-first"><div class="ex-tr-lbl">
+        <input class="ex-inl" value="${exEsc(name)}" onchange="exTrRenameCapex(${ci},this.value)">
+        <button class="ex-x" title="Remove this line from every outlet" onclick="exTrRemoveCapex(${ci})">×</button>
+      </div></td>
+      ${ps.map(p => {
+        const c = exTrCap(p, ci);
+        if (!c) return '<td class="ex-tr-na">—</td>';
+        const pid = exEsc(p.id);
+        return `<td class="${c.paid ? 'is-done' : ''}"><div class="ex-tr-cap">
+          <input class="ex-inl num" inputmode="decimal" placeholder="Spent" title="Spent (₹)" value="${c.actual ?? ''}" onchange="exEditCapex('${pid}','${c.id}','actual',this.value)">
+          <input class="ex-inl num" inputmode="decimal" placeholder="Budget" title="Budget (₹)" value="${c.budget ?? ''}" onchange="exEditCapex('${pid}','${c.id}','budget',this.value)" style="color:var(--ink-3)">
+          <label><input type="checkbox" ${c.paid ? 'checked' : ''} onchange="exEditCapex('${pid}','${c.id}','paid',this.checked)" style="accent-color:var(--green)">Paid</label>
+        </div></td>`;
+      }).join('')}
+    </tr>`).join('') + `<tr class="ex-tr-task ex-tr-add"><td class="ex-tr-first"><div class="ex-add" style="padding:0">
+        <input class="ex-in" id="exTrAddCapex" placeholder="Add a CAPEX line to every outlet…" onkeydown="if(event.key==='Enter')exTrAddCapex()">
+        <button class="ex-btn sm" onclick="exTrAddCapex()">Add</button></div></td>${blank}</tr>`;
+  }
+
+  // Sections, each dropping down into its tasks.
+  const sections = tr.sections.map((sec, si) => {
+    const tasks = sec.tasks.map((t, ti) => ti)
+      .filter(ti => !filt || ps.some(p => { const i = exTrItem(p, si, ti); return i && exItemVisible(i); }));
+    if (filt && !tasks.length) return '';
+    const open = filt || exIsOpen('ts:' + sec.name);
+    const cells = ps.map(p => {
+      const st = exTrStage(p, si);
+      if (!st || !st.items.length) return '<td class="ex-tr-na">—</td>';
+      const d = st.items.filter(i => i.done).length, n = st.items.length;
+      if (d === n) return `<td title="All ${n} done"><span class="ex-tick">✓</span></td>`;
+      return `<td><span class="ex-tr-cnt ${d ? 'part' : ''}">${d}/${n}</span><div class="ex-prog sm"><i style="width:${Math.round(d / n * 100)}%"></i></div></td>`;
+    }).join('');
+    const label = open && !filt
+      ? `<div class="ex-tr-lbl" onclick="event.stopPropagation()">
+          <span class="ex-car open" onclick="exTrToggleSec(${si})">▶</span>
+          <input class="ex-inl" value="${exEsc(sec.name)}" onchange="exTrRenameSection(${si},this.value)">
+          <button class="ex-x" title="Remove this section from every outlet" onclick="exTrRemoveSection(${si})">×</button>
+        </div>`
+      : `<span class="ex-car ${open ? 'open' : ''}">▶</span> ${exEsc(sec.name)}`;
+    let html = `<tr class="ex-tr-sec ${open ? 'open' : ''}"><td class="ex-tr-first" onclick="${filt ? '' : `exTrToggleSec(${si})`}">${label}</td>${cells}</tr>`;
+    if (!open) return html;
+    html += tasks.map(ti => `<tr class="ex-tr-task">
+      <td class="ex-tr-first"><div class="ex-tr-lbl">
+        <input class="ex-inl" value="${exEsc(sec.tasks[ti])}" onchange="exTrRenameTask(${si},${ti},this.value)">
+        ${filt ? '' : `<button class="ex-x" title="Remove this task from every outlet" onclick="exTrRemoveTask(${si},${ti})">×</button>`}
+      </div></td>
+      ${ps.map(p => exTrCell(p, si, ti, filt)).join('')}
+    </tr>`).join('');
+    if (!filt) html += `<tr class="ex-tr-task ex-tr-add"><td class="ex-tr-first"><div class="ex-add" style="padding:0">
+        <input class="ex-in" id="exTrAdd-${si}" placeholder="Add a task to every outlet…" onkeydown="if(event.key==='Enter')exTrAddTask(${si})">
+        <button class="ex-btn sm" onclick="exTrAddTask(${si})">Add</button></div></td>${blank}</tr>`;
+    return html;
+  }).join('');
+
+  const empty = filt && !sections
+    ? `<tr><td class="ex-tr-first ex-tr-na" style="padding:18px 10px">No tasks match this filter.</td>${blank}</tr>` : '';
+  const addSection = filt ? '' : `<tr class="ex-tr-add"><td class="ex-tr-first"><div class="ex-add" style="padding:0">
+      <input class="ex-in" id="exTrAddSection" placeholder="New section for every outlet…" onkeydown="if(event.key==='Enter')exTrAddSection()">
+      <button class="ex-btn sm" onclick="exTrAddSection()">+ Section</button></div></td>${blank}</tr>`;
+
+  return `<div class="ex-trk"><table class="ex-tr">
+    <thead>${head}</thead>
+    <tbody>${dateRow('📅 Start date', 'start_date')}${dateRow('🚀 Go-live date', 'go_live_date')}${capex}${sections}${empty}${addSection}</tbody>
+  </table></div>`;
 }
 
-/* Tracker: stages down the side, one column per outlet (like the paper sheet). */
-function exMatrixHtml(ps) {
-  const stageNames = [];
-  ps.forEach(p => (p.stages || []).forEach(s => { if (!stageNames.includes(s.name)) stageNames.push(s.name); }));
-  const cell = (p, name) => {
-    const s = (p.stages || []).find(x => x.name === name);
-    if (!s || !s.items.length) return '<td class="num" style="color:var(--ink-3)">—</td>';
-    const d = s.items.filter(i => i.done).length;
-    return `<td class="num ${d === s.items.length ? 'done' : d ? 'part' : ''}">${d === s.items.length ? '✓ ' : ''}${d}/${s.items.length}</td>`;
-  };
-  return `
-    <div class="ex-card">
-      <h3>Tracker</h3>
-      <div class="ex-scroll"><table class="ex-tbl">
-        <thead><tr><th>Stage</th>${ps.map(p => `<th class="num">${exEsc(p.name)}</th>`).join('')}</tr></thead>
-        <tbody>
-          <tr><td>Start date</td>${ps.map(p => `<td class="num">${exFmtDate(p.start_date)}</td>`).join('')}</tr>
-          ${stageNames.map(n => `<tr><td>${exEsc(n)}</td>${ps.map(p => cell(p, n)).join('')}</tr>`).join('')}
-          <tr><td>Go-live date</td>${ps.map(p => `<td class="num">${exFmtDate(p.go_live_date)}</td>`).join('')}</tr>
-          <tr><td>CAPEX spent</td>${ps.map(p => `<td class="num">${exMoney(exCapexTotals(p).actual)}</td>`).join('')}</tr>
-          <tr><td>CAPEX budget</td>${ps.map(p => `<td class="num">${exMoney(exCapexTotals(p).budget)}</td>`).join('')}</tr>
-        </tbody>
-      </table></div>
-    </div>`;
+function exTrCell(p, si, ti, filt) {
+  const i = exTrItem(p, si, ti);
+  if (!i) return '<td class="ex-tr-na">—</td>';
+  if (filt && !exItemVisible(i)) return '<td class="ex-tr-na">·</td>';
+  const st = exTrStage(p, si), pid = exEsc(p.id);
+  const tip = i.done ? `Done ${exFmtDate(i.done_at)}${i.done_by ? ' by ' + exEmpName(i.done_by) : ''}` : 'Mark done';
+  return `<td class="${i.done ? 'is-done' : ''}"><div class="ex-tr-cell">
+    <input type="checkbox" ${i.done ? 'checked' : ''} title="${exEsc(tip)}" onchange="exToggle('${pid}','${st.id}','${i.id}',this.checked)">
+    ${exAssigneeSelect(pid, st.id, i)}
+  </div></td>`;
+}
+
+/* Row edits apply to every outlet that has the row; each changed outlet is saved. */
+function exTrEach(fn) {
+  _ex.projects.forEach(p => { if (fn(p) !== false) exQueueSave(p.id); });
+  exRender();
+}
+function exTrToggleSec(si) { exToggleOpen('ts:' + _ex.tr.sections[si].name); }
+function exTrRenameSection(si, name) {
+  const old = _ex.tr.sections[si].name; name = name.trim();
+  if (!name || name === old) { exRender(); return; }
+  _ex.open['ts:' + name] = exIsOpen('ts:' + old);
+  exTrEach(p => { const st = p.stages.find(s => s.name === old); if (!st) return false; st.name = name; });
+}
+function exTrRemoveSection(si) {
+  const name = _ex.tr.sections[si].name;
+  if (!confirm(`Remove the section "${name}" and all its tasks from every outlet?`)) return;
+  exTrEach(p => { const n = p.stages.length; p.stages = p.stages.filter(s => s.name !== name); return p.stages.length !== n; });
+}
+function exTrAddSection() {
+  const name = document.getElementById('exTrAddSection').value.trim(); if (!name) return;
+  _ex.open['ts:' + name] = true;
+  exTrEach(p => { if (p.stages.some(s => s.name === name)) return false; p.stages.push({ id: exId(), name, items: [] }); });
+}
+function exTrRenameTask(si, ti, text) {
+  const old = _ex.tr.sections[si].tasks[ti]; text = text.trim();
+  if (!text || text === old) { exRender(); return; }
+  exTrEach(p => { const i = exTrItem(p, si, ti); if (!i) return false; i.text = text; });
+}
+function exTrRemoveTask(si, ti) {
+  const text = _ex.tr.sections[si].tasks[ti];
+  if (!confirm(`Remove "${text}" from every outlet?`)) return;
+  exTrEach(p => { const st = exTrStage(p, si); if (!st) return false; st.items = st.items.filter(i => i.text !== text); });
+}
+function exTrAddTask(si) {
+  const inp = document.getElementById('exTrAdd-' + si), text = inp.value.trim(); if (!text) return;
+  exTrEach(p => {
+    const st = exTrStage(p, si); if (!st) return false;
+    st.items.push({ id: exId(), text, done: false, done_at: null, done_by: null, note: '', assignee_id: null, assignee_name: null });
+  });
+  document.getElementById('exTrAdd-' + si)?.focus();
+}
+function exTrRenameCapex(ci, name) {
+  const old = _ex.tr.capex[ci]; name = name.trim();
+  if (!name || name === old) { exRender(); return; }
+  exTrEach(p => { const c = exTrCap(p, ci); if (!c) return false; c.item = name; });
+}
+function exTrRemoveCapex(ci) {
+  const name = _ex.tr.capex[ci];
+  if (!confirm(`Remove the CAPEX line "${name}" from every outlet?`)) return;
+  exTrEach(p => { const n = p.capex.length; p.capex = p.capex.filter(c => c.item !== name); return p.capex.length !== n; });
+}
+function exTrAddCapex() {
+  const item = document.getElementById('exTrAddCapex').value.trim(); if (!item) return;
+  exTrEach(p => { if (p.capex.some(c => c.item === item)) return false; p.capex.push({ id: exId(), item, budget: null, actual: null, paid: false, notes: '' }); });
+  document.getElementById('exTrAddCapex')?.focus();
 }
 
 async function exCreate() {
@@ -13301,7 +13426,7 @@ function exTemplateHtml() {
     </div>`;
 }
 
-/* ── STAGES + CHECKLIST (outlet when pid is set, master template when pid is '') ── */
+/* ── CHECKLIST EDITING (outlet when pid is set, master template when pid is '') ── */
 function exAssigneeSelect(pid, sid, i) {
   const opts = _ex.employees.map(e => `<option value="${exEsc(e.id)}"${e.id === i.assignee_id ? ' selected' : ''}>${exEsc(e.name)}</option>`);
   if (i.assignee_id && !_ex.employees.some(e => e.id === i.assignee_id)) {
@@ -13312,45 +13437,29 @@ function exAssigneeSelect(pid, sid, i) {
 }
 
 function exStagesHtml(pid, stages) {
-  const isTpl = !pid, filt = !isTpl && exFiltering();
-  const ep = exEsc(pid);
   return stages.map((s, si) => {
-    const items = filt ? s.items.filter(exItemVisible) : s.items;
-    if (filt && !items.length) return '';
-    const k = `s:${pid}:${s.id}`, open = filt || exIsOpen(k);
-    const d = s.items.filter(i => i.done).length, n = s.items.length;
-    const rows = !open ? '' : items.map(i => isTpl ? `
+    const k = `s:${pid}:${s.id}`, open = exIsOpen(k);
+    const rows = !open ? '' : s.items.map(i => `
       <div class="ex-item">
         <span style="color:var(--ink-3)">•</span>
         <input class="ex-inl txt" value="${exEsc(i.text)}" onchange="exEditItem('','${s.id}','${i.id}','text',this.value)">
         <button class="ex-x" title="Remove item" onclick="exRemoveItem('','${s.id}','${i.id}')">×</button>
-      </div>` : `
-      <div class="ex-item ${i.done ? 'is-done' : ''}">
-        <input type="checkbox" ${i.done ? 'checked' : ''} onchange="exToggle('${ep}','${s.id}','${i.id}',this.checked)">
-        <input class="ex-inl txt" value="${exEsc(i.text)}" onchange="exEditItem('${ep}','${s.id}','${i.id}','text',this.value)">
-        ${exAssigneeSelect(ep, s.id, i)}
-        <input class="ex-inl note" placeholder="Note" value="${exEsc(i.note)}" onchange="exEditItem('${ep}','${s.id}','${i.id}','note',this.value)">
-        <span class="ex-item-by">${i.done ? exFmtDate(i.done_at) + (i.done_by ? ' · ' + exEsc(exEmpName(i.done_by)) : '') : ''}</span>
-        <button class="ex-x" title="Remove task" onclick="exRemoveItem('${ep}','${s.id}','${i.id}')">×</button>
       </div>`).join('');
-    const pct = n ? Math.round(d / n * 100) : 0;
     return `
       <div class="ex-stage ${open ? 'open' : ''}">
         <div class="ex-stage-h">
-          <button class="ex-car ${open ? 'open' : ''}" title="${open ? 'Collapse' : 'Show checklist'}" onclick="exToggleOpen('${k}')" ${filt ? 'disabled' : ''}>▶</button>
-          <input class="ex-inl" value="${exEsc(s.name)}" onchange="exRenameStage('${ep}','${s.id}',this.value)">
-          ${isTpl ? `<span class="ex-stage-n">${n} items</span>`
-                  : `<div class="ex-prog"><i style="width:${pct}%"></i></div><span class="ex-stage-n ${n && d === n ? 'full' : ''}">${d}/${n}</span>`}
-          ${filt ? '' : `
-            <button class="ex-x" title="Move up" onclick="exMoveStage('${ep}',${si},-1)" ${si === 0 ? 'disabled' : ''}>↑</button>
-            <button class="ex-x" title="Move down" onclick="exMoveStage('${ep}',${si},1)" ${si === stages.length - 1 ? 'disabled' : ''}>↓</button>
-            <button class="ex-x" title="Remove section" onclick="exRemoveStage('${ep}','${s.id}')">×</button>`}
+          <button class="ex-car ${open ? 'open' : ''}" title="${open ? 'Collapse' : 'Show checklist'}" onclick="exToggleOpen('${k}')">▶</button>
+          <input class="ex-inl" value="${exEsc(s.name)}" onchange="exRenameStage('','${s.id}',this.value)">
+          <span class="ex-stage-n">${s.items.length} items</span>
+          <button class="ex-x" title="Move up" onclick="exMoveStage('',${si},-1)" ${si === 0 ? 'disabled' : ''}>↑</button>
+          <button class="ex-x" title="Move down" onclick="exMoveStage('',${si},1)" ${si === stages.length - 1 ? 'disabled' : ''}>↓</button>
+          <button class="ex-x" title="Remove section" onclick="exRemoveStage('','${s.id}')">×</button>
         </div>
         ${rows}
-        ${open && !filt ? `
+        ${open ? `
           <div class="ex-add">
-            <input class="ex-in" id="exAdd-${ep}-${s.id}" placeholder="Add a task…" onkeydown="if(event.key==='Enter')exAddItem('${ep}','${s.id}')">
-            <button class="ex-btn sm" onclick="exAddItem('${ep}','${s.id}')">Add</button>
+            <input class="ex-in" id="exAdd--${s.id}" placeholder="Add a task…" onkeydown="if(event.key==='Enter')exAddItem('','${s.id}')">
+            <button class="ex-btn sm" onclick="exAddItem('','${s.id}')">Add</button>
           </div>` : ''}
       </div>`;
   }).join('');
@@ -13414,34 +13523,13 @@ function exMoveStage(pid, idx, dir) {
   exQueueSave(pid); exRender();
 }
 
-/* ── CAPEX ── */
+/* ── CAPEX (master list; outlet CAPEX is edited in the tracker) ── */
 function exCapexHtml(pid, rows) {
-  const ep = exEsc(pid);
-  const addRow = `<div class="ex-add"><input class="ex-in" id="exAddCapex-${ep}" placeholder="Add a CAPEX line, e.g. Signage board" onkeydown="if(event.key==='Enter')exAddCapex('${ep}')">
-    <button class="ex-btn sm" onclick="exAddCapex('${ep}')">Add</button></div>`;
-  if (!pid) {
-    return rows.map(c => `<div class="ex-item"><span style="color:var(--ink-3)">•</span>
-        <input class="ex-inl txt" value="${exEsc(c.item)}" onchange="exEditCapex('','${c.id}','item',this.value)">
-        <button class="ex-x" title="Remove line" onclick="exRemoveCapex('','${c.id}')">×</button></div>`).join('') + addRow;
-  }
-  const t = rows.reduce((a, c) => { a.b += c.budget || 0; a.a += c.actual || 0; return a; }, { b: 0, a: 0 });
-  const numIn = (c, f) => `<input class="ex-inl num" inputmode="decimal" placeholder="—" value="${c[f] ?? ''}" onchange="exEditCapex('${ep}','${c.id}','${f}',this.value)">`;
-  return `
-    <div class="ex-scroll"><table class="ex-tbl">
-      <thead><tr><th>Item</th><th class="num" style="width:130px">Budget (₹)</th><th class="num" style="width:130px">Actual (₹)</th><th style="width:50px">Paid</th><th>Notes</th><th style="width:30px"></th></tr></thead>
-      <tbody>${rows.map(c => `
-        <tr>
-          <td><input class="ex-inl" value="${exEsc(c.item)}" onchange="exEditCapex('${ep}','${c.id}','item',this.value)"></td>
-          <td>${numIn(c, 'budget')}</td>
-          <td>${numIn(c, 'actual')}</td>
-          <td style="text-align:center"><input type="checkbox" ${c.paid ? 'checked' : ''} onchange="exEditCapex('${ep}','${c.id}','paid',this.checked)" style="accent-color:var(--green);width:16px;height:16px"></td>
-          <td><input class="ex-inl" placeholder="—" value="${exEsc(c.notes)}" onchange="exEditCapex('${ep}','${c.id}','notes',this.value)"></td>
-          <td><button class="ex-x" title="Remove line" onclick="exRemoveCapex('${ep}','${c.id}')">×</button></td>
-        </tr>`).join('')}
-      </tbody>
-      <tfoot><tr><td>Total</td><td class="num">${exMoney(t.b)}</td><td class="num">${exMoney(t.a)}</td><td></td>
-        <td style="font-weight:500;color:${t.a > t.b && t.b ? 'var(--red)' : 'var(--ink-2)'}">${t.b ? (t.a > t.b ? exMoney(t.a - t.b) + ' over budget' : exMoney(t.b - t.a) + ' left in budget') : ''}</td><td></td></tr></tfoot>
-    </table></div>${addRow}`;
+  return rows.map(c => `<div class="ex-item"><span style="color:var(--ink-3)">•</span>
+      <input class="ex-inl txt" value="${exEsc(c.item)}" onchange="exEditCapex('','${c.id}','item',this.value)">
+      <button class="ex-x" title="Remove line" onclick="exRemoveCapex('','${c.id}')">×</button></div>`).join('') + `
+    <div class="ex-add"><input class="ex-in" id="exAddCapex-" placeholder="Add a CAPEX line, e.g. Signage board" onkeydown="if(event.key==='Enter')exAddCapex('')">
+    <button class="ex-btn sm" onclick="exAddCapex('')">Add</button></div>`;
 }
 
 function exEditCapex(pid, cid, field, value) {
