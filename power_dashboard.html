@@ -2611,6 +2611,9 @@ function orRenderTable(outlets, el) {
     <th ${th}>Zomato Low Rated 👎</th>
     <th ${th}>Ownly High Rated ⭐</th>
     <th ${th}>Ownly Low Rated 👎</th>
+    <th ${th}>Ownly Orders</th>
+    <th ${th}>Ownly High %</th>
+    <th ${th}>Ownly Low %</th>
     <th ${th}>Total Rated</th>
     <th ${th}>Rista Orders</th>
     <th ${th}>High</th>
@@ -2637,6 +2640,9 @@ function orRenderTable(outlets, el) {
       ${td(o.swiggy_high)} ${td(o.swiggy_low)}
       ${td(o.zomato_high)} ${td(o.zomato_low)}
       ${td(o.ownly_high ?? 0)} ${td(o.ownly_low ?? 0)}
+      ${tdB(o.ownly_orders || '—')}
+      ${td(o.ownly_high_pct != null ? o.ownly_high_pct + '%' : '—', o.ownly_high_pct == null ? '' : o.ownly_high_pct >= 60 ? 'good' : o.ownly_high_pct >= 40 ? 'warn' : 'bad')}
+      ${td(o.ownly_low_pct  != null ? o.ownly_low_pct  + '%' : '—', o.ownly_low_pct  == null ? '' : o.ownly_low_pct  <= 5  ? 'good' : o.ownly_low_pct  <= 10 ? 'warn' : 'bad')}
       ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
       ${td(o.total_high)} ${td(o.total_low)}
       ${td(o.igcc)} ${td(o.total_errors)}
@@ -2651,6 +2657,7 @@ function orRenderTable(outlets, el) {
   const tSwiggyH = sum('swiggy_high'), tSwiggyL = sum('swiggy_low');
   const tZomH    = sum('zomato_high'), tZomL    = sum('zomato_low');
   const tOwnH    = sum('ownly_high'),  tOwnL    = sum('ownly_low');
+  const tOwnO    = sum('ownly_orders');
   const tRated   = sum('total_rated'), tRista   = sum('rista_orders');
   const tHigh    = sum('total_high'),  tLow     = sum('total_low');
   const tIgcc    = sum('igcc'),        tErrors  = sum('total_errors');
@@ -2669,6 +2676,9 @@ function orRenderTable(outlets, el) {
     ${tdT(tSwiggyH)} ${tdT(tSwiggyL)}
     ${tdT(tZomH)}   ${tdT(tZomL)}
     ${tdT(tOwnH)}   ${tdT(tOwnL)}
+    ${tdTB(tOwnO || '—')}
+    ${tdT(tOwnO > 0 ? (tOwnH / tOwnO * 100).toFixed(1) + '%' : '—')}
+    ${tdT(tOwnO > 0 ? (tOwnL / tOwnO * 100).toFixed(1) + '%' : '—')}
     ${tdT(tRated)}  ${tdTB(tRista || '—')}
     ${tdT(tHigh)}   ${tdT(tLow)}
     ${tdT(tIgcc)}   ${tdT(tErrors)}
@@ -10022,44 +10032,45 @@ async function _thLogin(pid) {
 }
 
 /* ── OWNLY ANALYTICS ──────────────────────────────────────────────────────── */
-const OWNLY_TABS = ['Summary', 'Sales', 'Funnel', 'Customers', 'Revenue Loss', 'Ratings and Reviews'];
+const OWNLY_TABS = ['Ratings and Reviews', 'Summary', 'Sales', 'Customers', 'Funnel', 'Revenue Loss'];
 let _ownlyData = null;
-let _ownlyActiveTab = 'Summary';
+let _ownlyActiveTab = 'Ratings and Reviews';
+let _ownlyDays = 7;
 
-async function renderOwnlyAnalyticsPage() {
+function renderOwnlyAnalyticsPage() {
   const body = document.getElementById('pageBody');
+  if (!_lsToken) { renderSigninLogin(body); return; }
+  const preset = (d, label) => `<button class="ptab${d === _ownlyDays ? ' active' : ''}" id="owtab-${d}" onclick="_ownlySetDays(${d})" style="padding:4px 12px;font-size:10px">${label}</button>`;
   body.innerHTML = `
-    <div style="padding:24px;max-width:1400px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div style="font-size:15px;font-weight:700;color:var(--ink)">Ownly Analytics — all outlets</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select id="ownly-days" style="padding:6px 10px;font-size:12px;border-radius:7px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
-            <option value="1">Today</option>
-            <option value="7" selected>Last 7 days</option>
-            <option value="14">Last 14 days</option>
-            <option value="30">Last 30 days</option>
-          </select>
-          <button onclick="_ownlyLoad()" style="padding:7px 16px;font-size:13px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink)">↻ Refresh</button>
+    <div style="padding:24px 28px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+          ${preset(1, 'Today')}${preset(7, '7 Days')}${preset(14, '14 Days')}${preset(30, '30 Days')}
         </div>
+        <button class="ptab active" onclick="_ownlyLoad()" style="padding:4px 14px;font-size:10px">↻ Refresh</button>
+        <span class="as-of-label" id="ownly-status"></span>
+        <button class="ls-logout-btn" style="margin-left:auto" onclick="lsLogout();renderOwnlyAnalyticsPage()">Logout</button>
       </div>
-      <div id="ownly-tabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap"></div>
-      <div id="ownly-status" style="font-size:12px;color:var(--ink-3);margin-bottom:10px">Loading…</div>
-      <div id="ownly-table-wrap" style="overflow-x:auto"></div>
+      <div class="stat-row" id="ownly-stats"></div>
+      <div class="panel-tabs" id="ownly-tabs" style="margin:0 0 14px;padding:3px;gap:1px;display:inline-flex;flex-wrap:wrap"></div>
+      <div id="ownly-table-wrap"><div class="loader-box"><div class="loader"></div> Loading…</div></div>
     </div>`;
-  document.getElementById('ownly-days').onchange = _ownlyLoad;
   _ownlyRenderTabs();
-  await _ownlyLoad();
+  _ownlyLoad();
+}
+
+function _ownlySetDays(d) {
+  _ownlyDays = d;
+  [1, 7, 14, 30].forEach(x => document.getElementById('owtab-' + x)?.classList.toggle('active', x === d));
+  _ownlyLoad();
 }
 
 function _ownlyRenderTabs() {
   const wrap = document.getElementById('ownly-tabs');
-  wrap.innerHTML = OWNLY_TABS.map(t => `
-    <button onclick="_ownlySwitchTab('${t}')"
-      style="padding:7px 16px;font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;
-      border:1px solid ${t === _ownlyActiveTab ? 'var(--blue)' : 'var(--border-2)'};
-      background:${t === _ownlyActiveTab ? 'var(--blue)' : 'var(--surface)'};
-      color:${t === _ownlyActiveTab ? '#fff' : 'var(--ink)'}">${t}</button>
-  `).join('');
+  if (!wrap) return;
+  wrap.innerHTML = OWNLY_TABS.map(t =>
+    `<button class="ptab${t === _ownlyActiveTab ? ' active' : ''}" onclick="_ownlySwitchTab('${t}')" style="padding:5px 14px;font-size:11px">${t === 'Ratings and Reviews' ? '⭐ Ratings' : t}</button>`
+  ).join('');
 }
 
 function _ownlySwitchTab(tab) {
@@ -10069,89 +10080,123 @@ function _ownlySwitchTab(tab) {
 }
 
 async function _ownlyLoad() {
-  const days = document.getElementById('ownly-days').value;
   const statusEl = document.getElementById('ownly-status');
-  statusEl.textContent = 'Loading…';
+  const wrap = document.getElementById('ownly-table-wrap');
+  if (wrap) wrap.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
   try {
-    const r = await fetch(`${API}/api/admin/ownly-analytics?days=${days}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
-    if (r.status === 401 || r.status === 403) { lsLogout(); return; }
+    const r = await fetch(`${API}/api/admin/ownly-analytics?days=${_ownlyDays}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); renderOwnlyAnalyticsPage(); return; }
     const d = await r.json();
-    if (d.error) { statusEl.textContent = '⚠️ ' + d.error; _ownlyData = null; _ownlyDrawTable(); return; }
+    if (d.error) {
+      _ownlyData = null;
+      if (wrap) wrap.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">${escHtml(d.error)}</div></div>`;
+      _ownlyRenderStats();
+      return;
+    }
     _ownlyData = d;
-    statusEl.textContent = `Last checked: ${new Date().toLocaleTimeString('en-IN')} · ${d.generated_at || ''}`;
+    if (statusEl) statusEl.textContent = `${Object.keys(d.outlets || {}).length} outlets · last ${d.days} day${d.days > 1 ? 's' : ''} · ${d.generated_at || ''}`;
+    _ownlyRenderStats();
     _ownlyDrawTable();
   } catch (e) {
-    statusEl.textContent = 'Failed to load: ' + e;
+    if (wrap) wrap.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div></div>';
   }
+}
+
+// "181 (+27.5%)" → { main: '181', delta: '+27.5%' }
+function _ownlySplit(v) {
+  const m = String(v ?? '').match(/^(.*?)\s*\(([+-]?[\d.,]+%)\)\s*$/);
+  return m ? { main: m[1], delta: m[2] } : { main: String(v ?? '—'), delta: null };
+}
+const _ownlyNum = v => { const m = String(v ?? '').replace(/,/g, '').match(/-?[\d.]+/); return m ? parseFloat(m[0]) : 0; };
+
+function _ownlyRenderStats() {
+  const el = document.getElementById('ownly-stats');
+  if (!el) return;
+  const outlets = Object.values(_ownlyData?.outlets || {});
+  let orders = 0, high = 0, low = 0, starSum = 0, rated = 0;
+  outlets.forEach(o => {
+    const rr = o['Ratings and Reviews'] || {};
+    orders += _ownlyNum(rr['Orders']);
+    high   += _ownlyNum(rr['High Rated (4-5★)']);
+    low    += _ownlyNum(rr['Low Rated (1-3★)']);
+    [1, 2, 3, 4, 5].forEach(n => { const c = _ownlyNum(rr[`${n}★`]); rated += c; starSum += n * c; });
+  });
+  const pct = (a, b) => b ? (a / b * 100).toFixed(1) + '%' : '—';
+  const card = (label, value, cls, sub) => `<div class="stat-card"><div class="stat-label">${label}</div><div class="stat-value ${cls}">${value}</div><div class="stat-sub">${sub}</div></div>`;
+  el.innerHTML =
+    card('Ownly Orders', orders || '—', 'neu', 'All outlets, this period') +
+    card('Avg Rating', rated ? (starSum / rated).toFixed(2) + ' ★' : '—', '', `${rated} rated orders`) +
+    card('High Rated %', pct(high, orders), 'ok', `${high} orders rated 4–5★`) +
+    card('Low Rated %', pct(low, orders), 'warn', `${low} orders rated 1–3★`);
 }
 
 function _ownlyDrawTable() {
   const wrap = document.getElementById('ownly-table-wrap');
   if (!wrap) return;
-  if (!_ownlyData) { wrap.innerHTML = ''; return; }
+  if (!_ownlyData) return;
 
   const outlets = _ownlyData.outlets || {};
   const outletNames = Object.keys(outlets).sort();
-
-  // Union of metric labels across outlets for this tab, in first-seen order
   const cols = [];
   const seen = new Set();
-  outletNames.forEach(o => {
-    const tabData = outlets[o]?.[_ownlyActiveTab] || {};
-    Object.keys(tabData).forEach(k => { if (!seen.has(k)) { seen.add(k); cols.push(k); } });
-  });
-
+  outletNames.forEach(o => Object.keys(outlets[o]?.[_ownlyActiveTab] || {}).forEach(k => { if (!seen.has(k)) { seen.add(k); cols.push(k); } }));
   if (!cols.length) {
-    wrap.innerHTML = '<div style="font-size:13px;color:var(--ink-3);padding:20px">No data for this tab yet.</div>';
+    wrap.innerHTML = '<div class="no-outages" style="padding:40px">No data for this tab yet.</div>';
     return;
   }
 
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
-  html += '<thead><tr>' +
-    '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid var(--border-2);color:var(--ink-3);position:sticky;left:0;background:var(--bg)">Outlet</th>' +
-    cols.map(c => `<th style="text-align:right;padding:8px 12px;border-bottom:2px solid var(--border-2);color:var(--ink-3);white-space:nowrap">${c}</th>`).join('') +
-    '</tr></thead><tbody>';
+  const thStyle = 'padding:10px 13px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono)';
+  const thL = `style="${thStyle};text-align:left;position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--border-2)"`;
+  const tdL = v => `<td style="padding:10px 13px;font-size:12px;font-weight:700;border-bottom:1px solid var(--border);color:var(--ink-1);position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--border-2);white-space:nowrap">${v}</td>`;
+  const pctCls = (c, v) => {
+    const n = _ownlyNum(v);
+    if (c === 'High Rated %') return n >= 60 ? 'good' : n >= 40 ? 'warn' : 'bad';
+    if (c === 'Low Rated %')  return n <= 5 ? 'good' : n <= 10 ? 'warn' : 'bad';
+    if (c === 'Avg Rating')   return n >= 4.3 ? 'good' : n >= 4 ? 'warn' : 'bad';
+    return '';
+  };
+  const td = (c, v) => {
+    const { main, delta } = _ownlySplit(v);
+    const dCls = delta ? (delta.startsWith('-') ? 'color:var(--red)' : 'color:var(--green)') : '';
+    return `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);white-space:nowrap">` +
+      `<span class="sc-pct ${pctCls(c, main)}">${escHtml(main)}</span>` +
+      (delta ? `<div style="font-size:9px;margin-top:2px;${dCls}">${escHtml(delta)}</div>` : '') + '</td>';
+  };
 
+  let html = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px"><thead><tr><th ${thL}>Outlet</th>` +
+    cols.map(c => `<th style="${thStyle}">${escHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
   outletNames.forEach(o => {
     const tabData = outlets[o]?.[_ownlyActiveTab];
-    if (tabData?.error) {
-      html += `<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;color:var(--ink)">${o}</td>` +
-        `<td colspan="${cols.length}" style="padding:8px 12px;border-bottom:1px solid var(--border);color:#c62828">${tabData.error}</td></tr>`;
+    if (outlets[o]?.error || tabData?.error) {
+      html += `<tr>${tdL(escHtml(o))}<td colspan="${cols.length}" style="padding:10px 13px;border-bottom:1px solid var(--border);color:var(--red)">${escHtml(outlets[o]?.error || tabData.error)}</td></tr>`;
       return;
     }
-    html += `<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;color:var(--ink);position:sticky;left:0;background:var(--bg)">${o}</td>` +
-      cols.map(c => `<td style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--ink);white-space:nowrap">${(tabData && tabData[c]) ?? '—'}</td>`).join('') +
-      '</tr>';
+    html += `<tr>${tdL(escHtml(o))}${cols.map(c => td(c, tabData?.[c])).join('')}</tr>`;
   });
+  html += '</tbody></table></div>';
 
-  html += '</tbody></table>';
-
-  // Ratings tab: list every 1–3★ order under the summary so it can be actioned.
+  // Ratings tab: every 1–3★ order underneath so it can be actioned.
   if (_ownlyActiveTab === 'Ratings and Reviews') {
     const low = [];
     outletNames.forEach(o => (outlets[o]?.low_ratings || []).forEach(r => low.push({ ...r, outlet: o })));
     low.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
-    const th = t => `<th style="text-align:left;padding:8px 12px;border-bottom:2px solid var(--border-2);color:var(--ink-3);white-space:nowrap">${t}</th>`;
-    const td = (v, extra = '') => `<td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--ink);${extra}">${v}</td>`;
-    const starColor = n => n <= 2 ? '#c62828' : 'var(--amber)';
-    html += `<div style="font-size:14px;font-weight:700;color:var(--ink);margin:24px 0 10px">Low-rated orders (1–3★) · ${low.length}</div>`;
-    if (!low.length) {
-      html += '<div style="font-size:13px;color:var(--ink-3);padding:12px 0">No low ratings in this period 🎉</div>';
-    } else {
-      html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
-        th('Date') + th('Outlet') + th('Rating') + th('Items') + th('Value') + th('Comment') + th('Order ID') +
+    const lth = t => `<th style="${thStyle};text-align:left">${t}</th>`;
+    const ltd = (v, extra = '') => `<td style="padding:10px 13px;font-size:12px;border-bottom:1px solid var(--border);color:var(--ink-1);${extra}">${v}</td>`;
+    html += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--mono);margin:28px 0 10px">Low-rated orders (1–3★) · ${low.length}</div>`;
+    html += !low.length
+      ? '<div class="no-outages" style="padding:24px">No low ratings in this period 🎉</div>'
+      : '<div style="overflow-x:auto"><table class="sc-table" style="min-width:900px"><thead><tr>' +
+        lth('Date') + lth('Outlet') + lth('Rating') + lth('Items') + lth('Value') + lth('Comment') + lth('Order ID') +
         '</tr></thead><tbody>' +
         low.map(r => '<tr>' +
-          td(`${escHtml(r.date)} <span style="color:var(--ink-3)">${escHtml((r.time || '').slice(0, 5))}</span>`, 'white-space:nowrap') +
-          td(escHtml(r.outlet), 'white-space:nowrap;font-weight:600') +
-          td(`${r.rating} ★`, `font-weight:700;color:${starColor(r.rating)};white-space:nowrap`) +
-          td(escHtml(r.items)) +
-          td(escHtml(r.order_value), 'white-space:nowrap;text-align:right') +
-          td(escHtml([r.comment, r.remarks].filter(Boolean).join(' · ')) || '<span style="color:var(--ink-3)">—</span>') +
-          td(escHtml(r.order_id), 'font-family:monospace;font-size:11px;color:var(--ink-3)') +
-        '</tr>').join('') +
-        '</tbody></table>';
-    }
+          ltd(`${escHtml(r.date)} <span style="color:var(--ink-3)">${escHtml((r.time || '').slice(0, 5))}</span>`, 'white-space:nowrap;font-family:var(--mono)') +
+          ltd(escHtml(r.outlet), 'white-space:nowrap;font-weight:700') +
+          ltd(`<span class="sc-pct ${r.rating <= 2 ? 'bad' : 'warn'}">${r.rating} ★</span>`, 'white-space:nowrap') +
+          ltd(escHtml(r.items)) +
+          ltd(escHtml(r.order_value), 'white-space:nowrap;text-align:right;font-family:var(--mono)') +
+          ltd(escHtml([r.comment, r.remarks].filter(Boolean).join(' · ')) || '<span style="color:var(--ink-3)">—</span>') +
+          ltd(escHtml(r.order_id), 'font-family:var(--mono);font-size:11px;color:var(--ink-3)') +
+        '</tr>').join('') + '</tbody></table></div>';
   }
   wrap.innerHTML = html;
 }
