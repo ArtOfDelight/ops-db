@@ -12818,6 +12818,25 @@ async function bcastDeleteImages(broadcastId) {
 .ex-st.in_progress { background:var(--info-dim);color:var(--info); }
 .ex-st.live        { background:var(--green-dim);color:var(--green); }
 .ex-st.on_hold     { background:var(--amber-dim);color:var(--amber); }
+.ex-st.completed   { background:#ede9fe;color:#6d28d9;cursor:default; }
+
+/* KPI cards; the four outlet counts double as tabs */
+.ex-kpis     { display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px; }
+.ex-kpi      { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px;box-shadow:var(--sh);display:flex;flex-direction:column;gap:3px;text-align:left;font-family:var(--sans);color:var(--ink);min-width:0;transition:border-color .14s,box-shadow .14s; }
+button.ex-kpi { cursor:pointer; }
+button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
+.ex-kpi.sel  { border-color:var(--ink);box-shadow:0 0 0 3px var(--blue-glow); }
+.ex-kpi-l    { font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:6px; }
+.ex-kpi-v    { font-size:24px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums; }
+.ex-kpi-v.sm { font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 0 1px; }
+.ex-kpi-s    { font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.ex-dot      { width:8px;height:8px;border-radius:50%;flex:none; }
+.ex-tool     { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:8px 10px;box-shadow:var(--sh); }
+.ex-grp      { display:flex;align-items:center;gap:6px;padding-left:10px;margin-left:2px;border-left:1px solid var(--border); }
+.ex-viewing  { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);margin:0 0 10px 2px; }
+.ex-viewing b { color:var(--ink); }
+.ex-link     { border:0;background:none;color:var(--info);cursor:pointer;font-size:12px;font-family:var(--sans);padding:0; }
+.ex-link:hover { text-decoration:underline; }
 .ex-prog     { height:6px;background:var(--navy-3);border-radius:99px;overflow:hidden; }
 .ex-prog > i { display:block;height:100%;background:var(--green); }
 .ex-fields   { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 14px; }
@@ -12834,29 +12853,38 @@ async function bcastDeleteImages(broadcastId) {
 
 /* tracker grid: sections down the side, one column per outlet */
 .ex-trk      { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);margin-bottom:14px;overflow-x:auto; }
+.ex-trk.done-view { border-color:#ddd6fe; }
 .ex-tr       { border-collapse:separate;border-spacing:0;width:100%;font-size:12px; }
-.ex-tr th, .ex-tr td { padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle;text-align:center;background:var(--surface); }
+.ex-tr th, .ex-tr td { padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;text-align:center;background:var(--surface); }
 .ex-tr .ex-tr-first { text-align:left;position:sticky;left:0;z-index:1;min-width:260px;max-width:360px;border-right:1px solid var(--border); }
-.ex-tr th    { background:var(--navy-2);font-weight:600;vertical-align:top; }
+.ex-tr th    { background:var(--navy-2);font-weight:600;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--border-2); }
 .ex-tr th.ex-tr-first { font-size:11px;color:var(--ink-2);vertical-align:bottom; }
-.ex-tr-out   { min-width:200px; }
+.ex-tr-out   { min-width:220px;text-align:left; }
+.ex-tr-out + .ex-tr-out, .ex-tr td + td + td { border-left:1px solid var(--navy-3); }
 .ex-tr-oh    { display:flex;align-items:center;gap:4px;justify-content:space-between;margin-bottom:4px; }
-.ex-tr-name  { font-weight:700;font-size:13px; }
+.ex-tr-name  { font-weight:700;font-size:14px;padding-left:2px; }
+.ex-tr-act   { margin-top:8px; }
+.ex-done-btn { font-family:var(--sans);font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink-2);cursor:pointer;white-space:nowrap; }
+.ex-done-btn:hover { border-color:var(--ink-2);color:var(--ink); }
+.ex-done-btn.ready { background:var(--green);border-color:var(--green);color:#fff; }
+.ex-done-btn.ready:hover { opacity:.9; }
 .ex-tr-pct   { font-size:11px;color:var(--ink-2);white-space:nowrap; }
-.ex-tr-top td { background:var(--navy-2); }
+.ex-tr-top td { background:#fbfbfc; }
+.ex-tr-top td.ex-tr-first { font-weight:600;color:var(--ink-2); }
 .ex-tr-top .ex-inl[type=date] { width:140px;font-size:12px;text-align:center; }
 .ex-tr-sub   { font-size:10px;color:var(--ink-3);margin-top:2px; }
-.ex-tr-sec > td { font-weight:600; }
+.ex-tr-sec > td { font-weight:600;transition:background .12s; }
+.ex-tr-sec:hover > td { background:#fafafb; }
 .ex-tr-sec > td.ex-tr-first { cursor:pointer; }
-.ex-tr-sec > td.ex-tr-first:hover { background:var(--navy-2); }
 .ex-tr-sec.open > td { border-bottom-color:var(--border-2); }
-.ex-tr-task > td { background:#fcfcfd;font-weight:400; }
-.ex-tr-task > td.ex-tr-first { padding-left:30px; }
+.ex-tr-task > td { background:#fcfcfd;font-weight:400;padding-top:4px;padding-bottom:4px; }
+.ex-tr-task > td.ex-tr-first { padding-left:40px; }
 .ex-tr-task > td.is-done { background:var(--green-dim); }
 .ex-tr-na    { color:var(--ink-3); }
-.ex-tick     { display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;align-items:center;justify-content:center;font-weight:700;font-size:13px; }
-.ex-tr-cnt   { font-weight:600;color:var(--ink-3); }
-.ex-tr-cnt.part { color:var(--amber); }
+.ex-tick     { display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;align-items:center;justify-content:center;font-weight:700;font-size:13px;box-shadow:0 0 0 4px var(--green-dim); }
+.ex-num      { display:inline-flex;width:20px;height:20px;border-radius:6px;background:var(--navy-3);color:var(--ink-2);font-size:10px;font-weight:700;align-items:center;justify-content:center;margin-right:6px;flex:none;vertical-align:middle; }
+.ex-tr-cnt   { display:inline-block;font-weight:600;font-size:11px;color:var(--ink-3);background:var(--navy-3);padding:1px 8px;border-radius:99px;font-variant-numeric:tabular-nums; }
+.ex-tr-cnt.part { color:#92400e;background:var(--amber-dim); }
 .ex-prog.sm  { height:4px;width:70px;margin:4px auto 0; }
 .ex-tr-cell  { display:flex;align-items:center;gap:4px;justify-content:center; }
 .ex-tr-cell input[type=checkbox] { width:16px;height:16px;flex:none;cursor:pointer;accent-color:var(--green); }
@@ -12884,7 +12912,8 @@ async function bcastDeleteImages(broadcastId) {
 .ex-asg.none { color:var(--ink-3); }
 .ex-add      { display:flex;gap:6px;padding:6px 8px 8px 12px; }
 .ex-add .ex-in { font-size:12px;padding:5px 8px; }
-.ex-empty    { text-align:center;color:var(--ink-3);padding:36px 12px;font-size:13px; }
+.ex-empty    { text-align:center;color:var(--ink-3);padding:40px 12px;font-size:13px; }
+.ex-empty .ic { font-size:28px;display:block;margin-bottom:6px; }
 .ex-person   { display:flex;gap:18px;align-items:center;flex-wrap:wrap; }
 .ex-person b { font-size:22px;display:block; }
 @media (max-width:760px) { .ex-tr .ex-tr-first { min-width:180px; } }
@@ -12900,6 +12929,7 @@ async function bcastDeleteImages(broadcastId) {
    Until those routes are live the page runs in preview mode and saves nothing. */
 
 const EX_STATUSES = { planning: 'Planning', in_progress: 'In progress', live: 'Live', on_hold: 'On hold' };
+const exIsDone = p => p.status === 'completed';   // moved out of the tracker by hand, kept for reference
 
 const EX_DEFAULT_TEMPLATE = {
   stages: [
@@ -12928,7 +12958,7 @@ const EX_DEFAULT_TEMPLATE = {
 };
 
 let _ex = { projects: [], template: null, employees: [], preview: false, loaded: false,
-            view: 'list', adding: false, person: '', show: 'all', open: {}, saveTimers: {}, saveText: '', saveErr: false };
+            view: 'list', tab: 'active', adding: false, person: '', show: 'all', open: {}, saveTimers: {}, saveText: '', saveErr: false };
 try { _ex.open = JSON.parse(localStorage.getItem('exOpen') || '{}') || {}; } catch (e) {}
 
 function exId() { return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -13094,22 +13124,38 @@ function exGo(view) {
   document.getElementById('pageBody')?.scrollIntoView({ block: 'start' });
 }
 function exSetFilter(key, value) { _ex[key] = value; exRender(); }
+function exSetTab(tab) { _ex.tab = _ex.tab === tab && tab !== 'active' ? 'active' : tab; exRender(); }
 
 /* ── MAIN SCREEN ── */
 function exListHtml() {
-  const ps = _ex.projects, filt = exFiltering();
-  const active = ps.filter(p => p.status !== 'live').length;
-  const live = ps.filter(p => p.status === 'live').length;
-  const tot = ps.reduce((a, p) => { const c = exCapexTotals(p); a.b += c.budget; a.a += c.actual; return a; }, { b: 0, a: 0 });
-  const next = ps.filter(p => p.status !== 'live' && p.go_live_date && exDaysTo(p.go_live_date) >= 0)
-                 .sort((a, b) => a.go_live_date.localeCompare(b.go_live_date))[0];
+  const all = _ex.projects, filt = exFiltering();
+  const groups = {
+    active:    all.filter(p => !exIsDone(p)),
+    pipeline:  all.filter(p => !exIsDone(p) && p.status !== 'live'),
+    opened:    all.filter(p => p.status === 'live'),
+    completed: all.filter(exIsDone),
+  };
+  const ps = groups[_ex.tab] || groups.active;
+  const tot = all.reduce((a, p) => { const c = exCapexTotals(p); a.b += c.budget; a.a += c.actual; return a; }, { b: 0, a: 0 });
+  const next = groups.pipeline.filter(p => p.go_live_date && exDaysTo(p.go_live_date) >= 0)
+                              .sort((a, b) => a.go_live_date.localeCompare(b.go_live_date))[0];
 
+  const tab = (key, label, dot, sub) => `
+    <button class="ex-kpi ${_ex.tab === key ? 'sel' : ''}" onclick="exSetTab('${key}')">
+      <span class="ex-kpi-l"><span class="ex-dot" style="background:${dot}"></span>${label}</span>
+      <span class="ex-kpi-v">${groups[key].length}</span>
+      <span class="ex-kpi-s">${sub}</span>
+    </button>`;
   const stats = `
-    <div class="stat-row">
-      <div class="stat-card"><div class="stat-label">In pipeline</div><div class="stat-value neu">${active}</div><div class="stat-sub">Outlets not live yet</div></div>
-      <div class="stat-card"><div class="stat-label">Opened</div><div class="stat-value neu">${live}</div><div class="stat-sub">Marked live</div></div>
-      <div class="stat-card"><div class="stat-label">Next go-live</div><div class="stat-value neu" style="font-size:18px">${next ? exEsc(next.name) : '—'}</div><div class="stat-sub">${next ? exFmtDate(next.go_live_date) + ' · in ' + exDaysTo(next.go_live_date) + ' days' : 'No date set'}</div></div>
-      <div class="stat-card"><div class="stat-label">CAPEX spent / budget</div><div class="stat-value neu" style="font-size:18px">${exMoney(tot.a)}</div><div class="stat-sub">of ${exMoney(tot.b)} budgeted</div></div>
+    <div class="ex-kpis">
+      ${tab('active', 'Active', 'var(--ink)', 'Everything not completed')}
+      ${tab('pipeline', 'In pipeline', 'var(--info)', 'Not live yet')}
+      ${tab('opened', 'Opened', 'var(--green)', 'Marked live')}
+      ${tab('completed', 'Completed', '#7c3aed', 'All checks done')}
+      <div class="ex-kpi"><span class="ex-kpi-l">🚀 Next go-live</span><span class="ex-kpi-v sm">${next ? exEsc(next.name) : '—'}</span>
+        <span class="ex-kpi-s">${next ? exFmtDate(next.go_live_date) + ' · in ' + exDaysTo(next.go_live_date) + ' days' : 'No date set'}</span></div>
+      <div class="ex-kpi"><span class="ex-kpi-l">💰 CAPEX spent</span><span class="ex-kpi-v sm">${exMoney(tot.a)}</span>
+        <span class="ex-kpi-s">of ${exMoney(tot.b)} budgeted</span></div>
     </div>`;
 
   const people = exPeople();
@@ -13118,11 +13164,13 @@ function exListHtml() {
     `<option value="__none"${_ex.person === '__none' ? ' selected' : ''}>Unassigned</option>`;
   const showTab = (v, label) => `<button class="cmp-ftab ${_ex.show === v ? 'active' : ''}" onclick="exSetFilter('show','${v}')">${label}</button>`;
   const bar = `
-    <div class="ex-bar">
+    <div class="ex-bar ex-tool">
       <button class="ex-btn pri" onclick="_ex.adding=!_ex.adding;exRender()">+ New outlet</button>
-      <span class="ex-lbl" style="margin-left:6px">Person</span>
-      <select class="ex-sel" onchange="exSetFilter('person',this.value)">${personOpts}</select>
-      <div class="cmp-ftabs">${showTab('all', 'All')}${showTab('pending', 'Pending')}${showTab('done', 'Done')}</div>
+      <div class="ex-grp">
+        <span class="ex-lbl">👤 Person</span>
+        <select class="ex-sel" onchange="exSetFilter('person',this.value)">${personOpts}</select>
+        <div class="cmp-ftabs">${showTab('all', 'All')}${showTab('pending', 'Pending')}${showTab('done', 'Done')}</div>
+      </div>
       <span class="sp"></span>
       ${exSaveHtml()}
       <button class="ex-btn" onclick="exGo('template')">✏️ Edit master checklist</button>
@@ -13136,15 +13184,22 @@ function exListHtml() {
         <label>Start date<input class="ex-in" type="date" id="exNewStart" value="${exToday()}"></label>
         <label>Target go-live date<input class="ex-in" type="date" id="exNewLive"></label>
       </div>
-      <div style="font-size:11px;color:var(--ink-3);margin:10px 0">The checklist and CAPEX lines are copied from the master checklist. You can then add or remove items for this outlet only.</div>
+      <div style="font-size:11px;color:var(--ink-3);margin:10px 0">The checklist and CAPEX lines are copied from the master checklist.</div>
       <div class="ex-bar" style="margin:0">
         <button class="ex-btn pri" onclick="exCreate()">Create</button>
         <button class="ex-btn" onclick="_ex.adding=false;exRender()">Cancel</button>
       </div>
     </div>`;
 
+  const labels = { active: 'Active outlets', pipeline: 'In pipeline', opened: 'Opened', completed: 'Completed outlets' };
+  const viewing = _ex.tab === 'active' ? '' : `<div class="ex-viewing">Showing <b>${labels[_ex.tab]}</b>
+      ${_ex.tab === 'completed' ? '· kept for reference, out of the main tracker' : ''}
+      <button class="ex-link" onclick="exSetTab('active')">Back to all active</button></div>`;
   if (!ps.length) {
-    return stats + bar + addForm + `<div class="ex-card ex-empty">No outlets yet. Click <b>+ New outlet</b> to start tracking one.</div>`;
+    const msg = !all.length ? 'No outlets yet. Click <b>+ New outlet</b> to start tracking one.'
+      : _ex.tab === 'completed' ? 'Nothing completed yet. Use <b>✓ Mark completed</b> on an outlet once every check is done.'
+      : 'No outlets here.';
+    return stats + bar + addForm + viewing + `<div class="ex-card ex-empty"><span class="ic">${_ex.tab === 'completed' ? '🏁' : '🏬'}</span>${msg}</div>`;
   }
 
   // Summary of what the filter matched.
@@ -13170,7 +13225,7 @@ function exListHtml() {
 
   // Columns left to right in the order outlets started; undated ones last.
   const cols = [...ps].sort((a, b) => (a.start_date || '9999').localeCompare(b.start_date || '9999'));
-  return stats + bar + addForm + summary + exTrackerHtml(cols);
+  return stats + bar + addForm + viewing + summary + exTrackerHtml(cols);
 }
 
 /* The tracker lines outlets up by section name and task text (each outlet's
@@ -13195,19 +13250,24 @@ function exTrackerHtml(ps) {
   const blank = `<td colspan="${cols}"></td>`;
 
   const head = `<tr><th class="ex-tr-first">Section</th>${ps.map(p => {
-    const pr = exProgress(p), pid = exEsc(p.id);
+    const pr = exProgress(p), pid = exEsc(p.id), full = pr.total && pr.done === pr.total;
     return `<th class="ex-tr-out">
       <div class="ex-tr-oh">
         <input class="ex-inl ex-tr-name" value="${exEsc(p.name)}" onchange="exSetField('${pid}','name',this.value)">
         <button class="ex-x" title="Delete outlet" onclick="exDeleteProject('${pid}')">🗑</button>
       </div>
       <div class="ex-tr-oh">
+        ${exIsDone(p) ? `<span class="ex-st completed">🏁 Completed</span>` : `
         <select class="ex-st ${exEsc(p.status)}" onchange="exSetField('${pid}','status',this.value)">
           ${Object.entries(EX_STATUSES).map(([v, l]) => `<option value="${v}"${p.status === v ? ' selected' : ''}>${l}</option>`).join('')}
-        </select>
-        <span class="ex-tr-pct">${pr.done}/${pr.total} tasks</span>
+        </select>`}
+        <span class="ex-tr-pct">${pr.pct}% · ${pr.done}/${pr.total}</span>
       </div>
       <div class="ex-prog"><i style="width:${pr.pct}%"></i></div>
+      <div class="ex-tr-act">${exIsDone(p)
+        ? `<button class="ex-done-btn" onclick="exReopen('${pid}')" title="Move back to the active tracker">↩ Reopen</button>`
+        : `<button class="ex-done-btn ${full ? 'ready' : ''}" onclick="exComplete('${pid}')" title="Move out of the tracker; the data is kept under Completed">✓ Mark completed</button>`}
+      </div>
     </th>`;
   }).join('')}</tr>`;
 
@@ -13261,11 +13321,11 @@ function exTrackerHtml(ps) {
     }).join('');
     const label = open && !filt
       ? `<div class="ex-tr-lbl" onclick="event.stopPropagation()">
-          <span class="ex-car open" onclick="exTrToggleSec(${si})">▶</span>
+          <span class="ex-car open" onclick="exTrToggleSec(${si})">▶</span><span class="ex-num">${si + 1}</span>
           <input class="ex-inl" value="${exEsc(sec.name)}" onchange="exTrRenameSection(${si},this.value)">
           <button class="ex-x" title="Remove this section from every outlet" onclick="exTrRemoveSection(${si})">×</button>
         </div>`
-      : `<span class="ex-car ${open ? 'open' : ''}">▶</span> ${exEsc(sec.name)}`;
+      : `<span class="ex-car ${open ? 'open' : ''}">▶</span><span class="ex-num">${si + 1}</span>${exEsc(sec.name)}`;
     let html = `<tr class="ex-tr-sec ${open ? 'open' : ''}"><td class="ex-tr-first" onclick="${filt ? '' : `exTrToggleSec(${si})`}">${label}</td>${cells}</tr>`;
     if (!open) return html;
     html += tasks.map(ti => `<tr class="ex-tr-task">
@@ -13287,7 +13347,7 @@ function exTrackerHtml(ps) {
       <input class="ex-in" id="exTrAddSection" placeholder="New section for every outlet…" onkeydown="if(event.key==='Enter')exTrAddSection()">
       <button class="ex-btn sm" onclick="exTrAddSection()">+ Section</button></div></td>${blank}</tr>`;
 
-  return `<div class="ex-trk"><table class="ex-tr">
+  return `<div class="ex-trk ${_ex.tab === 'completed' ? 'done-view' : ''}"><table class="ex-tr">
     <thead>${head}</thead>
     <tbody>${dateRow('📅 Start date', 'start_date')}${dateRow('🚀 Go-live date', 'go_live_date')}${capex}${sections}${empty}${addSection}</tbody>
   </table></div>`;
@@ -13390,6 +13450,19 @@ function exSetField(pid, field, value) {
   if (field !== 'address') exRender();
 }
 
+function exComplete(pid) {
+  const p = exProj(pid); if (!p) return;
+  const pr = exProgress(p), left = pr.total - pr.done;
+  if (left && !confirm(`${p.name} still has ${left} open task${left === 1 ? '' : 's'}. Move it to Completed anyway?`)) return;
+  p.status = 'completed';
+  exQueueSave(pid); exRender();
+}
+function exReopen(pid) {
+  const p = exProj(pid); if (!p) return;
+  p.status = 'live';
+  exQueueSave(pid); exRender();
+}
+
 async function exDeleteProject(pid) {
   const p = exProj(pid); if (!p) return;
   if (!confirm(`Delete "${p.name}" and its whole checklist and CAPEX? This can't be undone.`)) return;
@@ -13409,7 +13482,7 @@ function exTemplateHtml() {
       ${exSaveHtml()}
     </div>
     <div class="ex-banner info">
-      This is the <b>master checklist</b>. New outlets start from a copy of it. Editing it doesn't change outlets you've already created.
+      This is the <b>master checklist</b>. New outlets start from a copy of it, and changes here (renaming, adding, removing or reordering) also apply to every active outlet. Completed outlets aren't changed.
     </div>
     ${exStagesHtml('', t.stages)}
     <div class="ex-add" style="padding:2px 0 8px">
@@ -13478,48 +13551,84 @@ function exAssign(pid, sid, iid, empId) {
   i.assignee_name = empId ? exEmpName(empId) : null;
   exQueueSave(pid); exRender();
 }
+/* Master-list edits also apply to every active outlet (completed outlets are
+   left as they were), matched by section name / task text / CAPEX line name
+   since each outlet holds its own copy. */
+function exSyncOutlets(fn) {
+  _ex.projects.forEach(p => { if (!exIsDone(p) && fn(p) !== false) exQueueSave(p.id); });
+}
+const exNewTask = text => ({ id: exId(), text, done: false, done_at: null, done_by: null, note: '', assignee_id: null, assignee_name: null });
+
 function exEditItem(pid, sid, iid, field, value) {
-  const i = exItem(pid, sid, iid); if (!i) return;
-  if (field === 'text' && !value.trim()) { exRender(); return; }
-  i[field] = field === 'text' ? value.trim() : value;
+  const s = exFindStage(pid, sid), i = exItem(pid, sid, iid); if (!i) return;
+  const text = value.trim();
+  if (!text) { exRender(); return; }
+  const old = i.text; i.text = text;
+  exSyncOutlets(p => {
+    const st = p.stages.find(x => x.name === s.name), it = st && st.items.find(x => x.text === old);
+    if (!it) return false; it.text = text;
+  });
   exQueueSave(pid);
 }
 function exAddItem(pid, sid) {
   const inp = document.getElementById(`exAdd-${pid}-${sid}`), text = inp.value.trim();
   if (!text) return;
-  const item = { id: exId(), text };
-  if (pid) Object.assign(item, { done: false, done_at: null, done_by: null, note: '', assignee_id: null, assignee_name: null });
-  exFindStage(pid, sid).items.push(item);
+  const s = exFindStage(pid, sid);
+  s.items.push({ id: exId(), text });
+  exSyncOutlets(p => {
+    let st = p.stages.find(x => x.name === s.name);
+    if (!st) p.stages.push(st = { id: exId(), name: s.name, items: [] });
+    if (st.items.some(x => x.text === text)) return false;
+    st.items.push(exNewTask(text));
+  });
   exQueueSave(pid); exRender();
   document.getElementById(`exAdd-${pid}-${sid}`)?.focus();
 }
 function exRemoveItem(pid, sid, iid) {
-  const s = exFindStage(pid, sid); if (!s) return;
+  const s = exFindStage(pid, sid), i = exItem(pid, sid, iid); if (!i) return;
+  if (!confirm(`Remove "${i.text}" from the master list and from every active outlet?`)) return;
   s.items = s.items.filter(x => x.id !== iid);
+  exSyncOutlets(p => {
+    const st = p.stages.find(x => x.name === s.name); if (!st) return false;
+    const n = st.items.length; st.items = st.items.filter(x => x.text !== i.text); return st.items.length !== n;
+  });
   exQueueSave(pid); exRender();
 }
 function exRenameStage(pid, sid, name) {
   const s = exFindStage(pid, sid); if (!s) return;
-  if (!name.trim()) { exRender(); return; }
-  s.name = name.trim(); exQueueSave(pid);
+  name = name.trim();
+  if (!name || name === s.name) { exRender(); return; }
+  const old = s.name; s.name = name;
+  exSyncOutlets(p => { const st = p.stages.find(x => x.name === old); if (!st) return false; st.name = name; });
+  _ex.open['ts:' + name] = exIsOpen('ts:' + old);
+  exQueueSave(pid);
 }
 function exAddStage(pid) {
   const inp = document.getElementById('exAddStage-' + pid), name = inp.value.trim(); if (!name) return;
   const s = { id: exId(), name, items: [] };
   exStagesOf(pid).push(s);
   _ex.open[`s:${pid}:${s.id}`] = true;
+  exSyncOutlets(p => { if (p.stages.some(x => x.name === name)) return false; p.stages.push({ id: exId(), name, items: [] }); });
   exQueueSave(pid); exRender();
 }
 function exRemoveStage(pid, sid) {
   const s = exFindStage(pid, sid); if (!s) return;
-  if (s.items.length && !confirm(`Remove "${s.name}" and its ${s.items.length} items?`)) return;
+  if (!confirm(`Remove the section "${s.name}"${s.items.length ? ` and its ${s.items.length} tasks` : ''} from the master list and from every active outlet?`)) return;
   const list = exStagesOf(pid); list.splice(list.indexOf(s), 1);
+  exSyncOutlets(p => { const n = p.stages.length; p.stages = p.stages.filter(x => x.name !== s.name); return p.stages.length !== n; });
   exQueueSave(pid); exRender();
 }
 function exMoveStage(pid, idx, dir) {
   const list = exStagesOf(pid), j = idx + dir;
   if (j < 0 || j >= list.length) return;
   [list[idx], list[j]] = [list[j], list[idx]];
+  // Put each outlet's sections in the master order; its own extra sections keep their place at the end.
+  const order = list.map(x => x.name), rank = n => { const k = order.indexOf(n); return k < 0 ? order.length : k; };
+  exSyncOutlets(p => {
+    const before = p.stages.map(x => x.name).join('\u0000');
+    p.stages = p.stages.map((x, k) => [x, k]).sort((a, b) => rank(a[0].name) - rank(b[0].name) || a[1] - b[1]).map(a => a[0]);
+    return p.stages.map(x => x.name).join('\u0000') !== before;
+  });
   exQueueSave(pid); exRender();
 }
 
@@ -13534,7 +13643,12 @@ function exCapexHtml(pid, rows) {
 
 function exEditCapex(pid, cid, field, value) {
   const c = exCapexOf(pid).find(x => x.id === cid); if (!c) return;
-  if (field === 'item') { if (!value.trim()) { exRender(); return; } c.item = value.trim(); }
+  if (field === 'item') {
+    const name = value.trim();
+    if (!name) { exRender(); return; }
+    const old = c.item; c.item = name;
+    if (!pid) exSyncOutlets(p => { const pc = p.capex.find(x => x.item === old); if (!pc) return false; pc.item = name; });
+  }
   else if (field === 'budget' || field === 'actual') c[field] = exNum(value);
   else c[field] = value;
   exQueueSave(pid);
@@ -13542,13 +13656,17 @@ function exEditCapex(pid, cid, field, value) {
 }
 function exAddCapex(pid) {
   const inp = document.getElementById('exAddCapex-' + pid), item = inp.value.trim(); if (!item) return;
-  exCapexOf(pid).push(pid ? { id: exId(), item, budget: null, actual: null, paid: false, notes: '' } : { id: exId(), item });
+  exCapexOf(pid).push({ id: exId(), item });
+  exSyncOutlets(p => { if (p.capex.some(x => x.item === item)) return false; p.capex.push({ id: exId(), item, budget: null, actual: null, paid: false, notes: '' }); });
   exQueueSave(pid); exRender();
   document.getElementById('exAddCapex-' + pid)?.focus();
 }
 function exRemoveCapex(pid, cid) {
-  const list = exCapexOf(pid), i = list.findIndex(x => x.id === cid);
-  if (i >= 0) list.splice(i, 1);
+  const list = exCapexOf(pid), i = list.findIndex(x => x.id === cid); if (i < 0) return;
+  const name = list[i].item;
+  if (!confirm(`Remove the CAPEX line "${name}" from the master list and from every active outlet?`)) return;
+  list.splice(i, 1);
+  exSyncOutlets(p => { const n = p.capex.length; p.capex = p.capex.filter(x => x.item !== name); return p.capex.length !== n; });
   exQueueSave(pid); exRender();
 }
 </script>
