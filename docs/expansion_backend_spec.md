@@ -34,7 +34,8 @@ has no seed data: `GET template` returns `null` until someone saves one.
   "start_date": "2026-10-01", "go_live_date": "2026-11-15",   // YYYY-MM-DD or ""
   "stages": [ { "id": "s1", "name": "…",
                 "items": [ { "id": "…", "text": "…", "done": true,
-                             "done_at": "2026-10-03", "done_by": "EMP123", "note": "" } ] } ],
+                             "done_at": "2026-10-03", "done_by": "EMP123", "note": "",
+                             "assignee_id": "EMP456", "assignee_name": "Rahul" } ] } ],
   "capex":  [ { "id": "…", "item": "Security deposit", "budget": 100000,
                 "actual": 90000, "paid": true, "notes": "" } ],
   "created_by": "…", "created_at": "iso", "updated_by": "…", "updated_at": "iso"
@@ -66,6 +67,8 @@ class ExpansionItem(BaseModel):
     done_at: Optional[str] = None
     done_by: Optional[str] = None
     note: Optional[str] = Field(None, max_length=1000)
+    assignee_id: Optional[str] = Field(None, max_length=64)      # employee_id the task is assigned to
+    assignee_name: Optional[str] = Field(None, max_length=120)   # name at assignment time, for display
 
 class ExpansionStage(BaseModel):
     id: str
