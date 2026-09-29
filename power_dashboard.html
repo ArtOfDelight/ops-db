@@ -2475,9 +2475,9 @@ function scBuildTable(rows, offset) {
         <div class="sc-emp-id">${e.employee_id}</div>
       </td>
       <td><span class="sc-num">${e.total_orders ?? '—'}</span></td>
-      <td><span class="sc-num" style="color:var(--green)">${e.high_rated ?? '—'}</span></td>
+      <td><span class="sc-num" style="color:var(--green)">${e.high_rated ?? '—'}</span>${e.ownly_high ? `<div style="font-size:9px;color:var(--ink-3);margin-top:1px">incl. ${e.ownly_high} Ownly</div>` : ''}</td>
       <td><span class="sc-pct ${hrPctCls}">${hrPct !== null ? hrPct + '%' : '—'}</span></td>
-      <td><span class="sc-num" style="color:var(--amber)">${e.low_rated ?? '—'}</span></td>
+      <td><span class="sc-num" style="color:var(--amber)">${e.low_rated ?? '—'}</span>${e.ownly_low ? `<div style="font-size:9px;color:var(--ink-3);margin-top:1px">incl. ${e.ownly_low} Ownly</div>` : ''}</td>
       <td><span class="sc-num">${e.igcc ?? '—'}</span></td>
       <td><span class="sc-pct ${errCls}">${e.errors ?? '—'}</span></td>
       <td><span class="sc-pct ${errPctCls}">${errPct !== null ? errPct + '%' : '—'}</span></td>
@@ -2609,6 +2609,8 @@ function orRenderTable(outlets, el) {
     <th ${th}>Swiggy Low Rated 👎</th>
     <th ${th}>Zomato High Rated ⭐</th>
     <th ${th}>Zomato Low Rated 👎</th>
+    <th ${th}>Ownly High Rated ⭐</th>
+    <th ${th}>Ownly Low Rated 👎</th>
     <th ${th}>Total Rated</th>
     <th ${th}>Rista Orders</th>
     <th ${th}>High</th>
@@ -2634,6 +2636,7 @@ function orRenderTable(outlets, el) {
       ${td(metCell(o.zomato_kpt, ' min', true))} ${td(metCell(o.zomato_mfr, '%', false))}
       ${td(o.swiggy_high)} ${td(o.swiggy_low)}
       ${td(o.zomato_high)} ${td(o.zomato_low)}
+      ${td(o.ownly_high ?? 0)} ${td(o.ownly_low ?? 0)}
       ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
       ${td(o.total_high)} ${td(o.total_low)}
       ${td(o.igcc)} ${td(o.total_errors)}
@@ -2647,6 +2650,7 @@ function orRenderTable(outlets, el) {
   const sum = k => outlets.reduce((a, o) => a + (Number(o[k]) || 0), 0);
   const tSwiggyH = sum('swiggy_high'), tSwiggyL = sum('swiggy_low');
   const tZomH    = sum('zomato_high'), tZomL    = sum('zomato_low');
+  const tOwnH    = sum('ownly_high'),  tOwnL    = sum('ownly_low');
   const tRated   = sum('total_rated'), tRista   = sum('rista_orders');
   const tHigh    = sum('total_high'),  tLow     = sum('total_low');
   const tIgcc    = sum('igcc'),        tErrors  = sum('total_errors');
@@ -2664,6 +2668,7 @@ function orRenderTable(outlets, el) {
     ${tdT('—')} ${tdT('—')} ${tdT('—')} ${tdT('—')}
     ${tdT(tSwiggyH)} ${tdT(tSwiggyL)}
     ${tdT(tZomH)}   ${tdT(tZomL)}
+    ${tdT(tOwnH)}   ${tdT(tOwnL)}
     ${tdT(tRated)}  ${tdTB(tRista || '—')}
     ${tdT(tHigh)}   ${tdT(tLow)}
     ${tdT(tIgcc)}   ${tdT(tErrors)}
@@ -3135,6 +3140,8 @@ function prDrawTable(el) {
       ${col('Total Rated','total_rated')}
       ${col('High ⭐','high_rated')}
       ${col('Low 👎','low_rated')}
+      ${col('Ownly ⭐','ownly_high')}
+      ${col('Ownly 👎','ownly_low')}
       ${col('IGCC','igcc')}
       ${col('Errors','total_errors')}
       ${col('High %','high_pct')}
@@ -3150,10 +3157,10 @@ function prDrawTable(el) {
       const mainRow = `<tr style="cursor:pointer" onclick="prToggleDetail('${nameAttr}')" title="Click for review/IGCC detail">
         ${tdL(i+1)} ${tdL((expanded?'▾ ':'▸ ')+p.product,true)} ${tdL(p.category||'—')}
         ${tdB(p.online_orders||'—')} ${tdB(p.total_rated)}
-        ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
+        ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.ownly_high ?? 0)} ${td(p.ownly_low ?? 0)} ${td(p.igcc)} ${td(p.total_errors)}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
       </tr>`;
-      return mainRow + (expanded ? prDetailRowHtml(p, 11) : '');
+      return mainRow + (expanded ? prDetailRowHtml(p, 13) : '');
     };
   } else if (view === 'dinein') {
     thead = `<thead><tr>
@@ -3178,6 +3185,8 @@ function prDrawTable(el) {
       ${col('Total Rated','total_rated')}
       ${col('High ⭐','high_rated')}
       ${col('Low 👎','low_rated')}
+      ${col('Ownly ⭐','ownly_high')}
+      ${col('Ownly 👎','ownly_low')}
       ${col('IGCC','igcc')}
       ${col('High %','high_pct')}
       ${col('Error %','error_pct')}
@@ -3193,10 +3202,10 @@ function prDrawTable(el) {
         ${tdL(i+1)} ${tdL((expanded?'▾ ':'▸ ')+p.product,true)} ${tdL(p.category||'—')}
         ${tdB(p.online_orders||'—')} ${tdB(p.dine_in_orders||'—')} ${tdB(p.rista_orders||'—')}
         ${tdB(p.total_rated)}
-        ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)}
+        ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.ownly_high ?? 0)} ${td(p.ownly_low ?? 0)} ${td(p.igcc)}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
       </tr>`;
-      return mainRow + (expanded ? prDetailRowHtml(p, 12) : '');
+      return mainRow + (expanded ? prDetailRowHtml(p, 14) : '');
     };
   } else if (view === 'kpt') {
     // Each col = (bucket_pct / 100) × bucket_midpoint
@@ -10013,7 +10022,7 @@ async function _thLogin(pid) {
 }
 
 /* ── OWNLY ANALYTICS ──────────────────────────────────────────────────────── */
-const OWNLY_TABS = ['Summary', 'Sales', 'Funnel', 'Customers', 'Revenue Loss'];
+const OWNLY_TABS = ['Summary', 'Sales', 'Funnel', 'Customers', 'Revenue Loss', 'Ratings and Reviews'];
 let _ownlyData = null;
 let _ownlyActiveTab = 'Summary';
 
@@ -10116,6 +10125,34 @@ function _ownlyDrawTable() {
   });
 
   html += '</tbody></table>';
+
+  // Ratings tab: list every 1–3★ order under the summary so it can be actioned.
+  if (_ownlyActiveTab === 'Ratings and Reviews') {
+    const low = [];
+    outletNames.forEach(o => (outlets[o]?.low_ratings || []).forEach(r => low.push({ ...r, outlet: o })));
+    low.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    const th = t => `<th style="text-align:left;padding:8px 12px;border-bottom:2px solid var(--border-2);color:var(--ink-3);white-space:nowrap">${t}</th>`;
+    const td = (v, extra = '') => `<td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--ink);${extra}">${v}</td>`;
+    const starColor = n => n <= 2 ? '#c62828' : 'var(--amber)';
+    html += `<div style="font-size:14px;font-weight:700;color:var(--ink);margin:24px 0 10px">Low-rated orders (1–3★) · ${low.length}</div>`;
+    if (!low.length) {
+      html += '<div style="font-size:13px;color:var(--ink-3);padding:12px 0">No low ratings in this period 🎉</div>';
+    } else {
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>' +
+        th('Date') + th('Outlet') + th('Rating') + th('Items') + th('Value') + th('Comment') + th('Order ID') +
+        '</tr></thead><tbody>' +
+        low.map(r => '<tr>' +
+          td(`${escHtml(r.date)} <span style="color:var(--ink-3)">${escHtml((r.time || '').slice(0, 5))}</span>`, 'white-space:nowrap') +
+          td(escHtml(r.outlet), 'white-space:nowrap;font-weight:600') +
+          td(`${r.rating} ★`, `font-weight:700;color:${starColor(r.rating)};white-space:nowrap`) +
+          td(escHtml(r.items)) +
+          td(escHtml(r.order_value), 'white-space:nowrap;text-align:right') +
+          td(escHtml([r.comment, r.remarks].filter(Boolean).join(' · ')) || '<span style="color:var(--ink-3)">—</span>') +
+          td(escHtml(r.order_id), 'font-family:monospace;font-size:11px;color:var(--ink-3)') +
+        '</tr>').join('') +
+        '</tbody></table>';
+    }
+  }
   wrap.innerHTML = html;
 }
 
