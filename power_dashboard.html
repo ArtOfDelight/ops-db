@@ -12892,8 +12892,8 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
 .ex-tr-lbl   { display:flex;align-items:center;gap:4px; }
 .ex-tr-lbl .ex-inl { font-weight:inherit; }
 .ex-tr-cap   { display:flex;align-items:center;gap:4px;justify-content:center; }
-.ex-tr-cap .ex-inl { width:78px; }
-.ex-tr-cap label { font-size:10px;color:var(--ink-3);display:flex;gap:2px;align-items:center;white-space:nowrap; }
+.ex-tr-cap .ex-inl { width:110px; }
+.ex-rs       { color:var(--ink-3);font-size:12px; }
 .ex-tr-add td { background:var(--surface); }
 
 /* master checklist rows */
@@ -12910,6 +12910,13 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
 .ex-asg      { font-family:var(--sans);font-size:12px;padding:3px 4px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--ink);width:150px;flex:none;cursor:pointer; }
 .ex-asg:hover{ border-color:var(--border); }
 .ex-asg.none { color:var(--ink-3); }
+.ex-item .ex-asg { width:130px; }
+.ex-drag     { cursor:grab;color:var(--ink-3);font-size:13px;letter-spacing:-2px;padding:0 4px;user-select:none;flex:none;line-height:1; }
+.ex-drag:hover { color:var(--ink); }
+.ex-dragging { opacity:.4; }
+.ex-drop-before { box-shadow:inset 0 2px 0 var(--info); }
+.ex-drop-after  { box-shadow:inset 0 -2px 0 var(--info); }
+.ex-drop-into   { background:var(--info-dim) !important; }
 .ex-add      { display:flex;gap:6px;padding:6px 8px 8px 12px; }
 .ex-add .ex-in { font-size:12px;padding:5px 8px; }
 .ex-empty    { text-align:center;color:var(--ink-3);padding:40px 12px;font-size:13px; }
@@ -12929,6 +12936,7 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
    Until those routes are live the page runs in preview mode and saves nothing. */
 
 const EX_STATUSES = { planning: 'Planning', in_progress: 'In progress', live: 'Live', on_hold: 'On hold' };
+const EX_TEAM = ['Ayaaz', 'Ajay', 'Sushant', 'Jatin', 'Nishat', 'Kim', 'Jimmy', 'Sanu'];   // who tasks can be assigned to
 const exIsDone = p => p.status === 'completed';   // moved out of the tracker by hand, kept for reference
 
 const EX_DEFAULT_TEMPLATE = {
@@ -12985,6 +12993,8 @@ function exBuildDefaultTemplate() {
     capex:  EX_DEFAULT_TEMPLATE.capex.map(item => ({ id: exId(), item })),
   };
 }
+const exNewTask = (text, assignee) => ({ id: exId(), text, done: false, done_at: null, done_by: null, note: '',
+                                         assignee_id: assignee || null, assignee_name: assignee || null });
 function exTpl() { return _ex.template || (_ex.template = exBuildDefaultTemplate()); }
 function exProj(pid) { return _ex.projects.find(p => p.id === pid); }
 /* pid '' means the master template. */
@@ -12997,11 +13007,7 @@ function exProgress(p) {
   (p.stages || []).forEach(s => (s.items || []).forEach(i => { total++; if (i.done) done++; }));
   return { done, total, pct: total ? Math.round(done / total * 100) : 0 };
 }
-function exCapexTotals(p) {
-  let budget = 0, actual = 0;
-  (p.capex || []).forEach(c => { budget += c.budget || 0; actual += c.actual || 0; });
-  return { budget, actual };
-}
+function exCapexSpent(p) { return (p.capex || []).reduce((a, c) => a + (c.actual || 0), 0); }
 function exDaysTo(iso) {
   if (!iso) return null;
   return Math.round((new Date(iso + 'T00:00:00') - new Date(exToday() + 'T00:00:00')) / 86400000);
@@ -13016,13 +13022,13 @@ function exItemVisible(i) {
   if (_ex.show === 'done' && !i.done) return false;
   return true;
 }
-/* Everyone with at least one task, for the filter dropdown. */
+/* The ops team, plus anyone assigned before the team list existed, for the filter dropdown. */
 function exPeople() {
-  const m = new Map();
+  const m = new Map(EX_TEAM.map(n => [n, n]));
   _ex.projects.forEach(p => (p.stages || []).forEach(s => s.items.forEach(i => {
-    if (i.assignee_id) m.set(i.assignee_id, i.assignee_name || exEmpName(i.assignee_id));
+    if (i.assignee_id && !m.has(i.assignee_id)) m.set(i.assignee_id, i.assignee_name || exEmpName(i.assignee_id));
   })));
-  return [...m].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  return [...m].map(([id, name]) => ({ id, name }));
 }
 
 /* ── open / closed state (per viewer) ── */
@@ -13136,7 +13142,7 @@ function exListHtml() {
     completed: all.filter(exIsDone),
   };
   const ps = groups[_ex.tab] || groups.active;
-  const tot = all.reduce((a, p) => { const c = exCapexTotals(p); a.b += c.budget; a.a += c.actual; return a; }, { b: 0, a: 0 });
+  const spent = all.reduce((a, p) => a + exCapexSpent(p), 0);
   const next = groups.pipeline.filter(p => p.go_live_date && exDaysTo(p.go_live_date) >= 0)
                               .sort((a, b) => a.go_live_date.localeCompare(b.go_live_date))[0];
 
@@ -13154,8 +13160,8 @@ function exListHtml() {
       ${tab('completed', 'Completed', '#7c3aed', 'All checks done')}
       <div class="ex-kpi"><span class="ex-kpi-l">🚀 Next go-live</span><span class="ex-kpi-v sm">${next ? exEsc(next.name) : '—'}</span>
         <span class="ex-kpi-s">${next ? exFmtDate(next.go_live_date) + ' · in ' + exDaysTo(next.go_live_date) + ' days' : 'No date set'}</span></div>
-      <div class="ex-kpi"><span class="ex-kpi-l">💰 CAPEX spent</span><span class="ex-kpi-v sm">${exMoney(tot.a)}</span>
-        <span class="ex-kpi-s">of ${exMoney(tot.b)} budgeted</span></div>
+      <div class="ex-kpi"><span class="ex-kpi-l">💰 CAPEX spent</span><span class="ex-kpi-v sm">${exMoney(spent)}</span>
+        <span class="ex-kpi-s">Across all outlets</span></div>
     </div>`;
 
   const people = exPeople();
@@ -13282,8 +13288,7 @@ function exTrackerHtml(ps) {
   const cOpen = exIsOpen('tc');
   let capex = `<tr class="ex-tr-top ex-tr-sec ${cOpen ? 'open' : ''}">
     <td class="ex-tr-first" onclick="exToggleOpen('tc')"><span class="ex-car ${cOpen ? 'open' : ''}">▶</span> 💰 CAPEX spent</td>
-    ${ps.map(p => { const c = exCapexTotals(p);
-      return `<td><b>${exMoney(c.actual)}</b><div class="ex-tr-sub">of ${exMoney(c.budget)} budget</div></td>`; }).join('')}
+    ${ps.map(p => `<td><b>${exMoney(exCapexSpent(p))}</b></td>`).join('')}
   </tr>`;
   if (cOpen) {
     capex += tr.capex.map((name, ci) => `<tr class="ex-tr-task">
@@ -13295,10 +13300,8 @@ function exTrackerHtml(ps) {
         const c = exTrCap(p, ci);
         if (!c) return '<td class="ex-tr-na">—</td>';
         const pid = exEsc(p.id);
-        return `<td class="${c.paid ? 'is-done' : ''}"><div class="ex-tr-cap">
-          <input class="ex-inl num" inputmode="decimal" placeholder="Spent" title="Spent (₹)" value="${c.actual ?? ''}" onchange="exEditCapex('${pid}','${c.id}','actual',this.value)">
-          <input class="ex-inl num" inputmode="decimal" placeholder="Budget" title="Budget (₹)" value="${c.budget ?? ''}" onchange="exEditCapex('${pid}','${c.id}','budget',this.value)" style="color:var(--ink-3)">
-          <label><input type="checkbox" ${c.paid ? 'checked' : ''} onchange="exEditCapex('${pid}','${c.id}','paid',this.checked)" style="accent-color:var(--green)">Paid</label>
+        return `<td><div class="ex-tr-cap">
+          <span class="ex-rs">₹</span><input class="ex-inl num" inputmode="decimal" placeholder="Spent" title="Spent (₹)" value="${c.actual ?? ''}" onchange="exEditCapex('${pid}','${c.id}','actual',this.value)">
         </div></td>`;
       }).join('')}
     </tr>`).join('') + `<tr class="ex-tr-task ex-tr-add"><td class="ex-tr-first"><div class="ex-add" style="padding:0">
@@ -13401,7 +13404,7 @@ function exTrAddTask(si) {
   const inp = document.getElementById('exTrAdd-' + si), text = inp.value.trim(); if (!text) return;
   exTrEach(p => {
     const st = exTrStage(p, si); if (!st) return false;
-    st.items.push({ id: exId(), text, done: false, done_at: null, done_by: null, note: '', assignee_id: null, assignee_name: null });
+    st.items.push(exNewTask(text));
   });
   document.getElementById('exTrAdd-' + si)?.focus();
 }
@@ -13417,7 +13420,7 @@ function exTrRemoveCapex(ci) {
 }
 function exTrAddCapex() {
   const item = document.getElementById('exTrAddCapex').value.trim(); if (!item) return;
-  exTrEach(p => { if (p.capex.some(c => c.item === item)) return false; p.capex.push({ id: exId(), item, budget: null, actual: null, paid: false, notes: '' }); });
+  exTrEach(p => { if (p.capex.some(c => c.item === item)) return false; p.capex.push({ id: exId(), item, actual: null, notes: '' }); });
   document.getElementById('exTrAddCapex')?.focus();
 }
 
@@ -13430,9 +13433,8 @@ async function exCreate() {
     start_date: document.getElementById('exNewStart').value || '',
     go_live_date: document.getElementById('exNewLive').value || '',
     stages: tpl.stages.map(s => ({ id: exId(), name: s.name,
-      items: s.items.map(i => ({ id: exId(), text: i.text, done: false, done_at: null, done_by: null, note: '',
-                                 assignee_id: null, assignee_name: null })) })),
-    capex: tpl.capex.map(c => ({ id: exId(), item: c.item, budget: null, actual: null, paid: false, notes: '' })),
+      items: s.items.map(i => exNewTask(i.text, i.assignee_id)) })),
+    capex: tpl.capex.map(c => ({ id: exId(), item: c.item, actual: null, notes: '' })),
   };
   try {
     if (_ex.preview) p.id = exId();
@@ -13482,7 +13484,7 @@ function exTemplateHtml() {
       ${exSaveHtml()}
     </div>
     <div class="ex-banner info">
-      This is the <b>master checklist</b>. New outlets start from a copy of it, and changes here (renaming, adding, removing or reordering) also apply to every active outlet. Completed outlets aren't changed.
+      This is the <b>master checklist</b>. New outlets start from a copy of it, and changes here (renaming, adding, removing, reordering and default assignees) also apply to every active outlet. Drag <b>⋮⋮</b> to reorder sections, tasks and CAPEX lines. Completed outlets aren't changed.
     </div>
     ${exStagesHtml('', t.stages)}
     <div class="ex-add" style="padding:2px 0 8px">
@@ -13501,31 +13503,36 @@ function exTemplateHtml() {
 
 /* ── CHECKLIST EDITING (outlet when pid is set, master template when pid is '') ── */
 function exAssigneeSelect(pid, sid, i) {
-  const opts = _ex.employees.map(e => `<option value="${exEsc(e.id)}"${e.id === i.assignee_id ? ' selected' : ''}>${exEsc(e.name)}</option>`);
-  if (i.assignee_id && !_ex.employees.some(e => e.id === i.assignee_id)) {
+  const opts = EX_TEAM.map(n => `<option value="${exEsc(n)}"${n === i.assignee_id ? ' selected' : ''}>${exEsc(n)}</option>`);
+  if (i.assignee_id && !EX_TEAM.includes(i.assignee_id)) {
     opts.unshift(`<option value="${exEsc(i.assignee_id)}" selected>${exEsc(i.assignee_name || i.assignee_id)}</option>`);
   }
   return `<select class="ex-asg ${i.assignee_id ? '' : 'none'}" title="Assign to" onchange="exAssign('${pid}','${sid}','${i.id}',this.value)">
     <option value="">👤 Assign…</option>${opts.join('')}</select>`;
 }
 
+/* Master checklist sections and tasks. The ⋮⋮ handle turns its row draggable
+   only while pressed, so the inputs in the row stay normal to click into. */
+const exGrip = sel => `<span class="ex-drag" title="Drag to reorder" onmousedown="this.closest('${sel}').draggable=true" onmouseup="this.closest('${sel}').draggable=false">⋮⋮</span>`;
+const exDnd = (type, sid, iid) => `ondragover="exDragOver(event,'${type}','${sid}','${iid}')" ondragleave="exDragLeave(event)" ondrop="exDrop(event,'${type}','${sid}','${iid}')"`;
+
 function exStagesHtml(pid, stages) {
-  return stages.map((s, si) => {
+  return stages.map(s => {
     const k = `s:${pid}:${s.id}`, open = exIsOpen(k);
     const rows = !open ? '' : s.items.map(i => `
-      <div class="ex-item">
-        <span style="color:var(--ink-3)">•</span>
+      <div class="ex-item" ondragstart="exDragStart(event,'item','${s.id}','${i.id}')" ondragend="exDragEnd(event)" ${exDnd('item', s.id, i.id)}>
+        ${exGrip('.ex-item')}
         <input class="ex-inl txt" value="${exEsc(i.text)}" onchange="exEditItem('','${s.id}','${i.id}','text',this.value)">
+        ${exAssigneeSelect('', s.id, i)}
         <button class="ex-x" title="Remove item" onclick="exRemoveItem('','${s.id}','${i.id}')">×</button>
       </div>`).join('');
     return `
-      <div class="ex-stage ${open ? 'open' : ''}">
-        <div class="ex-stage-h">
+      <div class="ex-stage ${open ? 'open' : ''}" ondragstart="exDragStart(event,'stage','${s.id}','')" ondragend="exDragEnd(event)">
+        <div class="ex-stage-h" ${exDnd('head', s.id, '')}>
+          ${exGrip('.ex-stage')}
           <button class="ex-car ${open ? 'open' : ''}" title="${open ? 'Collapse' : 'Show checklist'}" onclick="exToggleOpen('${k}')">▶</button>
           <input class="ex-inl" value="${exEsc(s.name)}" onchange="exRenameStage('','${s.id}',this.value)">
           <span class="ex-stage-n">${s.items.length} items</span>
-          <button class="ex-x" title="Move up" onclick="exMoveStage('',${si},-1)" ${si === 0 ? 'disabled' : ''}>↑</button>
-          <button class="ex-x" title="Move down" onclick="exMoveStage('',${si},1)" ${si === stages.length - 1 ? 'disabled' : ''}>↓</button>
           <button class="ex-x" title="Remove section" onclick="exRemoveStage('','${s.id}')">×</button>
         </div>
         ${rows}
@@ -13538,6 +13545,103 @@ function exStagesHtml(pid, stages) {
   }).join('');
 }
 
+/* ── drag and drop (master checklist) ── */
+let _exDrag = null;   // { type: 'stage' | 'item' | 'cap', sid, iid }
+function exDragStart(e, type, sid, iid) {
+  e.stopPropagation();   // an item drag must not also start its section's drag
+  _exDrag = { type, sid, iid };
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', ''); } catch (err) {}
+  e.currentTarget.classList.add('ex-dragging');
+}
+function exClearDrop() {
+  document.querySelectorAll('.ex-drop-before,.ex-drop-after,.ex-drop-into')
+    .forEach(el => el.classList.remove('ex-drop-before', 'ex-drop-after', 'ex-drop-into'));
+}
+/* Which target types each drag can land on: sections on section headers, tasks
+   on tasks or a section header (drops into that section), CAPEX lines on CAPEX lines. */
+function exCanDrop(type, sid, iid) {
+  const d = _exDrag; if (!d) return false;
+  if (d.type === 'stage') return type === 'head' && d.sid !== sid;
+  if (d.type === 'item') return (type === 'item' && d.iid !== iid) || type === 'head';
+  return type === 'cap' && d.iid !== iid;
+}
+function exDragOver(e, type, sid, iid) {
+  if (!exCanDrop(type, sid, iid)) return;
+  e.preventDefault(); e.stopPropagation();
+  const el = e.currentTarget;
+  exClearDrop();
+  if (_exDrag.type === 'item' && type === 'head') { el.classList.add('ex-drop-into'); return; }
+  const r = el.getBoundingClientRect();
+  el.classList.add(e.clientY > r.top + r.height / 2 ? 'ex-drop-after' : 'ex-drop-before');
+}
+function exDragLeave(e) { e.currentTarget.classList.remove('ex-drop-before', 'ex-drop-after', 'ex-drop-into'); }
+function exDragEnd(e) {
+  e.currentTarget.classList.remove('ex-dragging');
+  e.currentTarget.draggable = false;
+  exClearDrop(); _exDrag = null;
+}
+function exDrop(e, type, sid, iid) {
+  if (!exCanDrop(type, sid, iid)) return;
+  e.preventDefault(); e.stopPropagation();
+  const d = _exDrag, after = e.currentTarget.classList.contains('ex-drop-after');
+  exClearDrop(); _exDrag = null;
+  const t = exTpl(), move = (list, from, to) => {
+    const [m] = list.splice(from, 1);
+    list.splice(to + (after ? 1 : 0), 0, m);
+  };
+  if (d.type === 'stage') {
+    const from = t.stages.findIndex(x => x.id === d.sid);
+    const [m] = t.stages.splice(from, 1);
+    t.stages.splice(t.stages.findIndex(x => x.id === sid) + (after ? 1 : 0), 0, m);
+  } else if (d.type === 'cap') {
+    const from = t.capex.findIndex(x => x.id === d.iid);
+    const [m] = t.capex.splice(from, 1);
+    t.capex.splice(t.capex.findIndex(x => x.id === iid) + (after ? 1 : 0), 0, m);
+  } else {
+    const fs = t.stages.find(x => x.id === d.sid), ts = t.stages.find(x => x.id === sid);
+    const [m] = fs.items.splice(fs.items.findIndex(x => x.id === d.iid), 1);
+    if (type === 'head') { ts.items.push(m); _ex.open[`s::${ts.id}`] = true; }
+    else ts.items.splice(ts.items.findIndex(x => x.id === iid) + (after ? 1 : 0), 0, m);
+  }
+  exSyncOrder();
+  exQueueSave(''); exRender();
+}
+
+/* Put every active outlet's sections, tasks and CAPEX lines in the master order
+   (a task the master now keeps in another section moves there too, ticks and
+   assignee intact). Things an outlet has that the master doesn't keep their
+   relative order at the end. */
+function exSyncOrder() {
+  const t = exTpl(), home = new Map();
+  t.stages.forEach(s => s.items.forEach(i => home.set(i.text, s.name)));
+  const byRank = (list, key, order) => {
+    const r = x => { const k = order.indexOf(key(x)); return k < 0 ? order.length : k; };
+    return list.map((x, k) => [x, k]).sort((a, b) => r(a[0]) - r(b[0]) || a[1] - b[1]).map(a => a[0]);
+  };
+  exSyncOutlets(p => {
+    const sig = () => JSON.stringify([p.stages.map(s => [s.name, s.items.map(i => i.id)]), p.capex.map(c => c.id)]);
+    const before = sig();
+    p.stages.slice().forEach(s => {
+      s.items = s.items.filter(i => {
+        const h = home.get(i.text);
+        if (!h || h === s.name) return true;
+        let dest = p.stages.find(x => x.name === h);
+        if (!dest) p.stages.push(dest = { id: exId(), name: h, items: [] });
+        dest.items.push(i);
+        return false;
+      });
+    });
+    p.stages = byRank(p.stages, s => s.name, t.stages.map(s => s.name));
+    p.stages.forEach(s => {
+      const ts = t.stages.find(x => x.name === s.name);
+      if (ts) s.items = byRank(s.items, i => i.text, ts.items.map(i => i.text));
+    });
+    p.capex = byRank(p.capex, c => c.item, t.capex.map(c => c.item));
+    return sig() !== before;
+  });
+}
+
 function exItem(pid, sid, iid) { return exFindStage(pid, sid)?.items.find(x => x.id === iid); }
 
 function exToggle(pid, sid, iid, done) {
@@ -13545,10 +13649,21 @@ function exToggle(pid, sid, iid, done) {
   i.done = done; i.done_at = done ? exToday() : null; i.done_by = done ? exMe() : null;
   exQueueSave(pid); exRender();
 }
-function exAssign(pid, sid, iid, empId) {
+function exAssign(pid, sid, iid, name) {
   const i = exItem(pid, sid, iid); if (!i) return;
-  i.assignee_id = empId || null;
-  i.assignee_name = empId ? exEmpName(empId) : null;
+  const old = i.assignee_id || null;
+  i.assignee_id = name || null;
+  i.assignee_name = name || null;
+  // A master-list default flows to active outlets that still have the old default
+  // (anything changed on the tracker is left alone).
+  if (!pid) {
+    const sname = exFindStage('', sid).name;
+    exSyncOutlets(p => {
+      const st = p.stages.find(x => x.name === sname), it = st && st.items.find(x => x.text === i.text);
+      if (!it || (it.assignee_id || null) !== old) return false;
+      it.assignee_id = i.assignee_id; it.assignee_name = i.assignee_name;
+    });
+  }
   exQueueSave(pid); exRender();
 }
 /* Master-list edits also apply to every active outlet (completed outlets are
@@ -13557,7 +13672,6 @@ function exAssign(pid, sid, iid, empId) {
 function exSyncOutlets(fn) {
   _ex.projects.forEach(p => { if (!exIsDone(p) && fn(p) !== false) exQueueSave(p.id); });
 }
-const exNewTask = text => ({ id: exId(), text, done: false, done_at: null, done_by: null, note: '', assignee_id: null, assignee_name: null });
 
 function exEditItem(pid, sid, iid, field, value) {
   const s = exFindStage(pid, sid), i = exItem(pid, sid, iid); if (!i) return;
@@ -13618,23 +13732,10 @@ function exRemoveStage(pid, sid) {
   exSyncOutlets(p => { const n = p.stages.length; p.stages = p.stages.filter(x => x.name !== s.name); return p.stages.length !== n; });
   exQueueSave(pid); exRender();
 }
-function exMoveStage(pid, idx, dir) {
-  const list = exStagesOf(pid), j = idx + dir;
-  if (j < 0 || j >= list.length) return;
-  [list[idx], list[j]] = [list[j], list[idx]];
-  // Put each outlet's sections in the master order; its own extra sections keep their place at the end.
-  const order = list.map(x => x.name), rank = n => { const k = order.indexOf(n); return k < 0 ? order.length : k; };
-  exSyncOutlets(p => {
-    const before = p.stages.map(x => x.name).join('\u0000');
-    p.stages = p.stages.map((x, k) => [x, k]).sort((a, b) => rank(a[0].name) - rank(b[0].name) || a[1] - b[1]).map(a => a[0]);
-    return p.stages.map(x => x.name).join('\u0000') !== before;
-  });
-  exQueueSave(pid); exRender();
-}
-
 /* ── CAPEX (master list; outlet CAPEX is edited in the tracker) ── */
 function exCapexHtml(pid, rows) {
-  return rows.map(c => `<div class="ex-item"><span style="color:var(--ink-3)">•</span>
+  return rows.map(c => `<div class="ex-item" ondragstart="exDragStart(event,'cap','','${c.id}')" ondragend="exDragEnd(event)" ${exDnd('cap', '', c.id)}>
+      ${exGrip('.ex-item')}
       <input class="ex-inl txt" value="${exEsc(c.item)}" onchange="exEditCapex('','${c.id}','item',this.value)">
       <button class="ex-x" title="Remove line" onclick="exRemoveCapex('','${c.id}')">×</button></div>`).join('') + `
     <div class="ex-add"><input class="ex-in" id="exAddCapex-" placeholder="Add a CAPEX line, e.g. Signage board" onkeydown="if(event.key==='Enter')exAddCapex('')">
@@ -13649,7 +13750,7 @@ function exEditCapex(pid, cid, field, value) {
     const old = c.item; c.item = name;
     if (!pid) exSyncOutlets(p => { const pc = p.capex.find(x => x.item === old); if (!pc) return false; pc.item = name; });
   }
-  else if (field === 'budget' || field === 'actual') c[field] = exNum(value);
+  else if (field === 'actual') c.actual = exNum(value);
   else c[field] = value;
   exQueueSave(pid);
   if (field !== 'item' && field !== 'notes') exRender();
@@ -13657,7 +13758,7 @@ function exEditCapex(pid, cid, field, value) {
 function exAddCapex(pid) {
   const inp = document.getElementById('exAddCapex-' + pid), item = inp.value.trim(); if (!item) return;
   exCapexOf(pid).push({ id: exId(), item });
-  exSyncOutlets(p => { if (p.capex.some(x => x.item === item)) return false; p.capex.push({ id: exId(), item, budget: null, actual: null, paid: false, notes: '' }); });
+  exSyncOutlets(p => { if (p.capex.some(x => x.item === item)) return false; p.capex.push({ id: exId(), item, actual: null, notes: '' }); });
   exQueueSave(pid); exRender();
   document.getElementById('exAddCapex-' + pid)?.focus();
 }
