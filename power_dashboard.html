@@ -4657,7 +4657,10 @@ function _renderRecon() {
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
       ${tabBar}
-      <span style="font-size:11px;color:var(--ink-3);padding-top:6px">${rows.length} rows · ${dates.length} days</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:11px;color:var(--ink-3)">${rows.length} rows · ${dates.length} days</span>
+        <button onclick="_reconExportExpenses()" ${tExpenses > 0 ? '' : 'disabled'} title="Download expense rows for the current filter as Excel" style="padding:4px 12px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink-1);cursor:${tExpenses > 0 ? 'pointer' : 'not-allowed'};opacity:${tExpenses > 0 ? 1 : .5};font-family:var(--sans);font-weight:600">⬇ Export Expenses</button>
+      </div>
     </div>
     <div style="margin-bottom:16px">${outletBar}</div>
     ${summaryCards}
@@ -4787,6 +4790,83 @@ function _saveExpenses(rid) {
     inp.style.borderColor = 'var(--red)';
     setTimeout(() => { if (inp) inp.style.borderColor = 'var(--border-2)'; }, 2000);
   });
+}
+
+/* Keyword → category for expense notes. First match wins; order matters. */
+const _EXPENSE_CATEGORIES = [
+  ['Dairy',                    /milk|curd|paneer|butter|cream|ghee|dairy|nandini|amul/i],
+  ['Raw Materials',            /sugar|fruit|mango|banana|strawberr|chocolate|nuts?\b|dry ?fruit|vegetable|grocer|ice\b|flour|egg|honey|syrup|coconut|lemon/i],
+  ['Packaging',                /packag|cup|cone|spoon|box|container|cover|bag|tissue|napkin|foil|lid|straw/i],
+  ['Transport & Delivery',     /auto|cab|uber|ola|rapido|porter|petrol|diesel|fuel|transport|delivery|courier|parking|travel/i],
+  ['Cleaning & Housekeeping',  /clean|phenyl|harpic|soap|detergent|mop|broom|garbage|dustbin|sanitiz|pest|housekeep|lizol|vim/i],
+  ['Repairs & Maintenance',    /repair|maint|plumb|electric|bulb|tube ?light|fix|service|carpenter|ac\b|freezer|fridge|gas refill|technician/i],
+  ['Utilities',                /water|can\b|bisleri|electricity|bescom|internet|wifi|recharge|gas\b|cylinder/i],
+  ['Staff Welfare',            /staff|food|lunch|dinner|tea|coffee|snack|meal|advance|salary|medicine/i],
+  ['Stationery & Printing',    /stationer|pen\b|paper|print|xerox|register|tape|marker|roll/i],
+];
+
+function _categorizeExpense(note) {
+  if (!note) return 'Uncategorized';
+  for (const [cat, re] of _EXPENSE_CATEGORIES) if (re.test(note)) return cat;
+  return 'Miscellaneous';
+}
+
+function _loadSheetJS() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = () => reject(new Error('Could not load Excel library'));
+    document.head.appendChild(s);
+  });
+}
+
+function _reconExportExpenses() {
+  const HIDDEN_OUTLETS = ['Jayanagar', 'Sahakar Nagar'];
+  const rows = _reconRows()
+    .filter(r => !HIDDEN_OUTLETS.includes(r.outlet))
+    .filter(r => _reconOutlet === 'All' || r.outlet === _reconOutlet)
+    .filter(r => (r.expenses || 0) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.outlet.localeCompare(b.outlet));
+
+  const out = [];
+  rows.forEach(r => {
+    const source = `Petty Cash - ${r.outlet}`;
+    const items  = r.expense_items || [];
+    const itemSum = items.reduce((s, it) => s + (it.amount || 0), 0);
+    if (items.length && Math.abs(itemSum - r.expenses) < 1) {
+      // One line per checklist submission, each with its own note
+      items.forEach(it => out.push({
+        'Source': source, 'Date': r.date,
+        'Payee/ Description': it.note || '(no note)',
+        'Amount': it.amount, 'Category': _categorizeExpense(it.note),
+      }));
+    } else {
+      // Expenses edited on the dashboard (or no note) — one line with the current total
+      const note = items.map(it => it.note).filter(Boolean).join('; ');
+      out.push({
+        'Source': source, 'Date': r.date,
+        'Payee/ Description': note || '(no note)',
+        'Amount': r.expenses, 'Category': _categorizeExpense(note),
+      });
+    }
+  });
+
+  if (!out.length) { _showToast('No expenses in this period'); return; }
+
+  _loadSheetJS().then(XLSX => {
+    const ws = XLSX.utils.json_to_sheet(out, { header: ['Source', 'Date', 'Payee/ Description', 'Amount', 'Category'] });
+    ws['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 45 }, { wch: 12 }, { wch: 24 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Expenses');
+    const range = _reconWindow === 'custom' ? `${_reconCustomFrom}_to_${_reconCustomTo}`
+      : out[0].Date === out[out.length - 1].Date ? out[0].Date
+      : `${out[0].Date}_to_${out[out.length - 1].Date}`;
+    const outletTag = _reconOutlet === 'All' ? 'All' : _reconOutlet.replace(/\s+/g, '');
+    XLSX.writeFile(wb, `Expenses_${outletTag}_${range}.xlsx`);
+    _showToast(`Exported ${out.length} expense rows ✓`);
+  }).catch(e => _showToast('❌ Export failed: ' + e.message));
 }
 
 /* ── RR RECON PAGE ── */
