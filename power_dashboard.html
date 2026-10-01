@@ -13928,7 +13928,7 @@ function exRemoveCapex(pid, cid) {
 .tm-new td { background:var(--info-dim); }
 </style>
 <script>
-let _tm = { categories: ['Operations','Supply Chain','Finance'], tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
+let _tm = { cat: '', categories: ['Operations','Supply Chain','Finance'], tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
             view: 'all', person: '', status: 'open', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
 
 async function tmApi(method, path, body) {
@@ -14028,7 +14028,13 @@ function tmRender() {
     <div class="tm-seg">
       <button class="${_tm.view === 'all' ? 'on' : ''}" onclick="tmSet('view','all')">All tasks</button>
       <button class="${_tm.view === 'person' ? 'on' : ''}" onclick="tmSet('view','person')">By person</button>
+      <button class="${_tm.view === 'category' ? 'on' : ''}" onclick="tmSet('view','category')">By category</button>
     </div>
+    ${_tm.view === 'category' ? `<select onchange="tmSet('cat', this.value)">
+        <option value="">All categories (grouped)</option>
+        ${_tm.categories.map(c => `<option${_tm.cat === c ? ' selected' : ''}>${tmEsc(c)}</option>`).join('')}
+        <option value="__none"${_tm.cat === '__none' ? ' selected' : ''}>No category</option>
+      </select>` : ''}
     ${_tm.view === 'person' ? `<select onchange="tmSet('person', this.value)">
         <option value="">Everyone (grouped)</option>
         ${people.map(([k, n]) => `<option value="${tmEsc(k)}"${_tm.person === k ? ' selected' : ''}>${tmEsc(n)}</option>`).join('')}
@@ -14055,18 +14061,22 @@ function tmRenderBody() {
   if (_tm.view === 'all') {
     el.innerHTML = tmTableHtml(vis, 'all', addRow);
   } else {
+    const byCat = _tm.view === 'category';
+    const pick = byCat ? _tm.cat : _tm.person;
     const groups = new Map();
     for (const t of vis) {
-      const k = t.responsible_name ? (t.responsible_id || t.responsible_name) : '__none';
-      if (_tm.person && _tm.person !== k) continue;
-      if (!groups.has(k)) groups.set(k, { name: t.responsible_name || 'Unassigned', tasks: [] });
+      const k = byCat ? (t.category || '__none') : (t.responsible_name ? (t.responsible_id || t.responsible_name) : '__none');
+      if (pick && pick !== k) continue;
+      if (!groups.has(k)) groups.set(k, { name: byCat ? (t.category || 'No category') : (t.responsible_name || 'Unassigned'), tasks: [] });
       groups.get(k).tasks.push(t);
     }
-    const sorted = [...groups.entries()].sort((a, b) => (a[0] === '__none') - (b[0] === '__none') || a[1].name.localeCompare(b[1].name));
+    // Categories keep their fixed order; people sort by name. Empty bucket last.
+    const ord = k => byCat ? _tm.categories.indexOf(k) : 0;
+    const sorted = [...groups.entries()].sort((a, b) => (a[0] === '__none') - (b[0] === '__none') || ord(a[0]) - ord(b[0]) || a[1].name.localeCompare(b[1].name));
     el.innerHTML = (addRow ? tmTableHtml([], 'new', addRow) + '<div style="height:14px"></div>' : '') +
       (sorted.length ? sorted.map(([k, g]) => `<div class="tm-group">
           <div class="tm-group-h">${tmEsc(g.name)} <span>${g.tasks.length} task${g.tasks.length === 1 ? '' : 's'}</span></div>
-          ${tmTableHtml(g.tasks, k, '')}</div>`).join('')
+          ${tmTableHtml(g.tasks, (byCat ? 'cat:' : 'p:') + k, '')}</div>`).join('')
         : '<div class="tm-wrap"><div class="tm-empty">No tasks match.</div></div>');
   }
   el.querySelectorAll('textarea').forEach(tmFit);
@@ -14115,7 +14125,7 @@ function tmNewRowHtml() {
   return `<tr class="tm-new" id="tmNew">
     <td></td><td class="tm-rank">+</td>
     <td><textarea id="tmN-name" rows="1" placeholder="Task name" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();tmCreate()}"></textarea></td>
-    <td>${tmCatSelect('', 'id="tmN-category"')}</td>
+    <td>${tmCatSelect(_tm.view === 'category' && _tm.cat !== '__none' ? _tm.cat : '', 'id="tmN-category"')}</td>
     <td>${tmPersonSelect(_tm.view === 'person' && _tm.person && _tm.person !== '__none' ? _tm.person : '', 'id="tmN-resp"')}</td>
     <td><input id="tmN-start" type="datetime-local"></td>
     <td><input id="tmN-end" type="datetime-local"></td>
@@ -14163,7 +14173,7 @@ async function tmEdit(id, el) {
     if (i >= 0) _tm.tasks[i] = d.task;
     tmSetSave('All changes saved');
     // Status/assignee changes can move the row between filters or groups.
-    if (f === 'status' || f === 'responsible' || f === 'end_time') tmRenderBody();
+    if (f === 'status' || f === 'responsible' || f === 'end_time' || f === 'category') tmRenderBody();
   } catch (e) { tmSetSave('Not saved: ' + e.message, true); }
 }
 
