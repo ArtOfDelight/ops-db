@@ -12975,6 +12975,11 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
 .ex-tr-cap .ex-inl { width:110px; }
 .ex-rs       { color:var(--ink-3);font-size:12px; }
 .ex-tr-add td { background:var(--surface); }
+.ex-files    { display:flex;flex-direction:column;gap:3px;align-items:flex-start; }
+.ex-file     { display:flex;align-items:center;gap:2px;max-width:220px;font-size:12px; }
+.ex-file a   { color:var(--info);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.ex-file a:hover { text-decoration:underline; }
+.ex-up       { display:inline-block;margin-top:2px; }
 
 /* master checklist rows */
 .ex-stage    { border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden;background:var(--surface); }
@@ -13019,24 +13024,23 @@ const EX_STATUSES = { planning: 'Planning', in_progress: 'In progress', live: 'L
 const EX_TEAM = ['Ayaaz', 'Ajay', 'Sushant', 'Jatin', 'Nishat', 'Kim', 'Jimmy', 'Sanu'];   // who tasks can be assigned to
 const exIsDone = p => p.status === 'completed';   // moved out of the tracker by hand, kept for reference
 
+/* One flat task list (no sections). It is still stored as a single stage so the
+   backend shape doesn't change; older multi-section data is merged on load. */
+const EX_STAGE = 'Checklist';
 const EX_DEFAULT_TEMPLATE = {
   stages: [
-    { name: 'Stage 1 – Pre-Opening Preparation', items: [
+    { name: EX_STAGE, items: [
       'Apply for FSSAI licence', 'Apply for ACT internet connection', 'Print SZ & AOD banners',
       'Order freezers, fridge, sink, tables, chairs and fan', 'Purchase a new SIM and ask SZ to update the outlet number',
-      'Find a nearby staff room', 'Purchase a new outlet phone'] },
-    { name: 'Keep Ready Before Opening', items: [
+      'Find a nearby staff room', 'Purchase a new outlet phone',
       'Marker', 'List to buy for new outlet', 'Scooper dispenser', 'Knife', 'Cutting board', 'Container for sandwiches',
       'Chocolate sauce pan', 'Containers for toppings', 'Floor wiper', 'Stool', 'Water can & dispenser', 'Curry pan',
       'Thermometer', 'Weighing machine', 'Rice cooker', 'Ladle', 'Scissors', 'Cello tape dispenser', 'Broom',
-      'Sticky notes', 'Mop', 'Camera'] },
-    { name: 'FSSAI Approval', items: ['FSSAI approval received'] },
-    { name: 'Stage 2 – Platform & System Setup', items: [
+      'Sticky notes', 'Mop', 'Camera',
+      'FSSAI approval received',
       'Contact platform POCs – Swiggy, Zomato, Ownly, Flipkart', 'Send integration emails for Swiggy, Zomato, Uengage and Rista',
-      'Inform Swiggy not to register under Section 9(5)', 'Complete Rista integration'] },
-    { name: 'Stage 3 – Menu & Inventory Setup', items: [
-      'Add outlet name in Rista sundae recipe', 'Add all SKUs using Item Stock Audit', 'Configure scoop options'] },
-    { name: 'Stage 4 – Final Go-Live Checklist', items: [
+      'Inform Swiggy not to register under Section 9(5)', 'Complete Rista integration',
+      'Add outlet name in Rista sundae recipe', 'Add all SKUs using Item Stock Audit', 'Configure scoop options',
       'Update bill payment sheet', 'Check nearest landmark', 'Install camera', 'Add outlet name in Google Form',
       'Update BESCOM & rent details', 'Place dummy orders', 'Update GST portal', 'Buy second-hand cycle if required'] },
   ],
@@ -13046,7 +13050,7 @@ const EX_DEFAULT_TEMPLATE = {
 };
 
 let _ex = { projects: [], template: null, employees: [], preview: false, loaded: false,
-            view: 'list', tab: 'active', adding: false, person: '', show: 'all', open: {}, saveTimers: {}, saveText: '', saveErr: false };
+            view: 'list', tab: 'active', adding: false, uploading: {}, person: '', show: 'all', open: {}, saveTimers: {}, saveText: '', saveErr: false };
 try { _ex.open = JSON.parse(localStorage.getItem('exOpen') || '{}') || {}; } catch (e) {}
 
 function exId() { return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -13086,6 +13090,22 @@ function exProgress(p) {
   let done = 0, total = 0;
   (p.stages || []).forEach(s => (s.items || []).forEach(i => { total++; if (i.done) done++; }));
   return { done, total, pct: total ? Math.round(done / total * 100) : 0 };
+}
+/* Merge any sections into the single checklist (same task text kept once). Returns true if changed. */
+function exFlatten(o) {
+  const st = o.stages || [];
+  if (st.length === 1 && st[0].name === EX_STAGE) return false;
+  const items = [], seen = new Set();
+  st.forEach(s => (s.items || []).forEach(i => { if (!seen.has(i.text)) { seen.add(i.text); items.push(i); } }));
+  o.stages = [{ id: st[0]?.id || exId(), name: EX_STAGE, items }];
+  return true;
+}
+function exTasks(p) { return (p.stages || []).flatMap(s => s.items || []); }
+/* Start date = first task ticked; go-live = day the last task was ticked (same rule as the backend). */
+function exAutoDates(p) {
+  const items = exTasks(p), done = items.filter(i => i.done && i.done_at).map(i => i.done_at.slice(0, 10)).sort();
+  p.start_date = done[0] || '';
+  p.go_live_date = items.length && items.every(i => i.done) && done.length ? done[done.length - 1] : '';
 }
 function exCapexSpent(p) { return (p.capex || []).reduce((a, c) => a + (c.actual || 0), 0); }
 function exDaysTo(iso) {
@@ -13177,6 +13197,14 @@ async function exLoad() {
     _ex.projects = pr.projects || [];
     _ex.template = tr.template && (tr.template.stages || []).length ? tr.template : null;
     _ex.preview = false;
+    if (_ex.template && exFlatten(_ex.template)) exQueueSave('');
+    _ex.projects.forEach(p => {
+      p.files = p.files || [];
+      const before = (p.start_date || '') + '|' + (p.go_live_date || '');
+      const flat = exFlatten(p);
+      exAutoDates(p);
+      if (flat || before !== p.start_date + '|' + p.go_live_date) exQueueSave(p.id);
+    });
   } catch (e) {
     if (e.status !== 404) throw e;
     _ex.preview = true;   // routes not deployed yet
@@ -13223,8 +13251,7 @@ function exListHtml() {
   };
   const ps = groups[_ex.tab] || groups.active;
   const spent = all.reduce((a, p) => a + exCapexSpent(p), 0);
-  const next = groups.pipeline.filter(p => p.go_live_date && exDaysTo(p.go_live_date) >= 0)
-                              .sort((a, b) => a.go_live_date.localeCompare(b.go_live_date))[0];
+  const next = all.filter(p => p.go_live_date).sort((a, b) => b.go_live_date.localeCompare(a.go_live_date))[0];
 
   const tab = (key, label, dot, sub) => `
     <button class="ex-kpi ${_ex.tab === key ? 'sel' : ''}" onclick="exSetTab('${key}')">
@@ -13238,8 +13265,8 @@ function exListHtml() {
       ${tab('pipeline', 'In pipeline', 'var(--info)', 'Not live yet')}
       ${tab('opened', 'Opened', 'var(--green)', 'Marked live')}
       ${tab('completed', 'Completed', '#7c3aed', 'All checks done')}
-      <div class="ex-kpi"><span class="ex-kpi-l">🚀 Next go-live</span><span class="ex-kpi-v sm">${next ? exEsc(next.name) : '—'}</span>
-        <span class="ex-kpi-s">${next ? exFmtDate(next.go_live_date) + ' · in ' + exDaysTo(next.go_live_date) + ' days' : 'No date set'}</span></div>
+      <div class="ex-kpi"><span class="ex-kpi-l">🚀 Latest go-live</span><span class="ex-kpi-v sm">${next ? exEsc(next.name) : '—'}</span>
+        <span class="ex-kpi-s">${next ? exFmtDate(next.go_live_date) : 'No outlet fully done yet'}</span></div>
       <div class="ex-kpi"><span class="ex-kpi-l">💰 CAPEX spent</span><span class="ex-kpi-v sm">${exMoney(spent)}</span>
         <span class="ex-kpi-s">Across all outlets</span></div>
     </div>`;
@@ -13267,10 +13294,8 @@ function exListHtml() {
       <h3>New outlet</h3>
       <div class="ex-fields">
         <label>Outlet name<input class="ex-in" id="exNewName" placeholder="e.g. HSR Layout" onkeydown="if(event.key==='Enter')exCreate()"></label>
-        <label>Start date<input class="ex-in" type="date" id="exNewStart" value="${exToday()}"></label>
-        <label>Target go-live date<input class="ex-in" type="date" id="exNewLive"></label>
       </div>
-      <div style="font-size:11px;color:var(--ink-3);margin:10px 0">The checklist and CAPEX lines are copied from the master checklist.</div>
+      <div style="font-size:11px;color:var(--ink-3);margin:10px 0">The checklist and CAPEX lines are copied from the master checklist. The start date fills in when the first task is ticked, and the go-live date when the last one is.</div>
       <div class="ex-bar" style="margin:0">
         <button class="ex-btn pri" onclick="exCreate()">Create</button>
         <button class="ex-btn" onclick="_ex.adding=false;exRender()">Cancel</button>
@@ -13357,11 +13382,21 @@ function exTrackerHtml(ps) {
     </th>`;
   }).join('')}</tr>`;
 
-  const dateRow = (label, f) => `<tr class="ex-tr-top"><td class="ex-tr-first">${label}</td>${ps.map(p => {
-    const dt = exDaysTo(p.go_live_date);
-    const sub = f !== 'go_live_date' || p.status === 'live' || dt === null ? ''
-      : `<div class="ex-tr-sub">${dt < 0 ? `<span style="color:var(--red)">${-dt} days overdue</span>` : dt + ' days to go'}</div>`;
-    return `<td><input class="ex-inl" type="date" value="${exEsc(p[f])}" onchange="exSetField('${exEsc(p.id)}','${f}',this.value)">${sub}</td>`;
+  // Dates are automatic: start = first task ticked, go-live = last task ticked.
+  const dateRow = (label, f, hint) => `<tr class="ex-tr-top"><td class="ex-tr-first">${label}<div class="ex-tr-sub">${hint}</div></td>${ps.map(p =>
+    `<td>${p[f] ? `<b>${exFmtDate(p[f])}</b>` : '<span class="ex-tr-na">—</span>'}</td>`).join('')}</tr>`;
+
+  // Files saved to each outlet's shared-drive folder.
+  const files = `<tr class="ex-tr-top"><td class="ex-tr-first">📎 Files<div class="ex-tr-sub">Saved to the outlet's shared-drive folder</div></td>${ps.map(p => {
+    const pid = exEsc(p.id), list = p.files || [];
+    return `<td style="text-align:left"><div class="ex-files">
+      ${list.map(f => `<div class="ex-file"><a href="${exEsc(f.url)}" target="_blank" rel="noopener" title="${exEsc(f.name)}">${exEsc(f.label || f.name)}</a>
+        <button class="ex-x" title="Delete file" onclick="exDeleteFile('${pid}','${exEsc(f.id)}')">×</button></div>`).join('')}
+      <label class="ex-btn sm ex-up" title="${_ex.preview ? 'Not available in preview mode' : 'Upload files for this outlet'}">
+        ${_ex.uploading[p.id] ? '⏳ Uploading…' : '⬆ Upload'}
+        <input type="file" multiple hidden ${_ex.preview || _ex.uploading[p.id] ? 'disabled' : ''} onchange="exUpload('${pid}',this)">
+      </label>
+    </div></td>`;
   }).join('')}</tr>`;
 
   // CAPEX spent, dropping down into the CAPEX lines.
@@ -13389,28 +13424,16 @@ function exTrackerHtml(ps) {
         <button class="ex-btn sm" onclick="exTrAddCapex()">Add</button></div></td>${blank}</tr>`;
   }
 
-  // Sections, each dropping down into its tasks.
+  // One flat task list (no sections).
   const sections = tr.sections.map((sec, si) => {
     const tasks = sec.tasks.map((t, ti) => ti)
       .filter(ti => !filt || ps.some(p => { const i = exTrItem(p, si, ti); return i && exItemVisible(i); }));
     if (filt && !tasks.length) return '';
-    const open = filt || exIsOpen('ts:' + sec.name);
-    const cells = ps.map(p => {
-      const st = exTrStage(p, si);
-      if (!st || !st.items.length) return '<td class="ex-tr-na">—</td>';
-      const d = st.items.filter(i => i.done).length, n = st.items.length;
-      if (d === n) return `<td title="All ${n} done"><span class="ex-tick">✓</span></td>`;
-      return `<td><span class="ex-tr-cnt ${d ? 'part' : ''}">${d}/${n}</span><div class="ex-prog sm"><i style="width:${Math.round(d / n * 100)}%"></i></div></td>`;
-    }).join('');
-    const label = open && !filt
-      ? `<div class="ex-tr-lbl" onclick="event.stopPropagation()">
-          <span class="ex-car open" onclick="exTrToggleSec(${si})">▶</span><span class="ex-num">${si + 1}</span>
-          <input class="ex-inl" value="${exEsc(sec.name)}" onchange="exTrRenameSection(${si},this.value)">
-          <button class="ex-x" title="Remove this section from every outlet" onclick="exTrRemoveSection(${si})">×</button>
-        </div>`
-      : `<span class="ex-car ${open ? 'open' : ''}">▶</span><span class="ex-num">${si + 1}</span>${exEsc(sec.name)}`;
-    let html = `<tr class="ex-tr-sec ${open ? 'open' : ''}"><td class="ex-tr-first" onclick="${filt ? '' : `exTrToggleSec(${si})`}">${label}</td>${cells}</tr>`;
-    if (!open) return html;
+    let html = `<tr class="ex-tr-sec open"><td class="ex-tr-first">✅ Tasks</td>${ps.map(p => {
+      const pr = exProgress(p);
+      return pr.total && pr.done === pr.total ? `<td><span class="ex-tick">✓</span></td>`
+        : `<td><span class="ex-tr-cnt ${pr.done ? 'part' : ''}">${pr.done}/${pr.total}</span></td>`;
+    }).join('')}</tr>`;
     html += tasks.map(ti => `<tr class="ex-tr-task">
       <td class="ex-tr-first"><div class="ex-tr-lbl">
         <input class="ex-inl" value="${exEsc(sec.tasks[ti])}" onchange="exTrRenameTask(${si},${ti},this.value)">
@@ -13426,13 +13449,9 @@ function exTrackerHtml(ps) {
 
   const empty = filt && !sections
     ? `<tr><td class="ex-tr-first ex-tr-na" style="padding:18px 10px">No tasks match this filter.</td>${blank}</tr>` : '';
-  const addSection = filt ? '' : `<tr class="ex-tr-add"><td class="ex-tr-first"><div class="ex-add" style="padding:0">
-      <input class="ex-in" id="exTrAddSection" placeholder="New section for every outlet…" onkeydown="if(event.key==='Enter')exTrAddSection()">
-      <button class="ex-btn sm" onclick="exTrAddSection()">+ Section</button></div></td>${blank}</tr>`;
-
   return `<div class="ex-trk ${_ex.tab === 'completed' ? 'done-view' : ''}"><table class="ex-tr">
     <thead>${head}</thead>
-    <tbody>${dateRow('📅 Start date', 'start_date')}${dateRow('🚀 Go-live date', 'go_live_date')}${capex}${sections}${empty}${addSection}</tbody>
+    <tbody>${dateRow('📅 Start date', 'start_date', 'Auto: first task ticked')}${dateRow('🚀 Go-live date', 'go_live_date', 'Auto: all tasks done')}${files}${capex}${sections}${empty}</tbody>
   </table></div>`;
 }
 
@@ -13453,22 +13472,34 @@ function exTrEach(fn) {
   _ex.projects.forEach(p => { if (fn(p) !== false) exQueueSave(p.id); });
   exRender();
 }
-function exTrToggleSec(si) { exToggleOpen('ts:' + _ex.tr.sections[si].name); }
-function exTrRenameSection(si, name) {
-  const old = _ex.tr.sections[si].name; name = name.trim();
-  if (!name || name === old) { exRender(); return; }
-  _ex.open['ts:' + name] = exIsOpen('ts:' + old);
-  exTrEach(p => { const st = p.stages.find(s => s.name === old); if (!st) return false; st.name = name; });
+/* ── outlet files (stored in the shared drive, one folder per outlet) ── */
+async function exUpload(pid, input) {
+  const p = exProj(pid), files = [...input.files]; input.value = '';
+  if (!p || !files.length) return;
+  _ex.uploading[pid] = true; exRender();
+  const failed = [];
+  for (const f of files) {
+    const def = f.name.replace(/\.[^.]+$/, '');
+    const label = files.length === 1 ? (prompt(`File name for "${f.name}" (saved as "${p.name} - <name> - date"):`, def) ?? null) : def;
+    if (label === null) continue;
+    const fd = new FormData(); fd.append('file', f); fd.append('label', label.trim() || def);
+    try {
+      const r = await fetch(`${API}/api/admin/expansion/projects/${encodeURIComponent(pid)}/files`,
+        { method: 'POST', headers: { Authorization: `Bearer ${_lsToken}` }, body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
+      (p.files = p.files || []).push(d.file);
+    } catch (e) { failed.push(`${f.name}: ${e.message}`); }
+  }
+  delete _ex.uploading[pid]; exRender();
+  if (failed.length) alert('Some files did not upload:\n' + failed.join('\n'));
 }
-function exTrRemoveSection(si) {
-  const name = _ex.tr.sections[si].name;
-  if (!confirm(`Remove the section "${name}" and all its tasks from every outlet?`)) return;
-  exTrEach(p => { const n = p.stages.length; p.stages = p.stages.filter(s => s.name !== name); return p.stages.length !== n; });
-}
-function exTrAddSection() {
-  const name = document.getElementById('exTrAddSection').value.trim(); if (!name) return;
-  _ex.open['ts:' + name] = true;
-  exTrEach(p => { if (p.stages.some(s => s.name === name)) return false; p.stages.push({ id: exId(), name, items: [] }); });
+async function exDeleteFile(pid, fid) {
+  const p = exProj(pid), f = p && (p.files || []).find(x => x.id === fid); if (!f) return;
+  if (!confirm(`Delete "${f.name}"? It will be moved to the shared drive's trash.`)) return;
+  try { await exApi('DELETE', `/projects/${encodeURIComponent(pid)}/files/${encodeURIComponent(fid)}`); }
+  catch (e) { alert('Could not delete: ' + e.message); return; }
+  p.files = p.files.filter(x => x.id !== fid); exRender();
 }
 function exTrRenameTask(si, ti, text) {
   const old = _ex.tr.sections[si].tasks[ti]; text = text.trim();
@@ -13510,8 +13541,7 @@ async function exCreate() {
   const tpl = exTpl();
   const p = {
     name, address: '', status: 'planning',
-    start_date: document.getElementById('exNewStart').value || '',
-    go_live_date: document.getElementById('exNewLive').value || '',
+    start_date: '', go_live_date: '', files: [],
     stages: tpl.stages.map(s => ({ id: exId(), name: s.name,
       items: s.items.map(i => exNewTask(i.text, i.assignee_id)) })),
     capex: tpl.capex.map(c => ({ id: exId(), item: c.item, actual: null, notes: '' })),
@@ -13564,13 +13594,9 @@ function exTemplateHtml() {
       ${exSaveHtml()}
     </div>
     <div class="ex-banner info">
-      This is the <b>master checklist</b>. New outlets start from a copy of it, and changes here (renaming, adding, removing, reordering and default assignees) also apply to every active outlet. Drag <b>⋮⋮</b> to reorder sections, tasks and CAPEX lines. Completed outlets aren't changed.
+      This is the <b>master checklist</b>. New outlets start from a copy of it, and changes here (renaming, adding, removing, reordering and default assignees) also apply to every active outlet. Drag <b>⋮⋮</b> to reorder tasks and CAPEX lines. Completed outlets aren't changed.
     </div>
     ${exStagesHtml('', t.stages)}
-    <div class="ex-add" style="padding:2px 0 8px">
-      <input class="ex-in" id="exAddStage-" placeholder="New section, e.g. Stage 5 – Launch marketing" onkeydown="if(event.key==='Enter')exAddStage('')">
-      <button class="ex-btn sm" onclick="exAddStage('')">+ Section</button>
-    </div>
     <div class="ex-stage ${capOpen ? 'open' : ''}">
       <div class="ex-stage-h">
         <button class="ex-car ${capOpen ? 'open' : ''}" onclick="exToggleOpen('c:')">▶</button>
@@ -13598,8 +13624,8 @@ const exDnd = (type, sid, iid) => `ondragover="exDragOver(event,'${type}','${sid
 
 function exStagesHtml(pid, stages) {
   return stages.map(s => {
-    const k = `s:${pid}:${s.id}`, open = exIsOpen(k);
-    const rows = !open ? '' : s.items.map(i => `
+    const open = true;
+    const rows = s.items.map(i => `
       <div class="ex-item" ondragstart="exDragStart(event,'item','${s.id}','${i.id}')" ondragend="exDragEnd(event)" ${exDnd('item', s.id, i.id)}>
         ${exGrip('.ex-item')}
         <input class="ex-inl txt" value="${exEsc(i.text)}" onchange="exEditItem('','${s.id}','${i.id}','text',this.value)">
@@ -13607,13 +13633,10 @@ function exStagesHtml(pid, stages) {
         <button class="ex-x" title="Remove item" onclick="exRemoveItem('','${s.id}','${i.id}')">×</button>
       </div>`).join('');
     return `
-      <div class="ex-stage ${open ? 'open' : ''}" ondragstart="exDragStart(event,'stage','${s.id}','')" ondragend="exDragEnd(event)">
-        <div class="ex-stage-h" ${exDnd('head', s.id, '')}>
-          ${exGrip('.ex-stage')}
-          <button class="ex-car ${open ? 'open' : ''}" title="${open ? 'Collapse' : 'Show checklist'}" onclick="exToggleOpen('${k}')">▶</button>
-          <input class="ex-inl" value="${exEsc(s.name)}" onchange="exRenameStage('','${s.id}',this.value)">
+      <div class="ex-stage open">
+        <div class="ex-stage-h">
+          <span style="font-weight:600;font-size:13px;flex:1;padding:4px 6px">✅ Tasks</span>
           <span class="ex-stage-n">${s.items.length} items</span>
-          <button class="ex-x" title="Remove section" onclick="exRemoveStage('','${s.id}')">×</button>
         </div>
         ${rows}
         ${open ? `
@@ -13727,6 +13750,7 @@ function exItem(pid, sid, iid) { return exFindStage(pid, sid)?.items.find(x => x
 function exToggle(pid, sid, iid, done) {
   const i = exItem(pid, sid, iid); if (!i) return;
   i.done = done; i.done_at = done ? exToday() : null; i.done_by = done ? exMe() : null;
+  if (pid) exAutoDates(exProj(pid));
   exQueueSave(pid); exRender();
 }
 function exAssign(pid, sid, iid, name) {
