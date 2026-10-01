@@ -12980,6 +12980,10 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
 .ex-file a   { color:var(--info);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .ex-file a:hover { text-decoration:underline; }
 .ex-up       { display:inline-block;margin-top:2px; }
+.ex-clip     { display:inline-flex;align-items:center;gap:1px;flex:none; }
+.ex-clip-b   { cursor:pointer;font-size:13px;padding:2px 3px;border-radius:5px;opacity:.55; }
+.ex-clip-b:hover { opacity:1;background:var(--navy-3); }
+.ex-clip-f   { text-decoration:none;font-size:13px;padding:2px 1px; }
 
 /* master checklist rows */
 .ex-stage    { border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden;background:var(--surface); }
@@ -13388,7 +13392,7 @@ function exTrackerHtml(ps) {
 
   // Files saved to each outlet's shared-drive folder.
   const files = `<tr class="ex-tr-top"><td class="ex-tr-first">📎 Files<div class="ex-tr-sub">Saved to the outlet's shared-drive folder</div></td>${ps.map(p => {
-    const pid = exEsc(p.id), list = p.files || [];
+    const pid = exEsc(p.id), list = (p.files || []).filter(f => !f.item_id);
     return `<td style="text-align:left"><div class="ex-files">
       ${list.map(f => `<div class="ex-file"><a href="${exEsc(f.url)}" target="_blank" rel="noopener" title="${exEsc(f.name)}">${exEsc(f.label || f.name)}</a>
         <button class="ex-x" title="Delete file" onclick="exDeleteFile('${pid}','${exEsc(f.id)}')">×</button></div>`).join('')}
@@ -13417,6 +13421,7 @@ function exTrackerHtml(ps) {
         const pid = exEsc(p.id);
         return `<td><div class="ex-tr-cap">
           <span class="ex-rs">₹</span><input class="ex-inl num" inputmode="decimal" placeholder="Spent" title="Spent (₹)" value="${c.actual ?? ''}" onchange="exEditCapex('${pid}','${c.id}','actual',this.value)">
+          ${exClip(p, c.id)}
         </div></td>`;
       }).join('')}
     </tr>`).join('') + `<tr class="ex-tr-task ex-tr-add"><td class="ex-tr-first"><div class="ex-add" style="padding:0">
@@ -13464,7 +13469,19 @@ function exTrCell(p, si, ti, filt) {
   return `<td class="${i.done ? 'is-done' : ''}"><div class="ex-tr-cell">
     <input type="checkbox" ${i.done ? 'checked' : ''} title="${exEsc(tip)}" onchange="exToggle('${pid}','${st.id}','${i.id}',this.checked)">
     ${exAssigneeSelect(pid, st.id, i)}
+    ${exClip(p, i.id)}
   </div></td>`;
+}
+
+/* 📎 on a task / CAPEX cell: upload files for that line, and links to what's there. */
+function exClip(p, iid) {
+  const pid = exEsc(p.id), key = p.id + ':' + iid, files = (p.files || []).filter(f => f.item_id === iid);
+  const links = files.map(f => `<a class="ex-clip-f" href="${exEsc(f.url)}" target="_blank" rel="noopener" title="${exEsc(f.name)}"
+      oncontextmenu="event.preventDefault();exDeleteFile('${pid}','${exEsc(f.id)}')">📄</a>`).join('');
+  const busy = _ex.uploading[key];
+  return `<span class="ex-clip">${links}<label class="ex-clip-b" title="${_ex.preview ? 'Not available in preview mode'
+      : 'Upload files for this line' + (files.length ? ' (right-click a 📄 to delete it)' : '')}">${busy ? '⏳' : '📎'}
+    <input type="file" multiple hidden ${_ex.preview || busy ? 'disabled' : ''} onchange="exUpload('${pid}',this,'${exEsc(iid)}')"></label></span>`;
 }
 
 /* Row edits apply to every outlet that has the row; each changed outlet is saved. */
@@ -13473,16 +13490,21 @@ function exTrEach(fn) {
   exRender();
 }
 /* ── outlet files (stored in the shared drive, one folder per outlet) ── */
-async function exUpload(pid, input) {
+async function exUpload(pid, input, iid) {
   const p = exProj(pid), files = [...input.files]; input.value = '';
   if (!p || !files.length) return;
-  _ex.uploading[pid] = true; exRender();
+  // Line this upload belongs to (a task or a CAPEX line), if any.
+  const line = iid ? (exTasks(p).find(i => i.id === iid)?.text || p.capex.find(c => c.id === iid)?.item || '') : '';
+  const key = iid ? pid + ':' + iid : pid;
+  _ex.uploading[key] = true; exRender();
   const failed = [];
   for (const f of files) {
     const def = f.name.replace(/\.[^.]+$/, '');
-    const label = files.length === 1 ? (prompt(`File name for "${f.name}" (saved as "${p.name} - <name> - date"):`, def) ?? null) : def;
+    const label = files.length === 1
+      ? (prompt(`File name for "${f.name}" (saved as "${p.name} - ${line ? line + ' - ' : ''}<name> - date"):`, def) ?? null) : def;
     if (label === null) continue;
     const fd = new FormData(); fd.append('file', f); fd.append('label', label.trim() || def);
+    if (iid) { fd.append('item_id', iid); fd.append('item_name', line); }
     try {
       const r = await fetch(`${API}/api/admin/expansion/projects/${encodeURIComponent(pid)}/files`,
         { method: 'POST', headers: { Authorization: `Bearer ${_lsToken}` }, body: fd });
@@ -13491,7 +13513,7 @@ async function exUpload(pid, input) {
       (p.files = p.files || []).push(d.file);
     } catch (e) { failed.push(`${f.name}: ${e.message}`); }
   }
-  delete _ex.uploading[pid]; exRender();
+  delete _ex.uploading[key]; exRender();
   if (failed.length) alert('Some files did not upload:\n' + failed.join('\n'));
 }
 async function exDeleteFile(pid, fid) {
