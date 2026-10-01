@@ -13928,7 +13928,7 @@ function exRemoveCapex(pid, cid) {
 .tm-new td { background:var(--info-dim); }
 </style>
 <script>
-let _tm = { tasks: [], statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
+let _tm = { tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
             view: 'all', person: '', status: 'open', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
 
 async function tmApi(method, path, body) {
@@ -13957,32 +13957,51 @@ function tmToLocal(iso) {
 }
 function tmFromLocal(v) { return v ? new Date(v).toISOString() : null; }
 
-async function tmLoad() {
-  try {
-    const r = await fetch(`${API}/api/admin/employees?status_filter=Active`, { headers: { Authorization: `Bearer ${_lsToken}` } });
-    if (r.ok) {
-      const d = await r.json();
-      _tm.employees = (d.employees || []).map(e => ({ id: e.employee_id, name: e.short_name || e.full_name || e.employee_id }))
-                                         .sort((a, b) => a.name.localeCompare(b.name));
-    }
-  } catch (e) {}
-  const d = await tmApi('GET', '');
-  // Only admins can be made responsible for a task.
-  if (d.admin_ids) _tm.employees = _tm.employees.filter(e => d.admin_ids.includes(e.id));
+/* Tasks and the admin list load in parallel; the last copy is cached in
+   localStorage so the page draws instantly and refreshes underneath. */
+const TM_CACHE = 'tmCache';
+function tmApply(d, emps) {
   _tm.tasks = d.tasks || [];
   if (d.statuses) _tm.statuses = d.statuses;
+  if (emps) _tm.allEmployees = emps;
+  if (d.admin_ids) _tm.adminIds = d.admin_ids;
+  // Only admins can be made responsible for a task.
+  _tm.employees = (_tm.allEmployees || []).filter(e => !_tm.adminIds || _tm.adminIds.includes(e.id));
+}
+async function tmFetchEmployees() {
+  try {
+    const r = await fetch(`${API}/api/admin/employees?status_filter=Active`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return (d.employees || []).map(e => ({ id: e.employee_id, name: e.short_name || e.full_name || e.employee_id }))
+                              .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (e) { return null; }
+}
+async function tmLoad() {
+  const [d, emps] = await Promise.all([tmApi('GET', ''), tmFetchEmployees()]);
+  tmApply(d, emps || _tm.allEmployees);
   _tm.loaded = true;
+  try { localStorage.setItem(TM_CACHE, JSON.stringify({ d, emps: _tm.allEmployees })); } catch (e) {}
+}
+function tmLoadCache() {
+  try { const c = JSON.parse(localStorage.getItem(TM_CACHE) || 'null'); if (c) { tmApply(c.d, c.emps); return true; } } catch (e) {}
+  return false;
 }
 
 async function renderTasksPage() {
   const body = document.getElementById('pageBody');
   if (!_lsToken) { renderSigninLogin(body); return; }
-  if (!_tm.loaded) {
-    body.innerHTML = '<div class="tm-empty">Loading…</div>';
-    try { await tmLoad(); }
-    catch (e) { if (_currentPage === 'tasks') body.innerHTML = errBox(escHtml(e.message)); return; }
+  if (_tm.loaded || tmLoadCache()) tmRender();      // instant from memory / cache
+  else body.innerHTML = '<div class="tm-empty">Loading…</div>';
+  try { await tmLoad(); }
+  catch (e) {
+    if (_currentPage !== 'tasks') return;
+    if (_tm.tasks.length) tmSetSave('Offline copy: ' + e.message, true);
+    else body.innerHTML = errBox(escHtml(e.message));
+    return;
   }
-  if (_currentPage === 'tasks') tmRender();
+  // Refresh underneath, but don't redraw over someone mid-edit.
+  if (_currentPage === 'tasks' && !document.activeElement?.closest?.('#tmBody')) tmRender();
 }
 
 function tmVisible() {
@@ -14014,7 +14033,7 @@ function tmRender() {
     <select onchange="tmSet('status', this.value)">${statusOpts}</select>
     <input type="search" placeholder="Search…" value="${tmEsc(_tm.q)}" oninput="_tm.q=this.value; tmRenderBody()">
     <button class="tm-btn" onclick="tmSet('adding', true)">+ Add task</button>
-    <button class="tm-btn ghost" onclick="_tm.loaded=false; renderTasksPage()">↻</button>
+    <button class="tm-btn ghost" onclick="renderTasksPage()">↻</button>
     <span class="tm-save${_tm.saveErr ? ' err' : ''}" id="tmSave">${tmEsc(_tm.saveText)}</span>
   </div>
   <datalist id="tmCats">${tmCategories().map(c => `<option value="${tmEsc(c)}">`).join('')}</datalist>
