@@ -13967,6 +13967,8 @@ async function tmLoad() {
     }
   } catch (e) {}
   const d = await tmApi('GET', '');
+  // Only admins can be made responsible for a task.
+  if (d.admin_ids) _tm.employees = _tm.employees.filter(e => d.admin_ids.includes(e.id));
   _tm.tasks = d.tasks || [];
   if (d.statuses) _tm.statuses = d.statuses;
   _tm.loaded = true;
