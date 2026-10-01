@@ -13902,7 +13902,7 @@ function exRemoveCapex(pid, cid) {
 .tm-group-h { font-size:13px; font-weight:700; margin:0 0 6px; display:flex; gap:8px; align-items:baseline; }
 .tm-group-h span { font-size:11px; font-weight:400; color:var(--navy-text); }
 .tm-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow-x:auto; box-shadow:var(--sh); }
-.tm-table { width:100%; border-collapse:collapse; font-size:12px; min-width:1100px; }
+.tm-table { width:100%; border-collapse:collapse; font-size:12px; min-width:820px; }
 .tm-table th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-text); padding:8px 6px; border-bottom:1px solid var(--border); background:var(--bg); }
 .tm-table td { padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
 .tm-table tr:last-child td { border-bottom:0; }
@@ -13923,7 +13923,6 @@ function exRemoveCapex(pid, cid) {
 .tm-st[data-v="Done"] { color:var(--green); }
 .tm-del { border:0; background:none; cursor:pointer; color:var(--navy-text); font-size:14px; padding-top:6px; }
 .tm-del:hover { color:var(--red); }
-.tm-overdue input[data-f=end_time] { color:var(--red); font-weight:600; }
 .tm-empty { padding:24px; text-align:center; color:var(--navy-text); font-size:13px; }
 .tm-new td { background:var(--info-dim); }
 </style>
@@ -13949,13 +13948,6 @@ function tmSetSave(text, isErr) {
   const el = document.getElementById('tmSave');
   if (el) { el.textContent = text; el.classList.toggle('err', !!isErr); }
 }
-/* ISO → value for <input type=datetime-local> in the browser's local time */
-function tmToLocal(iso) {
-  if (!iso) return '';
-  const d = new Date(iso), p = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-function tmFromLocal(v) { return v ? new Date(v).toISOString() : null; }
 
 /* Tasks and the admin list load in parallel; the last copy is cached in
    localStorage so the page draws instantly and refreshes underneath. */
@@ -14089,8 +14081,7 @@ function tmTableHtml(tasks, group, addRow) {
   const rows = tasks.map((t, i) => tmRowHtml(t, i + 1)).join('');
   const empty = !tasks.length && !addRow ? `<tr><td colspan="11"><div class="tm-empty">No tasks yet. Use “+ Add task”.</div></td></tr>` : '';
   return `<div class="tm-wrap"><table class="tm-table">
-    <thead><tr><th></th><th>#</th><th style="width:20%">Task</th><th style="width:10%">Category</th><th style="width:10%">Responsible</th>
-      <th style="width:150px">Start</th><th style="width:150px">End</th><th style="width:118px">Status</th><th style="width:20%">Notes</th><th></th></tr></thead>
+    <thead><tr><th></th><th>#</th><th style="width:30%">Task</th><th style="width:12%">Category</th><th style="width:12%">Responsible</th><th style="width:118px">Status</th><th>Notes</th><th></th></tr></thead>
     <tbody data-group="${tmEsc(group)}" ondragover="tmDragOver(event)" ondrop="tmDrop(event)">${addRow}${rows}${empty}</tbody></table></div>`;
 }
 
@@ -14104,17 +14095,14 @@ function tmStatusSelect(v, attrs) {
 }
 
 function tmRowHtml(t, rank) {
-  const overdue = t.end_time && t.status !== 'Done' && new Date(t.end_time) < new Date();
   const on = f => `data-f="${f}" onchange="tmEdit(${t.id}, this)"`;
-  return `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}${overdue ? ' tm-overdue' : ''}" data-id="${t.id}"
+  return `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}" data-id="${t.id}"
       ondragstart="tmDragStart(event)" ondragend="tmDragEnd(event)">
     <td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
     <td class="tm-rank">${rank}</td>
     <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('name')}>${tmEsc(t.name)}</textarea></td>
     <td>${tmCatSelect(t.category, on('category'))}</td>
     <td>${tmPersonSelect(t.responsible_id, on('responsible'))}</td>
-    <td><input type="datetime-local" value="${tmToLocal(t.start_time)}" ${on('start_time')}></td>
-    <td><input type="datetime-local" value="${tmToLocal(t.end_time)}" ${on('end_time')}></td>
     <td>${tmStatusSelect(t.status, on('status'))}</td>
     <td><textarea rows="1" oninput="tmFit(this)" ${on('notes')}>${tmEsc(t.notes)}</textarea></td>
     <td><button class="tm-del" title="Delete" onclick="tmDelete(${t.id})">✕</button></td>
@@ -14127,8 +14115,6 @@ function tmNewRowHtml() {
     <td><textarea id="tmN-name" rows="1" placeholder="Task name" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();tmCreate()}"></textarea></td>
     <td>${tmCatSelect(_tm.view === 'category' && _tm.cat !== '__none' ? _tm.cat : '', 'id="tmN-category"')}</td>
     <td>${tmPersonSelect(_tm.view === 'person' && _tm.person && _tm.person !== '__none' ? _tm.person : '', 'id="tmN-resp"')}</td>
-    <td><input id="tmN-start" type="datetime-local"></td>
-    <td><input id="tmN-end" type="datetime-local"></td>
     <td>${tmStatusSelect('Not started', 'id="tmN-status"')}</td>
     <td><textarea id="tmN-notes" rows="1" oninput="tmFit(this)" placeholder="Notes"></textarea></td>
     <td style="white-space:nowrap"><button class="tm-btn" onclick="tmCreate()">Save</button>
@@ -14147,7 +14133,7 @@ async function tmCreate() {
     const d = await tmApi('POST', '', {
       name, category: v('tmN-category').trim(), notes: v('tmN-notes'),
       responsible_id: rid, responsible_name: emp ? emp.name : '',
-      start_time: tmFromLocal(v('tmN-start')), end_time: tmFromLocal(v('tmN-end')), status: v('tmN-status'),
+      status: v('tmN-status'),
     });
     _tm.tasks.push(d.task);
     _tm.adding = false;
@@ -14162,8 +14148,7 @@ async function tmEdit(id, el) {
   if (f === 'responsible') {
     const emp = _tm.employees.find(e => e.id === el.value);
     patch = { responsible_id: el.value, responsible_name: emp ? emp.name : '' };
-  } else if (f === 'start_time' || f === 'end_time') patch = { [f]: tmFromLocal(el.value) };
-  else if (f === 'name' && !el.value.trim()) { tmSetSave('Task name cannot be empty', true); return; }
+  } else if (f === 'name' && !el.value.trim()) { tmSetSave('Task name cannot be empty', true); return; }
   else patch = { [f]: el.value };
   if (f === 'status') el.dataset.v = el.value;
   tmSetSave('Saving…');
@@ -14173,7 +14158,7 @@ async function tmEdit(id, el) {
     if (i >= 0) _tm.tasks[i] = d.task;
     tmSetSave('All changes saved');
     // Status/assignee changes can move the row between filters or groups.
-    if (f === 'status' || f === 'responsible' || f === 'end_time' || f === 'category') tmRenderBody();
+    if (f === 'status' || f === 'responsible' || f === 'category') tmRenderBody();
   } catch (e) { tmSetSave('Not saved: ' + e.message, true); }
 }
 
