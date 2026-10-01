@@ -13909,7 +13909,7 @@ function exRemoveCapex(pid, cid) {
 .tm-table input, .tm-table select, .tm-table textarea { font:inherit; font-size:12px; width:100%; box-sizing:border-box; border:1px solid transparent; border-radius:6px; padding:5px 6px; background:transparent; color:var(--ink); }
 .tm-table input:hover, .tm-table select:hover, .tm-table textarea:hover { border-color:var(--border); }
 .tm-table input:focus, .tm-table select:focus, .tm-table textarea:focus { border-color:var(--info); outline:none; background:var(--surface); }
-.tm-table textarea { resize:vertical; min-height:28px; height:28px; }
+.tm-table textarea { resize:none; min-height:28px; overflow:hidden; white-space:pre-wrap; word-break:break-word; }
 .tm-handle { cursor:grab; color:var(--navy-text); user-select:none; text-align:center; font-size:14px; padding-top:8px !important; width:22px; }
 .tm-rank { color:var(--navy-text); font-family:var(--mono); padding-top:9px !important; width:26px; }
 .tm-row.dragging { opacity:.4; }
@@ -14047,7 +14047,11 @@ function tmRenderBody() {
           ${tmTableHtml(g.tasks, k, '')}</div>`).join('')
         : '<div class="tm-wrap"><div class="tm-empty">No tasks match.</div></div>');
   }
+  el.querySelectorAll('textarea').forEach(tmFit);
 }
+
+/* Grow a notes box to its full text so the whole row fits the note. */
+function tmFit(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; }
 
 function tmTableHtml(tasks, group, addRow) {
   const rows = tasks.map((t, i) => tmRowHtml(t, i + 1)).join('');
@@ -14080,7 +14084,7 @@ function tmRowHtml(t, rank) {
     <td><input type="datetime-local" value="${tmToLocal(t.start_time)}" ${on('start_time')}></td>
     <td><input type="datetime-local" value="${tmToLocal(t.end_time)}" ${on('end_time')}></td>
     <td>${tmStatusSelect(t.status, on('status'))}</td>
-    <td><textarea rows="1" ${on('notes')}>${tmEsc(t.notes)}</textarea></td>
+    <td><textarea rows="1" oninput="tmFit(this)" ${on('notes')}>${tmEsc(t.notes)}</textarea></td>
     <td><button class="tm-del" title="Delete" onclick="tmDelete(${t.id})">✕</button></td>
   </tr>`;
 }
@@ -14094,7 +14098,7 @@ function tmNewRowHtml() {
     <td><input id="tmN-start" type="datetime-local"></td>
     <td><input id="tmN-end" type="datetime-local"></td>
     <td>${tmStatusSelect('Not started', 'id="tmN-status"')}</td>
-    <td><textarea id="tmN-notes" rows="1" placeholder="Notes"></textarea></td>
+    <td><textarea id="tmN-notes" rows="1" oninput="tmFit(this)" placeholder="Notes"></textarea></td>
     <td style="white-space:nowrap"><button class="tm-btn" onclick="tmCreate()">Save</button>
       <button class="tm-del" title="Cancel" onclick="tmSet('adding', false)">✕</button></td>
   </tr>`;
