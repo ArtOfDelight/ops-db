@@ -1140,6 +1140,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     <button class="sb-item active" id="sbitem-brief" onclick="navTo('brief')">
       <span class="sb-icon">📋</span> Daily Brief
     </button>
+    <button class="sb-item" id="sbitem-tasks" onclick="navTo('tasks')">
+      <span class="sb-icon">🗂️</span> Task Manager
+    </button>
   </div>
 
   <div class="sb-section">
@@ -1284,11 +1287,11 @@ function toggleSbGroup(name) {
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager' };
   const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
@@ -1328,6 +1331,7 @@ function navTo(page) {
   if (page === 'comments')    renderCommentsPage();
   if (page === 'broadcast')   renderBroadcastPage();
   if (page === 'expansion')   renderExpansionPage();
+  if (page === 'tasks')       renderTasksPage();
 }
 
 
@@ -13882,6 +13886,327 @@ function exRemoveCapex(pid, cid) {
   exQueueSave(pid); exRender();
 }
 </script>
+
+<!-- ══════════════ TASK MANAGER ══════════════ -->
+<style>
+.tm-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
+.tm-seg { display:inline-flex; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
+.tm-seg button { border:0; background:var(--surface); padding:6px 12px; font:inherit; font-size:12px; cursor:pointer; color:var(--ink); }
+.tm-seg button.on { background:var(--ink); color:#fff; }
+.tm-bar select, .tm-bar input[type=search] { font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--border); border-radius:var(--r); background:var(--surface); }
+.tm-btn { font:inherit; font-size:12px; padding:6px 12px; border-radius:var(--r); border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+.tm-btn.ghost { background:var(--surface); color:var(--ink); border-color:var(--border); }
+.tm-save { font-size:11px; color:var(--navy-text); margin-left:auto; }
+.tm-save.err { color:var(--red); }
+.tm-group { margin-bottom:18px; }
+.tm-group-h { font-size:13px; font-weight:700; margin:0 0 6px; display:flex; gap:8px; align-items:baseline; }
+.tm-group-h span { font-size:11px; font-weight:400; color:var(--navy-text); }
+.tm-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow-x:auto; box-shadow:var(--sh); }
+.tm-table { width:100%; border-collapse:collapse; font-size:12px; min-width:1100px; }
+.tm-table th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-text); padding:8px 6px; border-bottom:1px solid var(--border); background:var(--bg); }
+.tm-table td { padding:4px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
+.tm-table tr:last-child td { border-bottom:0; }
+.tm-table input, .tm-table select, .tm-table textarea { font:inherit; font-size:12px; width:100%; box-sizing:border-box; border:1px solid transparent; border-radius:6px; padding:5px 6px; background:transparent; color:var(--ink); }
+.tm-table input:hover, .tm-table select:hover, .tm-table textarea:hover { border-color:var(--border); }
+.tm-table input:focus, .tm-table select:focus, .tm-table textarea:focus { border-color:var(--info); outline:none; background:var(--surface); }
+.tm-table textarea { resize:vertical; min-height:28px; height:28px; }
+.tm-handle { cursor:grab; color:var(--navy-text); user-select:none; text-align:center; font-size:14px; padding-top:8px !important; width:22px; }
+.tm-rank { color:var(--navy-text); font-family:var(--mono); padding-top:9px !important; width:26px; }
+.tm-row.dragging { opacity:.4; }
+.tm-row.over-top td { box-shadow: inset 0 2px 0 var(--info); }
+.tm-row.over-bot td { box-shadow: inset 0 -2px 0 var(--info); }
+.tm-row.done input[data-f=name] { text-decoration:line-through; color:var(--navy-text); }
+.tm-st { font-weight:600; }
+.tm-st[data-v="Not started"] { color:var(--navy-text); }
+.tm-st[data-v="In progress"] { color:var(--info); }
+.tm-st[data-v="Blocked"] { color:var(--red); }
+.tm-st[data-v="Done"] { color:var(--green); }
+.tm-del { border:0; background:none; cursor:pointer; color:var(--navy-text); font-size:14px; padding-top:6px; }
+.tm-del:hover { color:var(--red); }
+.tm-overdue input[data-f=end_time] { color:var(--red); font-weight:600; }
+.tm-empty { padding:24px; text-align:center; color:var(--navy-text); font-size:13px; }
+.tm-new td { background:var(--info-dim); }
+</style>
+<script>
+let _tm = { tasks: [], statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
+            view: 'all', person: '', status: 'open', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
+
+async function tmApi(method, path, body) {
+  const r = await fetch(`${API}/api/admin/tasks${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${_lsToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let d = {};
+  try { d = await r.json(); } catch (e) {}
+  if (!r.ok) { const err = new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`); err.status = r.status; throw err; }
+  return d;
+}
+
+function tmEsc(s) { return escHtml(String(s ?? '')).replace(/"/g, '&quot;'); }
+function tmSetSave(text, isErr) {
+  _tm.saveText = text; _tm.saveErr = !!isErr;
+  const el = document.getElementById('tmSave');
+  if (el) { el.textContent = text; el.classList.toggle('err', !!isErr); }
+}
+/* ISO → value for <input type=datetime-local> in the browser's local time */
+function tmToLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function tmFromLocal(v) { return v ? new Date(v).toISOString() : null; }
+
+async function tmLoad() {
+  try {
+    const r = await fetch(`${API}/api/admin/employees?status_filter=Active`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (r.ok) {
+      const d = await r.json();
+      _tm.employees = (d.employees || []).map(e => ({ id: e.employee_id, name: e.short_name || e.full_name || e.employee_id }))
+                                         .sort((a, b) => a.name.localeCompare(b.name));
+    }
+  } catch (e) {}
+  const d = await tmApi('GET', '');
+  _tm.tasks = d.tasks || [];
+  if (d.statuses) _tm.statuses = d.statuses;
+  _tm.loaded = true;
+}
+
+async function renderTasksPage() {
+  const body = document.getElementById('pageBody');
+  if (!_lsToken) { renderSigninLogin(body); return; }
+  if (!_tm.loaded) {
+    body.innerHTML = '<div class="tm-empty">Loading…</div>';
+    try { await tmLoad(); }
+    catch (e) { if (_currentPage === 'tasks') body.innerHTML = errBox(escHtml(e.message)); return; }
+  }
+  if (_currentPage === 'tasks') tmRender();
+}
+
+function tmVisible() {
+  const q = _tm.q.trim().toLowerCase();
+  return _tm.tasks.filter(t =>
+    (_tm.status === 'all' || (_tm.status === 'open' ? t.status !== 'Done' : t.status === _tm.status)) &&
+    (!q || [t.name, t.category, t.notes, t.responsible_name].join(' ').toLowerCase().includes(q)));
+}
+
+function tmCategories() { return [...new Set(_tm.tasks.map(t => t.category).filter(Boolean))].sort(); }
+
+function tmRender() {
+  const body = document.getElementById('pageBody');
+  if (!body || _currentPage !== 'tasks') return;
+  const people = [...new Map(_tm.tasks.filter(t => t.responsible_name).map(t => [t.responsible_id || t.responsible_name, t.responsible_name])).entries()]
+                   .sort((a, b) => a[1].localeCompare(b[1]));
+  const statusOpts = [['open','Open (not done)'], ['all','All statuses'], ..._tm.statuses.map(s => [s, s])]
+    .map(([v, l]) => `<option value="${tmEsc(v)}"${_tm.status === v ? ' selected' : ''}>${tmEsc(l)}</option>`).join('');
+  const bar = `<div class="tm-bar">
+    <div class="tm-seg">
+      <button class="${_tm.view === 'all' ? 'on' : ''}" onclick="tmSet('view','all')">All tasks</button>
+      <button class="${_tm.view === 'person' ? 'on' : ''}" onclick="tmSet('view','person')">By person</button>
+    </div>
+    ${_tm.view === 'person' ? `<select onchange="tmSet('person', this.value)">
+        <option value="">Everyone (grouped)</option>
+        ${people.map(([k, n]) => `<option value="${tmEsc(k)}"${_tm.person === k ? ' selected' : ''}>${tmEsc(n)}</option>`).join('')}
+        <option value="__none"${_tm.person === '__none' ? ' selected' : ''}>Unassigned</option>
+      </select>` : ''}
+    <select onchange="tmSet('status', this.value)">${statusOpts}</select>
+    <input type="search" placeholder="Search…" value="${tmEsc(_tm.q)}" oninput="_tm.q=this.value; tmRenderBody()">
+    <button class="tm-btn" onclick="tmSet('adding', true)">+ Add task</button>
+    <button class="tm-btn ghost" onclick="_tm.loaded=false; renderTasksPage()">↻</button>
+    <span class="tm-save${_tm.saveErr ? ' err' : ''}" id="tmSave">${tmEsc(_tm.saveText)}</span>
+  </div>
+  <datalist id="tmCats">${tmCategories().map(c => `<option value="${tmEsc(c)}">`).join('')}</datalist>
+  <div id="tmBody"></div>`;
+  body.innerHTML = bar;
+  tmRenderBody();
+}
+
+function tmSet(k, v) { _tm[k] = v; tmRender(); }
+
+function tmRenderBody() {
+  const el = document.getElementById('tmBody');
+  if (!el) return;
+  const vis = tmVisible();
+  const addRow = _tm.adding ? tmNewRowHtml() : '';
+  if (_tm.view === 'all') {
+    el.innerHTML = tmTableHtml(vis, 'all', addRow);
+  } else {
+    const groups = new Map();
+    for (const t of vis) {
+      const k = t.responsible_name ? (t.responsible_id || t.responsible_name) : '__none';
+      if (_tm.person && _tm.person !== k) continue;
+      if (!groups.has(k)) groups.set(k, { name: t.responsible_name || 'Unassigned', tasks: [] });
+      groups.get(k).tasks.push(t);
+    }
+    const sorted = [...groups.entries()].sort((a, b) => (a[0] === '__none') - (b[0] === '__none') || a[1].name.localeCompare(b[1].name));
+    el.innerHTML = (addRow ? tmTableHtml([], 'new', addRow) + '<div style="height:14px"></div>' : '') +
+      (sorted.length ? sorted.map(([k, g]) => `<div class="tm-group">
+          <div class="tm-group-h">${tmEsc(g.name)} <span>${g.tasks.length} task${g.tasks.length === 1 ? '' : 's'}</span></div>
+          ${tmTableHtml(g.tasks, k, '')}</div>`).join('')
+        : '<div class="tm-wrap"><div class="tm-empty">No tasks match.</div></div>');
+  }
+}
+
+function tmTableHtml(tasks, group, addRow) {
+  const rows = tasks.map((t, i) => tmRowHtml(t, i + 1)).join('');
+  const empty = !tasks.length && !addRow ? `<tr><td colspan="11"><div class="tm-empty">No tasks yet. Use “+ Add task”.</div></td></tr>` : '';
+  return `<div class="tm-wrap"><table class="tm-table">
+    <thead><tr><th></th><th>#</th><th style="width:20%">Task</th><th style="width:10%">Category</th><th style="width:10%">Responsible</th>
+      <th style="width:150px">Start</th><th style="width:150px">End</th><th style="width:9%">Status</th><th style="width:20%">Notes</th><th></th></tr></thead>
+    <tbody data-group="${tmEsc(group)}" ondragover="tmDragOver(event)" ondrop="tmDrop(event)">${addRow}${rows}${empty}</tbody></table></div>`;
+}
+
+function tmPersonSelect(selId, attrs) {
+  return `<select ${attrs}><option value="">—</option>${_tm.employees.map(e =>
+    `<option value="${tmEsc(e.id)}"${e.id === selId ? ' selected' : ''}>${tmEsc(e.name)}</option>`).join('')}</select>`;
+}
+function tmStatusSelect(v, attrs) {
+  return `<select class="tm-st" data-v="${tmEsc(v)}" ${attrs}>${_tm.statuses.map(s =>
+    `<option${s === v ? ' selected' : ''}>${tmEsc(s)}</option>`).join('')}</select>`;
+}
+
+function tmRowHtml(t, rank) {
+  const overdue = t.end_time && t.status !== 'Done' && new Date(t.end_time) < new Date();
+  const on = f => `data-f="${f}" onchange="tmEdit(${t.id}, this)"`;
+  return `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}${overdue ? ' tm-overdue' : ''}" data-id="${t.id}"
+      ondragstart="tmDragStart(event)" ondragend="tmDragEnd(event)">
+    <td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
+    <td class="tm-rank">${rank}</td>
+    <td><input value="${tmEsc(t.name)}" ${on('name')}></td>
+    <td><input list="tmCats" value="${tmEsc(t.category)}" ${on('category')}></td>
+    <td>${tmPersonSelect(t.responsible_id, on('responsible'))}</td>
+    <td><input type="datetime-local" value="${tmToLocal(t.start_time)}" ${on('start_time')}></td>
+    <td><input type="datetime-local" value="${tmToLocal(t.end_time)}" ${on('end_time')}></td>
+    <td>${tmStatusSelect(t.status, on('status'))}</td>
+    <td><textarea rows="1" ${on('notes')}>${tmEsc(t.notes)}</textarea></td>
+    <td><button class="tm-del" title="Delete" onclick="tmDelete(${t.id})">✕</button></td>
+  </tr>`;
+}
+
+function tmNewRowHtml() {
+  return `<tr class="tm-new" id="tmNew">
+    <td></td><td class="tm-rank">+</td>
+    <td><input id="tmN-name" placeholder="Task name" onkeydown="if(event.key==='Enter')tmCreate()"></td>
+    <td><input id="tmN-category" list="tmCats" placeholder="Category"></td>
+    <td>${tmPersonSelect(_tm.view === 'person' && _tm.person && _tm.person !== '__none' ? _tm.person : '', 'id="tmN-resp"')}</td>
+    <td><input id="tmN-start" type="datetime-local"></td>
+    <td><input id="tmN-end" type="datetime-local"></td>
+    <td>${tmStatusSelect('Not started', 'id="tmN-status"')}</td>
+    <td><textarea id="tmN-notes" rows="1" placeholder="Notes"></textarea></td>
+    <td style="white-space:nowrap"><button class="tm-btn" onclick="tmCreate()">Save</button>
+      <button class="tm-del" title="Cancel" onclick="tmSet('adding', false)">✕</button></td>
+  </tr>`;
+}
+
+async function tmCreate() {
+  const v = id => document.getElementById(id)?.value || '';
+  const name = v('tmN-name').trim();
+  if (!name) { tmSetSave('Task name is required', true); return; }
+  const rid = v('tmN-resp');
+  const emp = _tm.employees.find(e => e.id === rid);
+  tmSetSave('Saving…');
+  try {
+    const d = await tmApi('POST', '', {
+      name, category: v('tmN-category').trim(), notes: v('tmN-notes'),
+      responsible_id: rid, responsible_name: emp ? emp.name : '',
+      start_time: tmFromLocal(v('tmN-start')), end_time: tmFromLocal(v('tmN-end')), status: v('tmN-status'),
+    });
+    _tm.tasks.push(d.task);
+    _tm.adding = false;
+    _tm.saveText = 'Task added'; _tm.saveErr = false;
+    tmRender();
+  } catch (e) { tmSetSave('Not saved: ' + e.message, true); }
+}
+
+async function tmEdit(id, el) {
+  const f = el.dataset.f;
+  let patch;
+  if (f === 'responsible') {
+    const emp = _tm.employees.find(e => e.id === el.value);
+    patch = { responsible_id: el.value, responsible_name: emp ? emp.name : '' };
+  } else if (f === 'start_time' || f === 'end_time') patch = { [f]: tmFromLocal(el.value) };
+  else if (f === 'name' && !el.value.trim()) { tmSetSave('Task name cannot be empty', true); return; }
+  else patch = { [f]: el.value };
+  if (f === 'status') el.dataset.v = el.value;
+  tmSetSave('Saving…');
+  try {
+    const d = await tmApi('PATCH', `/${id}`, patch);
+    const i = _tm.tasks.findIndex(t => t.id === id);
+    if (i >= 0) _tm.tasks[i] = d.task;
+    tmSetSave('All changes saved');
+    // Status/assignee changes can move the row between filters or groups.
+    if (f === 'status' || f === 'responsible' || f === 'end_time') tmRenderBody();
+  } catch (e) { tmSetSave('Not saved: ' + e.message, true); }
+}
+
+async function tmDelete(id) {
+  const t = _tm.tasks.find(x => x.id === id);
+  if (!t) return;
+  const row = document.querySelector(`.tm-row[data-id="${id}"]`);
+  if (row && !row.dataset.confirm) {   // two-click delete; avoids a blocking confirm() dialog
+    row.dataset.confirm = '1';
+    const b = row.querySelector('.tm-del'); b.textContent = 'Delete?'; b.style.color = 'var(--red)';
+    setTimeout(() => { if (row.isConnected) { delete row.dataset.confirm; b.textContent = '✕'; b.style.color = ''; } }, 3000);
+    return;
+  }
+  tmSetSave('Deleting…');
+  try {
+    await tmApi('DELETE', `/${id}`);
+    _tm.tasks = _tm.tasks.filter(x => x.id !== id);
+    tmSetSave('Task deleted');
+    tmRender();
+  } catch (e) { tmSetSave('Not deleted: ' + e.message, true); }
+}
+
+/* ── Drag & drop priority ──
+   Rows can only be dragged within their own table. On drop we send the new
+   order of the visible rows in that table; the server reshuffles just those
+   tasks among the priority slots they already held. */
+function tmDragStart(e) {
+  const row = e.target.closest('.tm-row');
+  if (!row || !row.draggable) { e.preventDefault(); return; }
+  _tm.dragId = Number(row.dataset.id);
+  _tm.dragGroup = row.parentElement.dataset.group;
+  row.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(_tm.dragId));
+}
+function tmDragEnd(e) {
+  const row = e.target.closest('.tm-row');
+  if (row) { row.classList.remove('dragging'); row.draggable = false; }
+  document.querySelectorAll('.tm-row.over-top, .tm-row.over-bot').forEach(r => r.classList.remove('over-top', 'over-bot'));
+  _tm.dragId = null;
+}
+function tmDragOver(e) {
+  const tbody = e.currentTarget;
+  if (_tm.dragId == null || tbody.dataset.group !== _tm.dragGroup) return;
+  e.preventDefault();
+  const row = e.target.closest('.tm-row');
+  tbody.querySelectorAll('.tm-row.over-top, .tm-row.over-bot').forEach(r => r.classList.remove('over-top', 'over-bot'));
+  if (!row || Number(row.dataset.id) === _tm.dragId) return;
+  const r = row.getBoundingClientRect();
+  row.classList.add(e.clientY < r.top + r.height / 2 ? 'over-top' : 'over-bot');
+}
+async function tmDrop(e) {
+  const tbody = e.currentTarget;
+  if (_tm.dragId == null || tbody.dataset.group !== _tm.dragGroup) return;
+  e.preventDefault();
+  const target = tbody.querySelector('.tm-row.over-top, .tm-row.over-bot');
+  const dragged = tbody.querySelector(`.tm-row[data-id="${_tm.dragId}"]`);
+  if (!target || !dragged) return;
+  target.classList.contains('over-top') ? target.before(dragged) : target.after(dragged);
+  const ids = [...tbody.querySelectorAll('.tm-row')].map(r => Number(r.dataset.id));
+  // Mirror the server's slot reshuffle locally so the UI updates instantly.
+  const slots = ids.map(id => _tm.tasks.find(t => t.id === id).position).sort((a, b) => a - b);
+  ids.forEach((id, i) => { _tm.tasks.find(t => t.id === id).position = slots[i]; });
+  _tm.tasks.sort((a, b) => a.position - b.position || a.id - b.id);
+  tmRenderBody();
+  tmSetSave('Saving order…');
+  try { await tmApi('POST', '/reorder', { ids }); tmSetSave('Priority saved'); }
+  catch (e) { tmSetSave('Order not saved: ' + e.message, true); _tm.loaded = false; renderTasksPage(); }
+}
+</script>
+
 <div class="dc-ctxmenu" id="dcCtxMenu">
   <div class="dc-ctxmenu-item" onclick="dcOpenAddComment()">💬 Add Comment</div>
 </div>
