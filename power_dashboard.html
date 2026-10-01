@@ -13928,7 +13928,7 @@ function exRemoveCapex(pid, cid) {
 .tm-new td { background:var(--info-dim); }
 </style>
 <script>
-let _tm = { tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
+let _tm = { categories: ['Operations','Supply Chain','Finance'], tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
             view: 'all', person: '', status: 'open', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
 
 async function tmApi(method, path, body) {
@@ -13963,6 +13963,7 @@ const TM_CACHE = 'tmCache';
 function tmApply(d, emps) {
   _tm.tasks = d.tasks || [];
   if (d.statuses) _tm.statuses = d.statuses;
+  if (d.categories) _tm.categories = d.categories;
   if (emps) _tm.allEmployees = emps;
   if (d.admin_ids) _tm.adminIds = d.admin_ids;
   // Only admins can be made responsible for a task.
@@ -14011,7 +14012,10 @@ function tmVisible() {
     (!q || [t.name, t.category, t.notes, t.responsible_name].join(' ').toLowerCase().includes(q)));
 }
 
-function tmCategories() { return [...new Set(_tm.tasks.map(t => t.category).filter(Boolean))].sort(); }
+function tmCatSelect(v, attrs) {
+  return `<select ${attrs}><option value="">—</option>${_tm.categories.map(c =>
+    `<option${c === v ? ' selected' : ''}>${tmEsc(c)}</option>`).join('')}</select>`;
+}
 
 function tmRender() {
   const body = document.getElementById('pageBody');
@@ -14036,7 +14040,6 @@ function tmRender() {
     <button class="tm-btn ghost" onclick="renderTasksPage()">↻</button>
     <span class="tm-save${_tm.saveErr ? ' err' : ''}" id="tmSave">${tmEsc(_tm.saveText)}</span>
   </div>
-  <datalist id="tmCats">${tmCategories().map(c => `<option value="${tmEsc(c)}">`).join('')}</datalist>
   <div id="tmBody"></div>`;
   body.innerHTML = bar;
   tmRenderBody();
@@ -14098,7 +14101,7 @@ function tmRowHtml(t, rank) {
     <td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
     <td class="tm-rank">${rank}</td>
     <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('name')}>${tmEsc(t.name)}</textarea></td>
-    <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('category')}>${tmEsc(t.category)}</textarea></td>
+    <td>${tmCatSelect(t.category, on('category'))}</td>
     <td>${tmPersonSelect(t.responsible_id, on('responsible'))}</td>
     <td><input type="datetime-local" value="${tmToLocal(t.start_time)}" ${on('start_time')}></td>
     <td><input type="datetime-local" value="${tmToLocal(t.end_time)}" ${on('end_time')}></td>
@@ -14112,7 +14115,7 @@ function tmNewRowHtml() {
   return `<tr class="tm-new" id="tmNew">
     <td></td><td class="tm-rank">+</td>
     <td><textarea id="tmN-name" rows="1" placeholder="Task name" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();tmCreate()}"></textarea></td>
-    <td><input id="tmN-category" list="tmCats" placeholder="Category"></td>
+    <td>${tmCatSelect('', 'id="tmN-category"')}</td>
     <td>${tmPersonSelect(_tm.view === 'person' && _tm.person && _tm.person !== '__none' ? _tm.person : '', 'id="tmN-resp"')}</td>
     <td><input id="tmN-start" type="datetime-local"></td>
     <td><input id="tmN-end" type="datetime-local"></td>
