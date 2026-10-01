@@ -12975,11 +12975,6 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
 .ex-tr-cap .ex-inl { width:110px; }
 .ex-rs       { color:var(--ink-3);font-size:12px; }
 .ex-tr-add td { background:var(--surface); }
-.ex-files    { display:flex;flex-direction:column;gap:3px;align-items:flex-start; }
-.ex-file     { display:flex;align-items:center;gap:2px;max-width:220px;font-size:12px; }
-.ex-file a   { color:var(--info);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.ex-file a:hover { text-decoration:underline; }
-.ex-up       { display:inline-block;margin-top:2px; }
 .ex-clip     { display:inline-flex;align-items:center;gap:1px;flex:none; }
 .ex-clip-b   { cursor:pointer;font-size:13px;padding:2px 3px;border-radius:5px;opacity:.55; }
 .ex-clip-b:hover { opacity:1;background:var(--navy-3); }
@@ -13393,19 +13388,6 @@ function exTrackerHtml(ps) {
   const dateRow = (label, f, hint) => `<tr class="ex-tr-top"><td class="ex-tr-first">${label}<div class="ex-tr-sub">${hint}</div></td>${ps.map(p =>
     `<td>${p[f] ? `<b>${exFmtDate(p[f])}</b>` : '<span class="ex-tr-na">—</span>'}</td>`).join('')}</tr>`;
 
-  // Files saved to each outlet's shared-drive folder.
-  const files = `<tr class="ex-tr-top"><td class="ex-tr-first">📎 Files<div class="ex-tr-sub">Saved to the outlet's shared-drive folder</div></td>${ps.map(p => {
-    const pid = exEsc(p.id), list = (p.files || []).filter(f => !f.item_id);
-    return `<td style="text-align:left"><div class="ex-files">
-      ${list.map(f => `<div class="ex-file"><a href="${exEsc(f.url)}" target="_blank" rel="noopener" title="${exEsc(f.name)}">${exEsc(f.label || f.name)}</a>
-        <button class="ex-x" title="Delete file" onclick="exDeleteFile('${pid}','${exEsc(f.id)}')">×</button></div>`).join('')}
-      <label class="ex-btn sm ex-up" title="${_ex.preview ? 'Not available in preview mode' : 'Upload files for this outlet'}">
-        ${_ex.uploading[p.id] ? '⏳ Uploading…' : '⬆ Upload'}
-        <input type="file" multiple hidden ${_ex.preview || _ex.uploading[p.id] ? 'disabled' : ''} onchange="exUpload('${pid}',this)">
-      </label>
-    </div></td>`;
-  }).join('')}</tr>`;
-
   // CAPEX spent, dropping down into the CAPEX lines.
   const cOpen = exIsOpen('tc');
   let capex = `<tr class="ex-tr-top ex-tr-sec ${cOpen ? 'open' : ''}">
@@ -13459,7 +13441,7 @@ function exTrackerHtml(ps) {
     ? `<tr><td class="ex-tr-first ex-tr-na" style="padding:18px 10px">No tasks match this filter.</td>${blank}</tr>` : '';
   return `<div class="ex-trk ${_ex.tab === 'completed' ? 'done-view' : ''}"><table class="ex-tr">
     <thead>${head}</thead>
-    <tbody>${dateRow('📅 Start date', 'start_date', 'Auto: first task ticked')}${dateRow('🚀 Go-live date', 'go_live_date', 'Auto: all tasks done')}${files}${capex}${sections}${empty}</tbody>
+    <tbody>${dateRow('📅 Start date', 'start_date', 'Auto: first task ticked')}${dateRow('🚀 Go-live date', 'go_live_date', 'Auto: all tasks done')}${capex}${sections}${empty}</tbody>
   </table></div>`;
 }
 
