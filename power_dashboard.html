@@ -12984,6 +12984,9 @@ button.ex-kpi:hover { border-color:var(--border-2);box-shadow:var(--sh-md); }
 .ex-clip-b   { cursor:pointer;font-size:13px;padding:2px 3px;border-radius:5px;opacity:.55; }
 .ex-clip-b:hover { opacity:1;background:var(--navy-3); }
 .ex-clip-f   { text-decoration:none;font-size:13px;padding:2px 1px; }
+.ex-clip-i   { display:inline-flex;align-items:center; }
+.ex-clip-x   { border:0;background:transparent;color:var(--ink-3);cursor:pointer;font-size:12px;line-height:1;padding:1px 3px;border-radius:4px; }
+.ex-clip-x:hover { color:var(--red);background:var(--red-dim); }
 
 /* master checklist rows */
 .ex-stage    { border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden;background:var(--surface); }
@@ -13476,11 +13479,11 @@ function exTrCell(p, si, ti, filt) {
 /* 📎 on a task / CAPEX cell: upload files for that line, and links to what's there. */
 function exClip(p, iid) {
   const pid = exEsc(p.id), key = p.id + ':' + iid, files = (p.files || []).filter(f => f.item_id === iid);
-  const links = files.map(f => `<a class="ex-clip-f" href="${exEsc(f.url)}" target="_blank" rel="noopener" title="${exEsc(f.name)}"
-      oncontextmenu="event.preventDefault();exDeleteFile('${pid}','${exEsc(f.id)}')">📄</a>`).join('');
+  const links = files.map(f => `<span class="ex-clip-i"><a class="ex-clip-f" href="${exEsc(f.url)}" target="_blank" rel="noopener" title="${exEsc(f.name)}">📄</a><button
+      class="ex-clip-x" title="Delete ${exEsc(f.name)}" onclick="exDeleteFile('${pid}','${exEsc(f.id)}')">×</button></span>`).join('');
   const busy = _ex.uploading[key];
   return `<span class="ex-clip">${links}<label class="ex-clip-b" title="${_ex.preview ? 'Not available in preview mode'
-      : 'Upload files for this line' + (files.length ? ' (right-click a 📄 to delete it)' : '')}">${busy ? '⏳' : '📎'}
+      : 'Upload files for this line'}">${busy ? '⏳' : '📎'}
     <input type="file" multiple hidden ${_ex.preview || busy ? 'disabled' : ''} onchange="exUpload('${pid}',this,'${exEsc(iid)}')"></label></span>`;
 }
 
