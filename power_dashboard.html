@@ -13915,7 +13915,7 @@ function exRemoveCapex(pid, cid) {
 .tm-row.dragging { opacity:.4; }
 .tm-row.over-top td { box-shadow: inset 0 2px 0 var(--info); }
 .tm-row.over-bot td { box-shadow: inset 0 -2px 0 var(--info); }
-.tm-row.done input[data-f=name] { text-decoration:line-through; color:var(--navy-text); }
+.tm-row.done textarea[data-f=name] { text-decoration:line-through; color:var(--navy-text); }
 .tm-st { font-weight:600; }
 .tm-st[data-v="Not started"] { color:var(--navy-text); }
 .tm-st[data-v="In progress"] { color:var(--info); }
@@ -14058,7 +14058,7 @@ function tmTableHtml(tasks, group, addRow) {
   const empty = !tasks.length && !addRow ? `<tr><td colspan="11"><div class="tm-empty">No tasks yet. Use “+ Add task”.</div></td></tr>` : '';
   return `<div class="tm-wrap"><table class="tm-table">
     <thead><tr><th></th><th>#</th><th style="width:20%">Task</th><th style="width:10%">Category</th><th style="width:10%">Responsible</th>
-      <th style="width:150px">Start</th><th style="width:150px">End</th><th style="width:9%">Status</th><th style="width:20%">Notes</th><th></th></tr></thead>
+      <th style="width:150px">Start</th><th style="width:150px">End</th><th style="width:118px">Status</th><th style="width:20%">Notes</th><th></th></tr></thead>
     <tbody data-group="${tmEsc(group)}" ondragover="tmDragOver(event)" ondrop="tmDrop(event)">${addRow}${rows}${empty}</tbody></table></div>`;
 }
 
@@ -14078,8 +14078,8 @@ function tmRowHtml(t, rank) {
       ondragstart="tmDragStart(event)" ondragend="tmDragEnd(event)">
     <td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
     <td class="tm-rank">${rank}</td>
-    <td><input value="${tmEsc(t.name)}" ${on('name')}></td>
-    <td><input list="tmCats" value="${tmEsc(t.category)}" ${on('category')}></td>
+    <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('name')}>${tmEsc(t.name)}</textarea></td>
+    <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('category')}>${tmEsc(t.category)}</textarea></td>
     <td>${tmPersonSelect(t.responsible_id, on('responsible'))}</td>
     <td><input type="datetime-local" value="${tmToLocal(t.start_time)}" ${on('start_time')}></td>
     <td><input type="datetime-local" value="${tmToLocal(t.end_time)}" ${on('end_time')}></td>
@@ -14092,7 +14092,7 @@ function tmRowHtml(t, rank) {
 function tmNewRowHtml() {
   return `<tr class="tm-new" id="tmNew">
     <td></td><td class="tm-rank">+</td>
-    <td><input id="tmN-name" placeholder="Task name" onkeydown="if(event.key==='Enter')tmCreate()"></td>
+    <td><textarea id="tmN-name" rows="1" placeholder="Task name" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();tmCreate()}"></textarea></td>
     <td><input id="tmN-category" list="tmCats" placeholder="Category"></td>
     <td>${tmPersonSelect(_tm.view === 'person' && _tm.person && _tm.person !== '__none' ? _tm.person : '', 'id="tmN-resp"')}</td>
     <td><input id="tmN-start" type="datetime-local"></td>
