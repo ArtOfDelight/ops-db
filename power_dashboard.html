@@ -2609,6 +2609,10 @@ function orRenderTable(outlets, el) {
     <th ${th}>Swiggy MFR</th>
     <th ${th}>Zomato KPT</th>
     <th ${th}>Zomato MFR</th>
+    <th ${th}>Swiggy Impressions</th>
+    <th ${th}>Swiggy M2O</th>
+    <th ${th}>Zomato Impressions</th>
+    <th ${th}>Zomato M2O</th>
     <th ${th}>Swiggy High Rated ⭐</th>
     <th ${th}>Swiggy Low Rated 👎</th>
     <th ${th}>Zomato High Rated ⭐</th>
@@ -2636,6 +2640,8 @@ function orRenderTable(outlets, el) {
       ${tdL(o.outlet_code)}
       ${td(metCell(o.swiggy_kpt, ' min', true))} ${td(metCell(o.swiggy_mfr, '%', false))}
       ${td(metCell(o.zomato_kpt, ' min', true))} ${td(metCell(o.zomato_mfr, '%', false))}
+      ${td(o.swiggy_impressions != null ? o.swiggy_impressions.toLocaleString('en-IN') : '—')} ${td(o.swiggy_m2o != null ? o.swiggy_m2o + '%' : '—')}
+      ${td(o.zomato_impressions != null ? o.zomato_impressions.toLocaleString('en-IN') : '—')} ${td(o.zomato_m2o != null ? o.zomato_m2o + '%' : '—')}
       ${td(o.swiggy_high)} ${td(o.swiggy_low)}
       ${td(o.zomato_high)} ${td(o.zomato_low)}
       ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
@@ -2666,6 +2672,8 @@ function orRenderTable(outlets, el) {
   const totalRow = `<tr>
     ${tdTL('Total')}
     ${tdT('—')} ${tdT('—')} ${tdT('—')} ${tdT('—')}
+    ${tdT(sum('swiggy_impressions').toLocaleString('en-IN'))} ${tdT('—')}
+    ${tdT(sum('zomato_impressions').toLocaleString('en-IN'))} ${tdT('—')}
     ${tdT(tSwiggyH)} ${tdT(tSwiggyL)}
     ${tdT(tZomH)}   ${tdT(tZomL)}
     ${tdT(tRated)}  ${tdTB(tRista || '—')}
