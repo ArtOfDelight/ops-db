@@ -2596,6 +2596,13 @@ async function orLoad() {
 }
 
 function orRenderTable(outlets, el) {
+  // Hide outlets with no Swiggy/Zomato data (e.g. VAR/FER not live on the
+  // platforms yet); they reappear automatically once any platform metric
+  // comes in. Totals below are computed from the visible rows only.
+  const _orDataKeys = ['swiggy_kpt','swiggy_mfr','zomato_kpt','zomato_mfr',
+    'swiggy_impressions','swiggy_m2o','zomato_impressions','zomato_m2o',
+    'swiggy_high','swiggy_low','zomato_high','zomato_low'];
+  outlets = outlets.filter(o => _orDataKeys.some(k => Number(o[k]) > 0));
   if (!outlets.length) {
     el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this range.</div>';
     return;
