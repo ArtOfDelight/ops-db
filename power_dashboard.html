@@ -1199,6 +1199,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-incpayout" onclick="navTo('incpayout')">
         <span class="sb-icon">🏧</span> Incentive Payout
       </button>
+      <button class="sb-item" id="sbitem-travelappr" onclick="navTo('travelappr')">
+        <span class="sb-icon">🛺</span> Travel Approvals
+      </button>
     </div>
   </div>
 
@@ -1287,12 +1290,12 @@ function toggleSbGroup(name) {
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1323,6 +1326,7 @@ function navTo(page) {
   if (page === 'customers')    renderCustomersPage();
   if (page === 'tokenhealth')  renderTokenHealthPage();
   if (page === 'incpayout')   renderIncPayoutPage();
+  if (page === 'travelappr')  renderTravelApprovalsPage();
   if (page === 'outletvisit') renderOutletVisitPage();
   if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
@@ -10618,6 +10622,92 @@ async function _incPushZoho() {
 /* ── KITCHEN EXTRA HOURS ── */
 let _keData = [];   // loaded entries
 let _keMonth = '';  // current loaded month
+
+
+// ── Travel Approvals ─────────────────────────────────────────────────────────
+// Claims over ₹80 whose ride time isn't within 60 min of the roster shift wait
+// here; they only reach the travel sheet (and incentives) once approved.
+let _taClaims = [];
+const _TA_MODE = { auto: 'Auto', bike: 'Bike', cab: 'Cab', other: 'Other' };
+const _TA_STATUS = { pending_approval: ['Pending', '#D97706', '#FEF3C7'], approved: ['Approved', '#059669', '#D1FAE5'], rejected: ['Rejected', '#DC2626', '#FEE2E2'] };
+function _taEsc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function renderTravelApprovalsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `
+    <div style="padding:24px;max-width:1300px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">Travel Approvals</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Over ₹80 and ride time not within 60 min of roster → manual approval · not counted until approved</div>
+        </div>
+        <select id="taStatus" onchange="taLoad()" style="padding:7px 10px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--ink)">
+          <option value="pending_approval">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="">All</option>
+        </select>
+      </div>
+      <div id="taContent" style="text-align:center;padding:60px;color:var(--ink-3);font-size:13px">Loading…</div>
+    </div>`;
+  taLoad();
+}
+
+async function taLoad() {
+  const el = document.getElementById('taContent');
+  const st = document.getElementById('taStatus')?.value || '';
+  el.innerHTML = 'Loading…';
+  try {
+    const r = await fetch(`${API}/api/admin/travel-claims${st ? `?status=${st}` : ''}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!r.ok) throw new Error(await r.text());
+    _taClaims = (await r.json()).claims || [];
+    taRender();
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--red)">Failed to load: ${_taEsc(e.message)}</span>`;
+  }
+}
+
+function taRender() {
+  const el = document.getElementById('taContent');
+  if (!_taClaims.length) { el.innerHTML = 'No travel claims.'; return; }
+  const th = 'style="text-align:left;padding:8px 10px;font-size:11px;color:var(--ink-3);font-weight:600;border-bottom:1px solid var(--border)"';
+  const td = 'style="padding:9px 10px;font-size:12px;color:var(--ink);border-bottom:1px solid var(--border);vertical-align:top"';
+  el.style.textAlign = 'left'; el.style.padding = '0';
+  el.innerHTML = `<div style="overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th ${th}>Date</th><th ${th}>Employee</th><th ${th}>Trip</th><th ${th}>Mode</th><th ${th}>Start → End location</th><th ${th}>Ride / booked</th><th ${th}>Roster</th><th style="text-align:right;padding:8px 10px;font-size:11px;color:var(--ink-3);font-weight:600;border-bottom:1px solid var(--border)">Amount</th><th ${th}>Receipt</th><th ${th}>Status</th></tr></thead>
+      <tbody>${_taClaims.map(c => {
+        const [lbl, fg, bg] = _TA_STATUS[c.status] || [c.status, 'var(--ink)', 'transparent'];
+        const rc = c.roster_check || {};
+        const actions = c.status === 'pending_approval'
+          ? `<div style="display:flex;gap:6px;margin-top:6px"><button onclick="taAct('${c.claim_id}',true)" style="padding:4px 10px;font-size:11px;border-radius:6px;border:0;background:var(--blue);color:#fff;cursor:pointer;font-weight:600">Approve</button><button onclick="taAct('${c.claim_id}',false)" style="padding:4px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:transparent;color:var(--red);cursor:pointer;font-weight:600">Reject</button></div>` : '';
+        return `<tr>
+          <td ${td}>${_taEsc(c.date)}</td>
+          <td ${td}><b>${_taEsc(c.employee_name || c.employee_id)}</b><div style="color:var(--ink-3);font-size:11px">${_taEsc(c.employee_id)} · ${_taEsc(c.outlet_code || '—')}</div></td>
+          <td ${td}>${c.trip_type === 'going' ? 'Going' : 'Coming'}</td>
+          <td ${td}>${_taEsc(_TA_MODE[c.ride_mode] || '—')}</td>
+          <td style="padding:9px 10px;font-size:12px;color:var(--ink);border-bottom:1px solid var(--border);vertical-align:top;max-width:280px">${_taEsc(c.pickup || '?')} <span style="color:var(--ink-3)">→</span> ${_taEsc(c.drop || '?')}</td>
+          <td ${td}>${_taEsc(c.start_time || '?')}–${_taEsc(c.end_time || '?')}<div style="color:var(--ink-3);font-size:11px">booked ${_taEsc(c.booking_time || '?')}</div></td>
+          <td ${td}><span style="color:${rc.matches ? 'var(--green)' : 'var(--red)'}">${_taEsc(rc.reason || '—')}</span><div style="color:var(--ink-3);font-size:11px">shift ${_taEsc(rc.shift_start || '?')}–${_taEsc(rc.shift_end || '?')}</div></td>
+          <td style="padding:9px 10px;font-size:12px;color:var(--ink);border-bottom:1px solid var(--border);vertical-align:top;text-align:right;font-family:var(--mono)">₹${_taEsc(c.amount)}</td>
+          <td ${td}>${c.receipt_url ? `<a href="${_taEsc(c.receipt_url)}" target="_blank" style="color:var(--blue)">View</a>` : '—'}</td>
+          <td ${td}><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;color:${fg};background:${bg}">${lbl}</span>${actions}</td>
+        </tr>`; }).join('')}</tbody>
+    </table></div>`;
+}
+
+async function taAct(id, approve) {
+  try {
+    const r = await fetch(`${API}/api/admin/travel-claims/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` }, body: '{}' });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+    taLoad();
+  } catch (e) {
+    console.error('travel approval failed', e);
+    const el = document.getElementById('taContent');
+    el.insertAdjacentHTML('afterbegin', `<div style="color:var(--red);padding:8px 0">Action failed: ${_taEsc(e.message)}</div>`);
+  }
+}
 
 async function renderKitchenExtraPage() {
   const body = document.getElementById('pageBody');
