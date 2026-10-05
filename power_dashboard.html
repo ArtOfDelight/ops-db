@@ -14038,10 +14038,15 @@ function exRemoveCapex(pid, cid) {
 .tm-del:hover { color:var(--red); }
 .tm-empty { padding:24px; text-align:center; color:var(--navy-text); font-size:13px; }
 .tm-new td { background:var(--info-dim); }
+.tm-tabs { display:flex; gap:20px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+.tm-tabs button { border:0; background:none; font:inherit; font-size:13px; font-weight:600; color:var(--navy-text); padding:8px 2px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tm-tabs button.on { color:var(--ink); border-bottom-color:var(--ink); }
+.tm-tabs button span { font-size:11px; font-weight:500; background:var(--bg); border-radius:10px; padding:1px 7px; margin-left:4px; }
+.tm-meta { color:var(--navy-text); font-size:12px; padding-top:9px !important; white-space:nowrap; }
 </style>
 <script>
 let _tm = { cat: '', categories: ['Operations','Supply Chain','Finance'], tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
-            view: 'all', person: '', status: 'open', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
+            tab: 'active', view: 'all', person: '', status: 'all', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
 
 async function tmApi(method, path, body) {
   const r = await fetch(`${API}/api/admin/tasks${path}`, {
@@ -14113,8 +14118,20 @@ async function renderTasksPage() {
 function tmVisible() {
   const q = _tm.q.trim().toLowerCase();
   return _tm.tasks.filter(t =>
-    (_tm.status === 'all' || (_tm.status === 'open' ? t.status !== 'Done' : t.status === _tm.status)) &&
-    (!q || [t.name, t.category, t.notes, t.responsible_name].join(' ').toLowerCase().includes(q)));
+    (_tm.tab === 'done' ? t.status === 'Done' : t.status !== 'Done' && (_tm.status === 'all' || t.status === _tm.status)) &&
+    (!q || [t.name, t.category, t.notes, t.responsible_name].join(' ').toLowerCase().includes(q)))
+    // Completed tab: most recently finished first.
+    .sort((a, b) => _tm.tab === 'done' ? String(b.end_time || '').localeCompare(String(a.end_time || '')) : 0);
+}
+
+/* Completed date and time spent, for the Completed tab. */
+function tmDoneDate(iso) {
+  return iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+}
+function tmSpent(sec) {
+  if (!sec) return '—';
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
 }
 
 function tmCatSelect(v, attrs) {
@@ -14127,9 +14144,14 @@ function tmRender() {
   if (!body || _currentPage !== 'tasks') return;
   const people = [...new Map(_tm.tasks.filter(t => t.responsible_name).map(t => [t.responsible_id || t.responsible_name, t.responsible_name])).entries()]
                    .sort((a, b) => a[1].localeCompare(b[1]));
-  const statusOpts = [['open','Open (not done)'], ['all','All statuses'], ..._tm.statuses.map(s => [s, s])]
+  const doneCount = _tm.tasks.filter(t => t.status === 'Done').length;
+  const statusOpts = [['all','All statuses'], ..._tm.statuses.filter(s => s !== 'Done').map(s => [s, s])]
     .map(([v, l]) => `<option value="${tmEsc(v)}"${_tm.status === v ? ' selected' : ''}>${tmEsc(l)}</option>`).join('');
-  const bar = `<div class="tm-bar">
+  const bar = `<div class="tm-tabs">
+    <button class="${_tm.tab === 'active' ? 'on' : ''}" onclick="tmSet('tab','active')">Active <span>${_tm.tasks.length - doneCount}</span></button>
+    <button class="${_tm.tab === 'done' ? 'on' : ''}" onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
+  </div>
+  <div class="tm-bar">
     <div class="tm-seg">
       <button class="${_tm.view === 'all' ? 'on' : ''}" onclick="tmSet('view','all')">All tasks</button>
       <button class="${_tm.view === 'person' ? 'on' : ''}" onclick="tmSet('view','person')">By person</button>
@@ -14145,9 +14167,9 @@ function tmRender() {
         ${people.map(([k, n]) => `<option value="${tmEsc(k)}"${_tm.person === k ? ' selected' : ''}>${tmEsc(n)}</option>`).join('')}
         <option value="__none"${_tm.person === '__none' ? ' selected' : ''}>Unassigned</option>
       </select>` : ''}
-    <select onchange="tmSet('status', this.value)">${statusOpts}</select>
+    ${_tm.tab === 'active' ? `<select onchange="tmSet('status', this.value)">${statusOpts}</select>` : ''}
     <input type="search" placeholder="Search…" value="${tmEsc(_tm.q)}" oninput="_tm.q=this.value; tmRenderBody()">
-    <button class="tm-btn" onclick="tmSet('adding', true)">+ Add task</button>
+    ${_tm.tab === 'active' ? `<button class="tm-btn" onclick="tmSet('adding', true)">+ Add task</button>` : ''}
     <button class="tm-btn ghost" onclick="renderTasksPage()">↻</button>
     <span class="tm-save${_tm.saveErr ? ' err' : ''}" id="tmSave">${tmEsc(_tm.saveText)}</span>
   </div>
@@ -14162,7 +14184,7 @@ function tmRenderBody() {
   const el = document.getElementById('tmBody');
   if (!el) return;
   const vis = tmVisible();
-  const addRow = _tm.adding ? tmNewRowHtml() : '';
+  const addRow = _tm.adding && _tm.tab === 'active' ? tmNewRowHtml() : '';
   if (_tm.view === 'all') {
     el.innerHTML = tmTableHtml(vis, 'all', addRow);
   } else {
@@ -14192,9 +14214,11 @@ function tmFit(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight
 
 function tmTableHtml(tasks, group, addRow) {
   const rows = tasks.map((t, i) => tmRowHtml(t, i + 1)).join('');
-  const empty = !tasks.length && !addRow ? `<tr><td colspan="11"><div class="tm-empty">No tasks yet. Use “+ Add task”.</div></td></tr>` : '';
+  const done = _tm.tab === 'done';
+  const empty = !tasks.length && !addRow ? `<tr><td colspan="11"><div class="tm-empty">${done ? 'No completed tasks yet.' : 'No tasks yet. Use “+ Add task”.'}</div></td></tr>` : '';
+  const lead = done ? '<th style="width:96px">Completed</th><th style="width:70px">Time spent</th>' : '<th></th><th>#</th>';
   return `<div class="tm-wrap"><table class="tm-table">
-    <thead><tr><th></th><th>#</th><th style="width:30%">Task</th><th style="width:12%">Category</th><th style="width:12%">Responsible</th><th style="width:118px">Status</th><th>Notes</th><th></th></tr></thead>
+    <thead><tr>${lead}<th style="width:30%">Task</th><th style="width:12%">Category</th><th style="width:12%">Responsible</th><th style="width:118px">Status</th><th>Notes</th><th></th></tr></thead>
     <tbody data-group="${tmEsc(group)}" ondragover="tmDragOver(event)" ondrop="tmDrop(event)">${addRow}${rows}${empty}</tbody></table></div>`;
 }
 
@@ -14211,8 +14235,10 @@ function tmRowHtml(t, rank) {
   const on = f => `data-f="${f}" onchange="tmEdit(${t.id}, this)"`;
   return `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}" data-id="${t.id}"
       ondragstart="tmDragStart(event)" ondragend="tmDragEnd(event)">
-    <td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
-    <td class="tm-rank">${rank}</td>
+    ${_tm.tab === 'done'
+      ? `<td class="tm-meta">${tmDoneDate(t.end_time)}</td><td class="tm-meta">${tmSpent(t.time_spent_seconds)}</td>`
+      : `<td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
+    <td class="tm-rank">${rank}</td>`}
     <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('name')}>${tmEsc(t.name)}</textarea></td>
     <td>${tmCatSelect(t.category, on('category'))}</td>
     <td>${tmPersonSelect(t.responsible_id, on('responsible'))}</td>
