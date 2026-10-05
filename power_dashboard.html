@@ -1260,7 +1260,7 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     <div class="page-title" id="pageTitle">🏠 Home</div>
     <div class="topbar-right">
       <span class="as-of-label" id="asOf"></span>
-      <button class="btn-refresh" id="refreshBtn" onclick="loadAll()">
+      <button class="btn-refresh" id="refreshBtn" onclick="refreshCurrentPage()" title="Reload this page with fresh data">
         <span id="refreshIcon">↻</span> Refresh
       </button>
     </div>
@@ -1302,8 +1302,10 @@ function navTo(page) {
   }
   _currentPage = page;
   document.getElementById('pageTitle').textContent = titles[page] || '';
+  // Refresh is on every page: Power reloads its live feed; every other page
+  // tells the backend to drop its cached copies, then re-renders.
   const refreshBtn = document.getElementById('refreshBtn');
-  refreshBtn.style.display = page === 'power' ? '' : 'none';
+  refreshBtn.style.display = '';
   if (page === 'brief')      { _bcHistory = []; renderDailyBriefPage(); }
   if (page === 'power')      renderPowerPage();
   if (page === 'signin')     renderSigninPage();
@@ -1338,6 +1340,19 @@ function navTo(page) {
   if (page === 'tasks')       renderTasksPage();
 }
 
+
+/* ── REFRESH ── */
+async function refreshCurrentPage() {
+  if (_currentPage === 'power') { loadAll(); return; }
+  setLoading(true);
+  try {
+    await fetch(API + '/api/admin/clear-cache', {
+      method: 'POST', headers: { Authorization: `Bearer ${_lsToken}` },
+    });
+  } catch (e) { /* still re-render; the page shows its own errors */ }
+  setLoading(false);
+  navTo(_currentPage);
+}
 
 /* ── HELPERS ── */
 function setLoading(v) {
