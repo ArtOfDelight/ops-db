@@ -1143,6 +1143,12 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     <button class="sb-item" id="sbitem-tasks" onclick="navTo('tasks')">
       <span class="sb-icon">🗂️</span> Task Manager
     </button>
+    <button class="sb-item" id="sbitem-accounting" onclick="navTo('accounting')">
+      <span class="sb-icon">📒</span> Accounting
+    </button>
+    <button class="sb-item" id="sbitem-production" onclick="navTo('production')">
+      <span class="sb-icon">🏭</span> Supply Chain
+    </button>
   </div>
 
   <div class="sb-section">
@@ -1251,20 +1257,6 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     </div>
   </div>
 
-  <div class="sb-section sb-group" id="sbgroup-otherdash">
-    <button class="sb-group-toggle" onclick="toggleSbGroup('otherdash')">
-      <span class="sb-group-caret">▶</span> Other Dashboards
-    </button>
-    <div class="sb-group-items">
-      <button class="sb-item" id="sbitem-accounting" onclick="navTo('accounting')">
-        <span class="sb-icon">📒</span> Accounting
-      </button>
-      <button class="sb-item" id="sbitem-production" onclick="navTo('production')">
-        <span class="sb-icon">🏭</span> Production
-      </button>
-    </div>
-  </div>
-
   <div class="sb-footer" id="sbClock">—</div>
 </aside>
 
@@ -1308,8 +1300,8 @@ function navTo(page) {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', accounting: '📒 Accounting Dashboard', production: '🏭 Production Dashboard' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', accounting:'otherdash', production:'otherdash' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
