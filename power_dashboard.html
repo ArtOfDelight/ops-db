@@ -64,6 +64,20 @@ html, body { height: 100%; font-family: var(--sans); background: var(--bg); colo
 .main    { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .sidebar { transition: width .18s ease; }
 .shell.sb-collapsed .sidebar { width: 0; overflow: hidden; }
+.shell.logged-out .sidebar, .shell.logged-out #refreshBtn, .shell.logged-out #sbToggle, .shell.logged-out #logoutBtn { display: none !important; }
+.acc-wrap { display: grid; grid-template-columns: 220px 1fr; gap: 16px; }
+.acc-people button { display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 6px; border: 1px solid #e3e3e3; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; }
+.acc-people button.active { border-color: #111; background: #f4f4f4; font-weight: 600; }
+.acc-people .acc-off { color: #999; }
+.acc-group { margin: 14px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #888; }
+.acc-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.acc-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+.acc-switch input { opacity: 0; width: 0; height: 0; }
+.acc-switch span { position: absolute; inset: 0; background: #ccc; border-radius: 22px; transition: .15s; cursor: pointer; }
+.acc-switch span:before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .15s; }
+.acc-switch input:checked + span { background: #16a34a; }
+.acc-switch input:checked + span:before { transform: translateX(16px); }
+@media (max-width: 700px) { .acc-wrap { grid-template-columns: 1fr; } }
 .sb-toggle { background: none; border: none; font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 8px; margin-right: 6px; border-radius: 6px; color: inherit; }
 .sb-toggle:hover { background: rgba(0,0,0,.06); }
 .topbar-left { display: flex; align-items: center; }
@@ -1154,6 +1168,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     <button class="sb-item" id="sbitem-production" onclick="navTo('production')">
       <span class="sb-icon">🏭</span> Supply Chain
     </button>
+    <button class="sb-item" id="sbitem-access" onclick="navTo('access')" style="display:none">
+      <span class="sb-icon">🔐</span> Access
+    </button>
   </div>
 
   <div class="sb-section">
@@ -1277,6 +1294,8 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="btn-refresh" id="refreshBtn" onclick="refreshCurrentPage()" title="Reload this page with fresh data">
         <span id="refreshIcon">↻</span> Refresh
       </button>
+      <span class="as-of-label" id="opsdbWho" style="margin-left:10px"></span>
+      <button class="btn-refresh" id="logoutBtn" onclick="lsLogout()" title="Log out">Logout</button>
     </div>
   </div>
   <div class="body" id="pageBody"></div>
@@ -1304,11 +1323,13 @@ function toggleSbGroup(name) {
 
 /* ── NAVIGATION ── */
 function navTo(page) {
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','accounting','production'].forEach(id => {
+  if (!_lsToken) { opsdbShowLogin(); return; }
+  if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','accounting','production','access'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
   const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
@@ -1353,6 +1374,7 @@ function navTo(page) {
   if (page === 'expansion')   renderExpansionPage();
   if (page === 'tasks')       renderTasksPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
+  if (page === 'access')      renderAccessPage();
   // Accounting / Supply Chain get the full width; ☰ brings the menu back.
   setSidebarCollapsed(!!EMBED_PAGES[page]);
 }
@@ -1922,7 +1944,10 @@ function loadAll() {
 /* ══════════════════════════════════════════
    LATE SIGN-IN
 ═══════════════════════════════════════════ */
-let   _lsToken = localStorage.getItem('adminToken');
+// Old shared logins (mostly AOD001) lived under 'adminToken' -- drop them so
+// everyone signs in again with their own phone (Firebase OTP).
+localStorage.removeItem('adminToken');
+let   _lsToken = localStorage.getItem('opsdbToken');
 let   _currentPage = '';
 let   _lsPhone = '';
 let   _lsWindow = 1;              // 1 | 7 | 28 | 'custom'
@@ -1937,25 +1962,24 @@ function renderSigninPage() {
 }
 
 function renderSigninLogin(body) {
+  // Every page falls back to this when there's no session; the whole
+  // dashboard (sidebar included) is hidden until someone signs in.
+  document.querySelector('.shell')?.classList.add('logged-out');
   body.innerHTML = `
     <div class="ls-login-wrap">
       <div class="ls-login-card">
         <div class="ls-login-eyebrow">Zaān Operations</div>
-        <div class="ls-login-title">Admin Login</div>
-        <div class="ls-login-sub" id="ls-login-sub">Enter your employee ID and phone number to receive a one-time password.</div>
+        <div class="ls-login-title">Ops Dashboard Login</div>
+        <div class="ls-login-sub" id="ls-login-sub">Enter your mobile number — we'll send a one-time password by SMS.</div>
         <div id="ls-step1">
-          <div class="ls-field"><label>Employee ID</label><input id="ls-empid" placeholder="e.g. EMP001" autocomplete="off" oninput="lsOnEmpIdChange()"/></div>
-          <div class="ls-field" id="ls-phone-field"><label>Phone Number</label><input id="ls-phone" type="tel" maxlength="10" placeholder="10-digit mobile"/></div>
-          <button class="ls-btn" onclick="lsSendOTP()">Continue →</button>
+          <div class="ls-field"><label>Mobile Number</label><input id="ls-phone" type="tel" maxlength="10" placeholder="10-digit mobile" autocomplete="tel-national" onkeydown="if(event.key==='Enter')lsSendOTP()"/></div>
+          <button class="ls-btn" onclick="lsSendOTP()">Send OTP →</button>
         </div>
         <div id="ls-step2" style="display:none">
-          <div class="ls-field"><label>One-Time Password</label><input id="ls-otp" type="text" maxlength="6" placeholder="Enter 6-digit OTP" autocomplete="one-time-code"/></div>
+          <div class="ls-field"><label>One-Time Password</label><input id="ls-otp" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit OTP" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')lsVerifyOTP()"/></div>
           <button class="ls-btn" onclick="lsVerifyOTP()">Verify & Login →</button>
         </div>
-        <div id="ls-step-password" style="display:none">
-          <div class="ls-field"><label>Password</label><input id="ls-password" type="password" placeholder="Enter password" autocomplete="current-password"/></div>
-          <button class="ls-btn" onclick="lsVerifyPassword()">Login →</button>
-        </div>
+        <div id="ls-recaptcha"></div>
         <div class="ls-err" id="ls-err"></div>
       </div>
     </div>`;
@@ -2117,83 +2141,72 @@ function lsSetErr(msg, isOk) {
   el.className = 'ls-err ' + (isOk ? 'ok' : msg ? 'error' : '');
 }
 
-const LS_PASSWORD_AUTH_IDS = ['AOD001'];
+/* ── OPS-DB LOGIN: Firebase phone OTP ── */
+const OPSDB_FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyAB3vEbf0_641OLA4jojFy0ivDl9SF_xZM',
+  authDomain: 'aodchecklist.firebaseapp.com',
+  projectId: 'aodchecklist',
+  appId: '1:814508960061:web:f1f973a5db12b790ad3d54',
+};
+const FB_SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
+let _fb = null, _fbConfirm = null, _fbVerifier = null;
 
-function lsOnEmpIdChange() {
-  const empId = document.getElementById('ls-empid').value.trim().toUpperCase();
-  const isPasswordAuth = LS_PASSWORD_AUTH_IDS.includes(empId);
-  document.getElementById('ls-phone-field').style.display = isPasswordAuth ? 'none' : '';
-  document.getElementById('ls-login-sub').textContent = isPasswordAuth
-    ? 'Enter your employee ID and password to login.'
-    : 'Enter your employee ID and phone number to receive a one-time password.';
+async function opsdbFirebase() {
+  if (_fb) return _fb;
+  const appMod  = await import(`${FB_SDK}/firebase-app.js`);
+  const authMod = await import(`${FB_SDK}/firebase-auth.js`);
+  const app = appMod.initializeApp(OPSDB_FIREBASE_CONFIG, 'opsdb');
+  _fb = { auth: authMod.getAuth(app), mod: authMod };
+  return _fb;
 }
 
 async function lsSendOTP() {
-  const empId = document.getElementById('ls-empid').value.trim();
-  if (!empId) { lsSetErr('Enter your Employee ID'); return; }
-  if (LS_PASSWORD_AUTH_IDS.includes(empId.toUpperCase())) {
-    document.getElementById('ls-step1').style.display = 'none';
-    document.getElementById('ls-step-password').style.display = 'block';
-    setTimeout(() => document.getElementById('ls-password')?.focus(), 50);
-    return;
-  }
-  _lsPhone = document.getElementById('ls-phone').value.trim();
-  if (!/^\d{10}$/.test(_lsPhone)) { lsSetErr('Enter a valid 10-digit phone number'); return; }
-  lsSetErr('Sending OTP…');
+  const raw = (document.getElementById('ls-phone').value || '').replace(/[\s-]/g, '');
+  if (!/^\d{10}$/.test(raw)) { lsSetErr('Enter your 10-digit mobile number'); return; }
+  lsSetErr('Sending OTP…', true);
   try {
-    const r = await fetch(`${API}/api/auth/send-otp`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: empId, phone: _lsPhone })
-    });
-    const d = await r.json();
-    if (!r.ok) { lsSetErr(d.detail || 'Failed to send OTP'); return; }
-    lsSetErr('OTP sent to your phone!', true);
+    const { auth, mod } = await opsdbFirebase();
+    if (!_fbVerifier) _fbVerifier = new mod.RecaptchaVerifier(auth, 'ls-recaptcha', { size: 'invisible' });
+    _fbConfirm = await mod.signInWithPhoneNumber(auth, '+91' + raw, _fbVerifier);
+    lsSetErr('OTP sent by SMS', true);
     document.getElementById('ls-step1').style.display = 'none';
     document.getElementById('ls-step2').style.display = 'block';
-  } catch { lsSetErr('Network error — check your connection'); }
-}
-
-async function lsVerifyPassword() {
-  const empId    = document.getElementById('ls-empid')?.value.trim() || '';
-  const password = document.getElementById('ls-password').value;
-  if (!password) { lsSetErr('Enter your password'); return; }
-  lsSetErr('Verifying…');
-  try {
-    const r = await fetch(`${API}/api/auth/login-password`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: empId, password })
-    });
-    const d = await r.json();
-    if (!r.ok) { lsSetErr(d.detail || 'Invalid credentials'); return; }
-    if (d.role !== 'admin') { lsSetErr('This account does not have admin access.'); return; }
-    _lsToken = d.token;
-    localStorage.setItem('adminToken', _lsToken);
-    renderSigninMain(document.getElementById('pageBody'));
-  } catch { lsSetErr('Network error'); }
+    setTimeout(() => document.getElementById('ls-otp')?.focus(), 50);
+  } catch (e) {
+    lsSetErr('Could not send OTP: ' + (e.code || e.message || e));
+    try { _fbVerifier && _fbVerifier.clear(); } catch {}
+    _fbVerifier = null;
+  }
 }
 
 async function lsVerifyOTP() {
-  const empId = document.getElementById('ls-empid')?.value.trim() || '';
-  const otp   = document.getElementById('ls-otp').value.trim();
-  lsSetErr('Verifying…');
+  const otp = (document.getElementById('ls-otp').value || '').trim();
+  if (!_fbConfirm || !/^\d{6}$/.test(otp)) { lsSetErr('Enter the 6-digit OTP'); return; }
+  lsSetErr('Verifying…', true);
   try {
-    const r = await fetch(`${API}/api/auth/verify-otp`, {
+    const cred = await _fbConfirm.confirm(otp);
+    const idToken = await cred.user.getIdToken();
+    const r = await fetch(`${API}/api/opsdb/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id: empId, phone: _lsPhone, otp })
+      body: JSON.stringify({ id_token: idToken }),
     });
     const d = await r.json();
-    if (!r.ok) { lsSetErr(d.detail || 'Invalid OTP'); return; }
-    if (d.role !== 'admin') { lsSetErr('This account does not have admin access.'); return; }
+    if (!r.ok) { lsSetErr(d.detail || 'Login failed'); return; }
     _lsToken = d.token;
-    localStorage.setItem('adminToken', _lsToken);
-    renderSigninMain(document.getElementById('pageBody'));
-  } catch { lsSetErr('Network error'); }
+    localStorage.setItem('opsdbToken', _lsToken);
+    try { await _fb.mod.signOut(_fb.auth); } catch {}
+    opsdbApplyAccess(d);
+    navTo(opsdbFirstPage());
+  } catch (e) {
+    lsSetErr(e.code === 'auth/invalid-verification-code' ? 'Wrong OTP — try again' : ('Login failed: ' + (e.code || e.message || e)));
+  }
 }
 
 function lsLogout() {
-  localStorage.removeItem('adminToken');
+  localStorage.removeItem('opsdbToken');
   _lsToken = null;
-  renderSigninLogin(document.getElementById('pageBody'));
+  OPSDB_ME = null;
+  opsdbShowLogin();
 }
 
 function lsFmtISO(d) {
@@ -7847,7 +7860,131 @@ function digcEsc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-navTo('brief');
+/* ── OPS-DB ACCESS ── */
+let OPSDB_ME = null;  // { employee_id, name, tabs: [...] | ['*'], is_access_admin }
+
+function opsdbTabCatalog() {
+  // Every sidebar page, grouped like the sidebar, minus the Access tab itself.
+  const out = [];
+  document.querySelectorAll('.sidebar .sb-item[id^="sbitem-"]').forEach(btn => {
+    const key = btn.id.replace('sbitem-', '');
+    if (key === 'access') return;
+    const grp = btn.closest('.sb-group')?.querySelector('.sb-group-toggle')?.textContent.replace('▶', '').trim()
+             || btn.closest('.sb-section')?.querySelector('.sb-section-label')?.textContent.trim() || 'General';
+    out.push({ key, label: btn.textContent.trim(), group: grp });
+  });
+  return out;
+}
+
+function opsdbCanSee(page) {
+  if (!OPSDB_ME) return true;
+  if (page === 'access') return !!OPSDB_ME.is_access_admin;
+  return OPSDB_ME.tabs.includes('*') || OPSDB_ME.tabs.includes(page);
+}
+
+function opsdbFirstPage() {
+  const first = opsdbTabCatalog().find(t => opsdbCanSee(t.key));
+  return first ? first.key : (OPSDB_ME && OPSDB_ME.is_access_admin ? 'access' : null);
+}
+
+function opsdbApplyAccess(me) {
+  OPSDB_ME = { employee_id: me.employee_id, name: me.name, tabs: me.tabs || [], is_access_admin: !!me.is_access_admin };
+  document.querySelector('.shell')?.classList.remove('logged-out');
+  document.querySelectorAll('.sidebar .sb-item[id^="sbitem-"]').forEach(btn => {
+    btn.style.display = opsdbCanSee(btn.id.replace('sbitem-', '')) ? '' : 'none';
+  });
+  document.querySelectorAll('.sidebar .sb-section').forEach(sec => {
+    const items = sec.querySelectorAll('.sb-item');
+    if (!items.length) return;
+    sec.style.display = [...items].some(b => b.style.display !== 'none') ? '' : 'none';
+  });
+  const who = document.getElementById('opsdbWho');
+  if (who) who.textContent = OPSDB_ME.name;
+}
+
+function opsdbShowLogin() { renderSigninLogin(document.getElementById('pageBody')); document.getElementById('pageTitle').textContent = ''; }
+
+function pageBodyNoAccess() {
+  document.getElementById('pageBody').innerHTML = errBox('No tabs are enabled for you yet — ask Ajay, Ayaaz, Sushant or Jatin.');
+}
+
+async function opsdbBoot() {
+  if (!_lsToken) { opsdbShowLogin(); return; }
+  try {
+    const r = await fetch(`${API}/api/opsdb/me`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (r.status === 401 || r.status === 403) { lsLogout(); return; }
+    opsdbApplyAccess(await r.json());
+    navTo(opsdbFirstPage());
+  } catch (e) {
+    document.getElementById('pageBody').innerHTML = errBox('Could not reach the server.');
+  }
+}
+
+let _accPeople = [], _accSel = null;
+
+async function renderAccessPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `<div class="section-card"><div class="state-box"><div class="state-title">Loading…</div></div></div>`;
+  try {
+    const r = await fetch(`${API}/api/opsdb/access`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await r.json();
+    if (!r.ok) { body.innerHTML = errBox(d.detail || 'Could not load access'); return; }
+    _accPeople = d.people;
+    if (!_accSel || !_accPeople.find(p => p.employee_id === _accSel)) _accSel = _accPeople[0]?.employee_id || null;
+    accRender();
+  } catch (e) { body.innerHTML = errBox(String(e)); }
+}
+
+function accRender() {
+  const body = document.getElementById('pageBody');
+  const p = _accPeople.find(x => x.employee_id === _accSel);
+  const people = _accPeople.map(x => `<button class="${x.employee_id === _accSel ? 'active' : ''}" onclick="_accSel='${x.employee_id}';accRender()">
+      ${digcEsc(x.name)} <span style="color:#999;font-size:11px">${x.employee_id}</span>
+      ${x.enabled ? '' : '<div class="acc-off" style="font-size:11px">no access</div>'}${x.is_access_admin ? '<div style="font-size:11px;color:#16a34a">access manager</div>' : ''}
+    </button>`).join('');
+  let right = '<div class="state-box"><div class="state-title">Pick a person</div></div>';
+  if (p) {
+    const sw = (id, on, onchange) => `<label class="acc-switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} onchange="${onchange}"><span></span></label>`;
+    let html = `<div class="acc-row"><b>Can log into ops dashboard</b>${sw('acc-enabled', p.enabled, 'accSave()')}</div>
+                ${p.is_access_admin ? '<div class="acc-row" style="color:#16a34a">Access manager — sees every tab (fixed: Ayaaz, Ajay, Nishat, Jatin, Sushant)</div>' : ''}`;
+    let grp = null;
+    opsdbTabCatalog().forEach(t => {
+      if (t.group !== grp) { grp = t.group; html += `<div class="acc-group">${digcEsc(grp)}</div>`; }
+      html += `<div class="acc-row">${digcEsc(t.label)}${sw('acc-tab-' + t.key, p.is_access_admin || p.tabs.includes(t.key), 'accSave()')}</div>`;
+    });
+    html += `<div id="acc-status" style="margin-top:10px;font-size:12px;color:#888">${p.updated_by ? 'Last changed by ' + digcEsc(p.updated_by) + ' · ' + digcEsc(p.updated_at) : ''}</div>`;
+    right = html;
+  }
+  body.innerHTML = `<div class="section-card">
+      <div class="section-head"><div class="section-head-left"><div class="section-icon blue">🔐</div><div>
+        <div class="section-title">Ops Dashboard Access</div>
+        <div class="section-sub">Pick a person, toggle what they can see. Changes save instantly and apply on their next page load. Only Ayaaz, Ajay, Nishat, Jatin and Sushant can open this page.</div>
+      </div></div></div>
+      <div class="acc-wrap"><div class="acc-people">${people}</div><div>${right}</div></div>
+    </div>`;
+}
+
+async function accSave() {
+  const p = _accPeople.find(x => x.employee_id === _accSel);
+  if (!p) return;
+  const tabs = opsdbTabCatalog().filter(t => document.getElementById('acc-tab-' + t.key)?.checked).map(t => t.key);
+  const body = { enabled: document.getElementById('acc-enabled').checked, tabs };
+  const st = document.getElementById('acc-status');
+  if (st) st.textContent = 'Saving…';
+  try {
+    const r = await fetch(`${API}/api/opsdb/access/${p.employee_id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!r.ok) { if (st) st.textContent = '⚠️ ' + (d.detail || 'Save failed'); renderAccessPage(); return; }
+    Object.assign(p, body, { updated_by: d.updated_by, updated_at: d.updated_at });
+    accRender();
+    const st2 = document.getElementById('acc-status'); if (st2) st2.textContent = '✓ Saved';
+  } catch (e) { if (st) st.textContent = '⚠️ ' + e; }
+}
+
+opsdbBoot();
 
 /* ═══════════════════════════════════════════
    MANGO INVENTORY TRACKER
