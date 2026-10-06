@@ -1233,6 +1233,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-salaryflags" onclick="navTo('salaryflags')">
         <span class="sb-icon">🚩</span> Salary Flags
       </button>
+      <button class="sb-item" id="sbitem-referrals" onclick="navTo('referrals')">
+        <span class="sb-icon">🤝</span> Referrals
+      </button>
     </div>
   </div>
 
@@ -1328,12 +1331,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','accounting','production','access'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','referrals','accounting','production','access'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1371,6 +1374,7 @@ function navTo(page) {
   if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
   if (page === 'salaryflags') renderSalaryFlagsPage();
+  if (page === 'referrals')   renderReferralsPage();
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
   if (page === 'comments')    renderCommentsPage();
@@ -14675,6 +14679,86 @@ async function sfSend(decisions) {
     await sfFetch('/api/admin/salary-flags/decide', { method: 'POST', body: JSON.stringify({ month_key: _sf.month, decisions }) });
     _sf.sel.clear(); await renderSalaryFlagsPage();
   } catch (e) { const b = document.getElementById('pageBody'); b.insertAdjacentHTML('afterbegin', `<div style="padding:10px;color:#b91c1c">${sfEsc(e.message)}</div>`); }
+}
+</script>
+
+<script>
+/* ── REFERRAL PAYMENTS ── referrer gets ₹2000 once the referred person has
+   worked 30 days (roster days with a sign-in). Backend: /api/admin/referrals */
+let _rf = { data: null, show: 'all', busy: false };
+async function renderReferralsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading referrals…</div>';
+  try { _rf.data = await sfFetch('/api/admin/referrals'); }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  rfDraw();
+}
+function rfPaid(r) { return ['SUCCESS','PENDING','PROCESSING'].includes(r.payout_status); }
+function rfDraw(msg = '') {
+  const d = _rf.data, body = document.getElementById('pageBody');
+  const groups = { all: () => true, ready: r => r.eligible && !rfPaid(r), waiting: r => !r.eligible && !rfPaid(r), paid: rfPaid };
+  const rows = d.referrals.filter(groups[_rf.show]);
+  const n = k => d.referrals.filter(groups[k]).length;
+  const tab = (k, label) => `<button onclick="_rf.show='${k}';rfDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_rf.show===k?'#111827':'var(--surface)'};color:${_rf.show===k?'#fff':'inherit'};font-weight:600">${label} (${n(k)})</button>`;
+  const empOpts = sel => '<option value="">— pick referrer —</option>' + d.employees.map(e => `<option value="${e.employee_id}" ${e.employee_id===sel?'selected':''}>${sfEsc(e.name)} (${e.employee_id})</option>`).join('');
+  const bar = (w) => { const pct = Math.min(100, Math.round(w / d.days_required * 100));
+    return `<div style="background:#e5e7eb;border-radius:6px;height:8px;width:120px;overflow:hidden"><div style="height:8px;width:${pct}%;background:${w>=d.days_required?'#059669':'#f59e0b'}"></div></div>`; };
+  body.innerHTML = `
+  <div style="padding:16px;max-width:1150px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${tab('all','All')}${tab('ready','Ready to pay')}${tab('waiting','Under ' + d.days_required + ' days')}${tab('paid','Paid')}
+      <span style="color:#6b7280">₹${d.amount.toLocaleString('en-IN')} to the referrer after ${d.days_required} days worked</span>
+    </div>
+    ${msg}
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e5e7eb">
+        <th style="padding:8px">Referred person</th><th style="padding:8px">Joined</th><th style="padding:8px">Days worked</th>
+        <th style="padding:8px">Referred by</th><th style="padding:8px;text-align:right">Payment</th></tr></thead>
+      <tbody>${rows.length ? rows.map(r => `<tr style="border-top:1px solid #f3f4f6">
+        <td style="padding:8px"><b>${sfEsc(r.employee_name)}</b> <span style="color:#6b7280">${r.employee_id}</span>
+          ${r.active ? '' : `<span style="color:#b91c1c;margin-left:4px">${sfEsc(r.status || 'Inactive')}</span>`}</td>
+        <td style="padding:8px">${sfEsc(r.date_of_joining || '—')}${r.days_since_joining != null ? `<div style="color:#6b7280">${r.days_since_joining} days ago</div>` : ''}</td>
+        <td style="padding:8px"><b>${r.days_worked}</b> / ${d.days_required} ${r.days_worked >= d.days_required ? '✅' : ''}${bar(r.days_worked)}</td>
+        <td style="padding:8px">${r.referrer_id
+            ? `<b>${sfEsc(r.referrer_name)}</b> <span style="color:#6b7280">${r.referrer_id}</span>` : ''}
+          ${rfPaid(r) ? '' : `<div><select onchange="rfSetReferrer('${r.employee_id}', this.value)" style="padding:4px;border-radius:6px;max-width:220px;${r.referrer_id && !r.referrer_manual ? 'display:none' : ''}">${empOpts(r.referrer_id)}</select>
+            ${r.referrer_id && !r.referrer_manual ? `<a href="#" onclick="event.preventDefault();this.previousElementSibling.style.display='';this.remove()" style="font-size:12px">change</a>` : ''}</div>`}
+          <div style="color:#6b7280">typed: “${sfEsc(r.referred_by_text)}”</div></td>
+        <td style="padding:8px;text-align:right;white-space:nowrap">${rfPaid(r)
+            ? `<span style="color:#065f46;font-weight:600">${r.payout_status === 'SUCCESS' ? 'Paid' : r.payout_status} ₹${d.amount.toLocaleString('en-IN')}</span><div style="color:#6b7280">${sfEsc((r.paid_at||'').slice(0,10))} by ${sfEsc(r.paid_by)}${r.utr ? ' · UTR ' + sfEsc(r.utr) : ''}</div>`
+            : r.eligible
+              ? `<button onclick="rfConfirmPay('${r.employee_id}')" style="background:#111827;color:#fff;border:0;padding:7px 14px;border-radius:8px;font-weight:600">Pay ₹${d.amount.toLocaleString('en-IN')}</button>${r.error ? `<div style="color:#b91c1c;max-width:220px;white-space:normal">Last try failed: ${sfEsc(r.error)}</div>` : ''}`
+              : `<span style="color:#6b7280">${!r.referrer_id ? 'Pick referrer' : (d.days_required - r.days_worked) + ' days to go'}</span>`}</td>
+      </tr>`).join('') : '<tr><td colspan="5" style="padding:20px;color:#6b7280">Nothing here.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+async function rfSetReferrer(id, referrer) {
+  if (!referrer) return;
+  try { await sfFetch(`/api/admin/referrals/${id}/referrer`, { method: 'POST', body: JSON.stringify({ referrer_id: referrer }) }); await renderReferralsPage(); }
+  catch (e) { rfDraw(`<div style="padding:10px;color:#b91c1c">${sfEsc(e.message)}</div>`); }
+}
+function rfConfirmPay(id) {
+  const r = _rf.data.referrals.find(x => x.employee_id === id);
+  // Inline dialog, not confirm() — browser dialogs block automation.
+  const box = document.createElement('div');
+  box.style = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999';
+  box.innerHTML = `<div style="background:var(--surface);padding:18px;border-radius:12px;width:360px">
+    <div style="font-weight:700;margin-bottom:8px">Pay referral bonus?</div>
+    <div>₹${_rf.data.amount.toLocaleString('en-IN')} to <b>${sfEsc(r.referrer_name)}</b> (${r.referrer_id}) for referring <b>${sfEsc(r.employee_name)}</b> — ${r.days_worked} days worked.</div>
+    <div style="margin-top:14px;text-align:right"><button id="rfNo">Cancel</button> <button id="rfOk" style="background:#059669;color:#fff;border:0;padding:6px 14px;border-radius:6px">Pay now</button></div></div>`;
+  document.body.appendChild(box);
+  box.querySelector('#rfNo').onclick = () => box.remove();
+  box.querySelector('#rfOk').onclick = async () => {
+    box.remove();
+    if (_rf.busy) return; _rf.busy = true;
+    rfDraw('<div style="padding:10px;background:#fffbeb;border-radius:8px;margin-bottom:10px">Sending payment…</div>');
+    try {
+      const res = await sfFetch(`/api/admin/referrals/${id}/pay`, { method: 'POST' });
+      _rf.busy = false; await renderReferralsPage();
+      rfDraw(`<div style="padding:10px;background:#d1fae5;border-radius:8px;margin-bottom:10px">Payment ${sfEsc(res.status)} — ₹${res.amount} to ${sfEsc(res.referrer_id)}</div>`);
+    } catch (e) { _rf.busy = false; await renderReferralsPage(); rfDraw(`<div style="padding:10px;color:#b91c1c">${sfEsc(e.message)}</div>`); }
+  };
 }
 </script>
 
