@@ -1230,6 +1230,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-travelappr" onclick="navTo('travelappr')">
         <span class="sb-icon">🛺</span> Travel Approvals
       </button>
+      <button class="sb-item" id="sbitem-salaryflags" onclick="navTo('salaryflags')">
+        <span class="sb-icon">🚩</span> Salary Flags
+      </button>
     </div>
   </div>
 
@@ -1325,12 +1328,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','accounting','production','access'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','accounting','production','access'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1367,6 +1370,7 @@ function navTo(page) {
   if (page === 'outletvisit') renderOutletVisitPage();
   if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
+  if (page === 'salaryflags') renderSalaryFlagsPage();
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
   if (page === 'comments')    renderCommentsPage();
@@ -14568,5 +14572,111 @@ async function tmDrop(e) {
 <div class="dc-ctxmenu" id="dcCtxMenu">
   <div class="dc-ctxmenu-item" onclick="dcOpenAddComment()">💬 Add Comment</div>
 </div>
+<script>
+let _sf = { month: null, half: '10th', status: 'pending', q: '', data: null, sel: new Set() };
+function sfDefaultMonth() { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}_${String(d.getMonth()+1).padStart(2,'0')}`; }
+async function sfFetch(path, opts = {}) {
+  const r = await fetch(`${API}${path}`, { ...opts, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_lsToken}`, ...(opts.headers||{}) } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail || d));
+  return d;
+}
+async function renderSalaryFlagsPage() {
+  _sf.month = _sf.month || sfDefaultMonth();
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading salary flags…</div>';
+  try { _sf.data = await sfFetch(`/api/admin/salary-flags?month_key=${_sf.month}`); }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${e.message}</div>`; return; }
+  sfDraw();
+}
+function sfEsc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function sfDraw() {
+  const d = _sf.data, body = document.getElementById('pageBody');
+  const want = f => f.half === _sf.half && (_sf.status === 'all' || f.status === _sf.status);
+  const q = _sf.q.toLowerCase();
+  const emps = d.employees.map(e => ({ ...e, shown: e.flags.filter(want) }))
+    .filter(e => e.shown.length && (!q || (e.employee_id + ' ' + e.employee_name).toLowerCase().includes(q)));
+  const frozen = _sf.half === '10th' ? !d.open_10th : !d.open_15th;
+  const tab = (h, label, n) => `<button onclick="_sf.half='${h}';_sf.sel.clear();sfDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_sf.half===h?'#111827':'#fff'};color:${_sf.half===h?'#fff':'#111827'};font-weight:600">${label} (${n})</button>`;
+  body.innerHTML = `
+  <div style="padding:16px;max-width:1100px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input value="${_sf.month}" onchange="_sf.month=this.value;renderSalaryFlagsPage()" style="width:90px;padding:7px;border:1px solid #d1d5db;border-radius:8px" title="Month key YYYY_MM">
+      ${tab('10th', 'Days – 10th', d.counts.pending_10th)}${tab('15th', 'Extra hrs / Double / 1.5 – 15th', d.counts.pending_15th)}
+      <select onchange="_sf.status=this.value;sfDraw()" style="padding:7px;border-radius:8px">
+        ${['pending','approved','rejected','all'].map(s => `<option ${_sf.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      <input placeholder="Search employee" value="${sfEsc(_sf.q)}" oninput="_sf.q=this.value;sfDraw()" style="flex:1;min-width:160px;padding:7px;border:1px solid #d1d5db;border-radius:8px">
+      ${d.deadline ? `<span style="color:#6b7280">Deadline ${d.deadline}</span>` : ''}
+    </div>
+    ${frozen ? `<div style="padding:10px;background:#fee2e2;border-radius:8px;margin-bottom:10px">This half is frozen — decisions are closed.</div>` : ''}
+    ${_sf.sel.size && !frozen ? `<div style="position:sticky;top:0;background:#fffbeb;padding:10px;border-radius:8px;margin-bottom:10px;display:flex;gap:8px;align-items:center">
+        <b>${_sf.sel.size} selected</b>
+        <button onclick="sfDecide([..._sf.sel],'approve')" style="background:#059669;color:#fff;border:0;padding:7px 14px;border-radius:8px">✓ Approve selected</button>
+        <button onclick="sfDecide([..._sf.sel],'reject')" style="background:#b91c1c;color:#fff;border:0;padding:7px 14px;border-radius:8px">✗ Reject selected</button>
+        <button onclick="_sf.sel.clear();sfDraw()" style="border:0;background:none;color:#6b7280">clear</button></div>` : ''}
+    ${emps.length ? emps.map(e => sfEmp(e, frozen)).join('') : '<div style="padding:20px;color:#6b7280">No flags here.</div>'}
+  </div>`;
+}
+function sfEmp(e, frozen) {
+  const pend = e.flags.filter(f => f.status === 'pending' && f.half === _sf.half).length;
+  const ids = e.shown.filter(f => f.status === 'pending').map(f => f.flag_id);
+  return `<details open style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:var(--surface)">
+    <summary style="padding:12px;cursor:pointer;font-weight:700">${sfEsc(e.employee_id)} · ${sfEsc(e.employee_name)} · ${sfEsc(e.outlet)}
+      <span style="font-weight:400;color:#6b7280"> — ${e.shown.length} shown, ${pend} pending</span>
+      ${ids.length && !frozen ? `<a href="#" onclick="event.preventDefault();${JSON.stringify(ids).replace(/"/g,"'")}.forEach(i=>_sf.sel.add(i));sfDraw()" style="margin-left:10px;font-weight:400">select all pending</a>` : ''}
+    </summary>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      ${e.shown.map(f => sfRow(f, frozen)).join('')}
+    </table></details>`;
+}
+function sfRow(f, frozen) {
+  const ev = f.evidence || {};
+  const what = f.kind === 'day'
+    ? `<b>${f.date}</b> · ${f.reason_code === 'missed_signout' ? 'Missed sign-out' : 'Absent'} → <b>${sfEsc(f.claimed_value)}</b>
+       <div style="color:#6b7280">in ${sfEsc(ev.sign_in_time || '—')} · out ${sfEsc(ev.sign_out_time || '—')} · checklist ${ev.checklist_submitted ? '✓' : '✗'}</div>`
+    : `<b>${sfEsc(f.label || f.item)}</b>: system ${sfEsc(f.system_value)} → claimed <b>${sfEsc(f.claimed_value)}</b>`;
+  const status = f.status === 'pending' ? '' : `<span style="color:${f.status==='approved'?'#065f46':'#991b1b'}">${f.status}${f.approved_value && f.approved_value!==f.claimed_value?' ('+sfEsc(f.approved_value)+')':''} by ${sfEsc(f.decided_by)}${f.decision_note?' — "'+sfEsc(f.decision_note)+'"':''}</span>`;
+  const actions = f.status !== 'pending' || frozen ? status : `
+      <button onclick="sfDecide(['${f.flag_id}'],'approve')" style="background:#059669;color:#fff;border:0;padding:5px 10px;border-radius:6px">✓</button>
+      ${f.kind === 'extras' ? `<button onclick="sfApproveNumber('${f.flag_id}')" style="border:1px solid #059669;color:#059669;background:var(--surface);padding:5px 8px;border-radius:6px">✓ #</button>` : ''}
+      <button onclick="sfDecide(['${f.flag_id}'],'reject')" style="background:#b91c1c;color:#fff;border:0;padding:5px 10px;border-radius:6px">✗</button>`;
+  return `<tr style="border-top:1px solid #f3f4f6">
+    <td style="padding:8px;width:28px">${f.status === 'pending' && !frozen ? `<input type="checkbox" ${_sf.sel.has(f.flag_id)?'checked':''} onchange="this.checked?_sf.sel.add('${f.flag_id}'):_sf.sel.delete('${f.flag_id}');sfDraw()">` : ''}</td>
+    <td style="padding:8px">${what}</td>
+    <td style="padding:8px;color:#374151;max-width:280px">“${sfEsc(f.note)}”</td>
+    <td style="padding:8px;white-space:nowrap;text-align:right">${actions}</td></tr>`;
+}
+function sfInlinePrompt(label, cb) {
+  // No browser prompt() (blocks automation) — a tiny inline dialog instead.
+  const box = document.createElement('div');
+  box.style = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999';
+  box.innerHTML = `<div style="background:var(--surface);padding:18px;border-radius:12px;width:340px">
+    <div style="font-weight:700;margin-bottom:8px">${label}</div>
+    <input id="sfPromptIn" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px">
+    <div style="margin-top:12px;text-align:right"><button id="sfPromptNo">Cancel</button> <button id="sfPromptOk" style="background:#111827;color:#fff;border:0;padding:6px 14px;border-radius:6px">OK</button></div></div>`;
+  document.body.appendChild(box);
+  box.querySelector('#sfPromptIn').focus();
+  box.querySelector('#sfPromptNo').onclick = () => box.remove();
+  box.querySelector('#sfPromptOk').onclick = () => { const v = box.querySelector('#sfPromptIn').value; box.remove(); cb(v); };
+}
+function sfApproveNumber(id) {
+  sfInlinePrompt('Approve with this number:', v => { if (v.trim() !== '' && !isNaN(Number(v))) sfSend([{ flag_id: id, decision: 'approve', approved_value: v.trim() }]); });
+}
+function sfDecide(ids, decision) {
+  if (decision === 'reject') {
+    sfInlinePrompt(`Reason for rejecting ${ids.length} flag(s) (employee sees this):`, v => {
+      if (v.trim()) sfSend(ids.map(id => ({ flag_id: id, decision, note: v.trim() })));
+    });
+  } else sfSend(ids.map(id => ({ flag_id: id, decision })));
+}
+async function sfSend(decisions) {
+  try {
+    await sfFetch('/api/admin/salary-flags/decide', { method: 'POST', body: JSON.stringify({ month_key: _sf.month, decisions }) });
+    _sf.sel.clear(); await renderSalaryFlagsPage();
+  } catch (e) { const b = document.getElementById('pageBody'); b.insertAdjacentHTML('afterbegin', `<div style="padding:10px;color:#b91c1c">${sfEsc(e.message)}</div>`); }
+}
+</script>
+
 </body>
 </html>
