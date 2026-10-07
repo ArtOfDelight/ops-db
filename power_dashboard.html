@@ -9182,6 +9182,15 @@ function _otRenderHost(staging) {
           <select class="ot-select" onchange="if(this.value) _otAddStaff(this.value, '${o.code}'); this.value=''">${addOpts}</select>
         </div>
         ${staffChips}
+        ${o.is_cloud_roster ? `
+        <div class="ot-row">
+          <span class="ot-label">Roster shifts</span>
+          ${[['double','Double shift'],['one_half','One and Half'],['one_quarter','One and Quarter']].map(([k, lbl]) => `
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+            <input type="checkbox" ${o.roster_toggles && o.roster_toggles[k] ? 'checked' : ''} onchange="_otSetToggle('${o.code}','${k}',this.checked)"> ${lbl}
+          </label>`).join('')}
+        </div>
+        <div class="ot-empty">Ticked shifts show in this outlet's roster builder (1 person each). Doubleshift always shows Mon–Thu; the tick adds it Fri–Sun.</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -9213,6 +9222,15 @@ async function _otSetManager(outletCode, employeeId) {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
     body: JSON.stringify({ manager_status: 'Outlet Manager', manager_outlet: outletCode }),
+  });
+  _otRefresh();
+}
+
+async function _otSetToggle(outletCode, key, on) {
+  await fetch(`${API}/api/admin/outlets/${outletCode}/roster-toggles`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+    body: JSON.stringify({ [key]: on }),
   });
   _otRefresh();
 }
