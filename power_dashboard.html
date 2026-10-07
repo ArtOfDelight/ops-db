@@ -14852,6 +14852,10 @@ function pcShiftMonth(m, by) {
   const d = new Date(y, mo - 1 + by, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
+// Outlets an upload counts for: one video at the CK/RR building counts for both.
+function pcOutlets(u) {
+  return (u.matched_outlets && u.matched_outlets.length) ? u.matched_outlets : (u.matched_outlet ? [u.matched_outlet] : []);
+}
 function pcBadge(st) {
   const s = PC_STATUS[st] || { icon: '', label: st || '—' };
   return `<span class="pc-badge pc-b-${pcEsc(st)}">${s.icon} ${s.label}</span>`;
@@ -14964,7 +14968,7 @@ function pcUploadRows(list) {
   if (!list.length) return '<tr><td colspan="6" class="pc-muted">Nothing here</td></tr>';
   return list.map(u => `<tr class="click" onclick="pcOpen('${pcEsc(u.id)}')">
     <td>${pcDate(u.uploaded_at)}<div class="pc-muted">received ${pcDate(u.date_received)}</div></td>
-    <td>${pcEsc(u.matched_outlet || u.chosen_outlet || '—')}${u.extra ? ' <span class="pc-muted">(extra)</span>' : ''}</td>
+    <td>${pcEsc(pcOutlets(u).join(' + ') || u.chosen_outlet || '—')}${u.extra ? ' <span class="pc-muted">(extra)</span>' : ''}</td>
     <td>${pcDate((u.overlay || {}).date)}</td>
     <td>${u.distance_m != null ? u.distance_m + ' m' : '—'}</td>
     <td>${pcEsc(u.uploader_name)}</td>
@@ -15093,7 +15097,7 @@ function pcRenderDetail() {
     <div class="pc-row"><button class="ex-btn pri" onclick="pcReview('approve')">✅ Approve</button><button class="ex-btn" onclick="pcReview('reject')">❌ Reject</button>
       <span class="pc-muted" id="pcRvMsg"></span></div></div>`;
   el.innerHTML = `
-    <div class="pc-modal-h"><h3>${pcEsc(names[u.matched_outlet] || u.matched_outlet || 'Outlet not matched')} · ${pcBadge(u.status)}</h3>
+    <div class="pc-modal-h"><h3>${pcEsc(pcOutlets(u).map(c => names[c] || c).join(' + ') || 'Outlet not matched')} · ${pcBadge(u.status)}</h3>
       <button class="ex-btn sm" onclick="pcCloseDetail()">✕</button></div>
     <div class="pc-detail">
       <div>
