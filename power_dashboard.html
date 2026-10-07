@@ -1259,6 +1259,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
         <span class="sb-icon">⏱️</span> Kitchen Extra Hours
       </button>
+      <button class="sb-item" id="sbitem-pestcontrol" onclick="navTo('pestcontrol')">
+        <span class="sb-icon">🐜</span> Pest Control
+      </button>
     </div>
   </div>
 
@@ -1331,12 +1334,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','referrals','accounting','production','access'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','referrals','accounting','production','access','pestcontrol'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1383,6 +1386,7 @@ function navTo(page) {
   if (page === 'tasks')       renderTasksPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
   if (page === 'access')      renderAccessPage();
+  if (page === 'pestcontrol') renderPestControlPage();
   // Accounting / Supply Chain get the full width; ☰ brings the menu back.
   setSidebarCollapsed(!!EMBED_PAGES[page]);
 }
@@ -14762,5 +14766,406 @@ function rfConfirmPay(id) {
 }
 </script>
 
+
+<!-- ══ PEST CONTROL (vendor visit videos, AI verification) ══ -->
+<style>
+.pc-tabs     { margin-bottom:14px;display:inline-flex; }
+.pc-tbl      { width:100%;border-collapse:collapse;font-size:12px; }
+.pc-tbl th   { text-align:left;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3);padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap; }
+.pc-tbl td   { padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top; }
+.pc-tbl tr.click { cursor:pointer; }
+.pc-tbl tr.click:hover td { background:var(--bg); }
+.pc-wrap     { overflow-x:auto; }
+.pc-visit    { display:inline-flex;flex-direction:column;gap:1px;min-width:118px;padding:6px 8px;border-radius:var(--r);border:1px solid var(--border);margin:0 6px 6px 0;background:var(--surface);font-family:var(--sans);text-align:left;cursor:default;color:var(--ink); }
+.pc-visit.click { cursor:pointer; }
+.pc-visit.click:hover { border-color:var(--ink-2); }
+.pc-visit b  { font-size:12px; }
+.pc-visit span { font-size:10px;color:var(--ink-3); }
+.pc-st-verified     { background:var(--green-dim);border-color:#bbf7d0; }
+.pc-st-needs_review { background:var(--amber-dim);border-color:#fde68a; }
+.pc-st-overdue, .pc-st-failed { background:var(--red-dim);border-color:#fecaca; }
+.pc-badge    { display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap; }
+.pc-b-verified     { background:var(--green-dim);color:var(--green); }
+.pc-b-needs_review { background:var(--amber-dim);color:var(--amber); }
+.pc-b-failed       { background:var(--red-dim);color:var(--red); }
+.pc-b-queued, .pc-b-processing { background:var(--info-dim);color:var(--info); }
+.pc-muted    { color:var(--ink-3);font-size:11px; }
+.pc-reasons  { font-size:11px;color:#92400e;margin-top:2px; }
+.pc-filters  { display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px; }
+.pc-modal-bg { position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:900;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto; }
+.pc-modal    { background:var(--surface);border-radius:var(--r-lg);box-shadow:0 20px 50px rgba(0,0,0,.25);width:100%;max-width:880px;padding:18px; }
+.pc-modal-h  { display:flex;align-items:center;gap:10px;margin-bottom:12px; }
+.pc-modal-h h3 { margin:0;font-size:15px;flex:1; }
+.pc-detail   { display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px; }
+.pc-video    { width:100%;max-height:420px;background:#000;border-radius:var(--r); }
+.pc-kv       { display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12px; }
+.pc-kv dt    { color:var(--ink-3); }
+.pc-kv dd    { margin:0;font-weight:500;overflow-wrap:anywhere; }
+.pc-check    { display:flex;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border); }
+.pc-check:last-child { border-bottom:0; }
+.pc-frames   { display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-top:10px; }
+.pc-frames img { width:100%;border-radius:6px;cursor:zoom-in; }
+.pc-review   { margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px; }
+.pc-row      { display:flex;gap:8px;flex-wrap:wrap;align-items:center; }
+.pc-in-sm    { width:90px; }
+@media (max-width:720px) { .pc-detail { grid-template-columns:1fr; } }
+</style>
+<script>
+/* Pest control: vendor visit videos uploaded in the AOD app are verified by
+   the backend worker overnight (04:30 IST) with Gemini; this page shows the
+   result. Backend: /api/admin/pest/* (AODAPP backend/pest_control.py). */
+const PC_STATUS = {
+  pending:      { icon: '⏳', label: 'Pending' },
+  verified:     { icon: '✅', label: 'Verified' },
+  needs_review: { icon: '⚠️', label: 'Needs Review' },
+  failed:       { icon: '❌', label: 'Failed' },
+  overdue:      { icon: '❌', label: 'Overdue' },
+  queued:       { icon: '⏳', label: 'Waiting for AI' },
+  processing:   { icon: '⏳', label: 'Checking' },
+};
+const PC_CHECK_NAMES = { duplicate: 'Duplicate', overlay: 'Overlay read', outlet: 'Outlet match', schedule: 'Schedule', freshness: 'Posted on time', content: 'Content' };
+const PC_CHECK_ICON = { pass: '✅', review: '⚠️', fail: '❌', skip: '➖' };
+
+function pcMonthNow() {
+  const d = new Date(Date.now() + 330 * 60000);   // IST
+  return d.toISOString().slice(0, 7);
+}
+const _pc = { tab: 'overview', month: pcMonthNow(), f: { outlet: '', vendor: '', status: '', month: '' },
+              summary: null, grid: null, uploads: null, report: null, settings: null, detail: null, msg: '' };
+
+function pcEsc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function pcDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
+  return isNaN(d) ? iso : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+function pcMonthLabel(m) {
+  const [y, mo] = m.split('-').map(Number);
+  return new Date(y, mo - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+function pcShiftMonth(m, by) {
+  const [y, mo] = m.split('-').map(Number);
+  const d = new Date(y, mo - 1 + by, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function pcBadge(st) {
+  const s = PC_STATUS[st] || { icon: '', label: st || '—' };
+  return `<span class="pc-badge pc-b-${pcEsc(st)}">${s.icon} ${s.label}</span>`;
+}
+
+async function pcApi(method, path, body) {
+  const r = await fetch(`${API}/api/admin/pest${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${_lsToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let d = {};
+  try { d = await r.json(); } catch (e) {}
+  if (!r.ok) {
+    const msg = typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`;
+    throw new Error(r.status === 404 && !d.detail ? "The pest control backend isn't deployed yet" : msg);
+  }
+  return d;
+}
+
+async function renderPestControlPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div class="ex-empty">Loading…</div>';
+  try { await pcLoadTab(); }
+  catch (e) { if (_currentPage === 'pestcontrol') body.innerHTML = errBox(escHtml(e.message)); return; }
+  pcRender();
+}
+
+async function pcLoadTab() {
+  const t = _pc.tab;
+  if (t === 'overview') {
+    [_pc.summary, _pc.grid] = await Promise.all([pcApi('GET', `/summary?month=${_pc.month}`), pcApi('GET', `/grid?month=${_pc.month}`)]);
+  } else if (t === 'review') {
+    _pc.uploads = (await pcApi('GET', '/uploads?status=needs_review')).uploads;
+  } else if (t === 'uploads') {
+    if (!_pc.settings) _pc.settings = await pcApi('GET', '/settings');
+    const q = new URLSearchParams(Object.entries(_pc.f).filter(([, v]) => v)).toString();
+    _pc.uploads = (await pcApi('GET', `/uploads${q ? '?' + q : ''}`)).uploads;
+  } else if (t === 'report') {
+    _pc.report = await pcApi('GET', `/report?month=${_pc.month}`);
+  } else if (t === 'settings') {
+    _pc.settings = await pcApi('GET', '/settings');
+  }
+}
+
+async function pcGo(tab) {
+  _pc.tab = tab; _pc.msg = '';
+  await renderPestControlPage();
+}
+async function pcSetMonth(m) { _pc.month = m; await renderPestControlPage(); }
+async function pcSetFilter(k, v) { _pc.f[k] = v; await renderPestControlPage(); }
+
+function pcRender() {
+  const body = document.getElementById('pageBody');
+  if (!body || _currentPage !== 'pestcontrol') return;
+  const tab = (k, l) => `<button class="cmp-ftab ${_pc.tab === k ? 'active' : ''}" onclick="pcGo('${k}')">${l}</button>`;
+  const views = { overview: pcOverviewHtml, review: pcReviewHtml, uploads: pcUploadsHtml, report: pcReportHtml, settings: pcSettingsHtml };
+  body.innerHTML = `
+    <div class="ex-bar">
+      <div class="cmp-ftabs pc-tabs" style="margin:0">${tab('overview', 'Overview')}${tab('review', 'Review queue')}${tab('uploads', 'All uploads')}${tab('report', 'Month-end report')}${tab('settings', 'Settings')}</div>
+      <span class="sp"></span>
+      <button class="ex-btn" onclick="pcProcessNow()" title="Verify waiting videos now instead of at 4:30am">⚡ Process now</button>
+    </div>
+    ${_pc.msg ? `<div class="ex-banner info">${pcEsc(_pc.msg)}</div>` : ''}
+    ${views[_pc.tab]()}`;
+}
+
+function pcMonthBar() {
+  return `<div class="pc-row" style="margin-bottom:12px">
+    <button class="ex-btn sm" onclick="pcSetMonth('${pcShiftMonth(_pc.month, -1)}')">‹</button>
+    <b style="font-size:13px;min-width:130px;text-align:center">${pcMonthLabel(_pc.month)}</b>
+    <button class="ex-btn sm" onclick="pcSetMonth('${pcShiftMonth(_pc.month, 1)}')">›</button>
+  </div>`;
+}
+
+/* ── overview: summary + monthly grid ── */
+function pcOverviewHtml() {
+  const s = _pc.summary, g = _pc.grid;
+  const kpi = (l, v, sub) => `<div class="ex-kpi"><span class="ex-kpi-l">${l}</span><span class="ex-kpi-v">${v}</span><span class="ex-kpi-s">${sub}</span></div>`;
+  const kpis = `<div class="ex-kpis">
+    ${kpi('Compliance', s.compliance_pct == null ? '—' : s.compliance_pct + '%', `${s.verified} of ${s.expected} visits verified`)}
+    ${kpi('Overdue', s.overdue, 'Window ended, no verified video')}
+    ${kpi('Pending reviews', s.pending_reviews, 'Waiting for a decision')}
+    ${kpi('Waiting for AI', s.queued, 'Checked at 4:30am')}
+  </div>`;
+  const rows = g.outlets.map(o => {
+    const visits = o.visits.length ? o.visits.map(v => {
+      const st = PC_STATUS[v.status] || PC_STATUS.pending;
+      const title = v.extra ? 'Extra visit' : `Visit ${v.index} · ${pcDate(v.window_start)}–${pcDate(v.window_end)}`;
+      const meta = v.upload_id
+        ? [v.overlay_date && pcDate(v.overlay_date), v.distance_m != null && `${v.distance_m} m`,
+           v.posting_delay_days != null && (v.posting_delay_days === 0 ? 'same day' : `+${v.posting_delay_days}d`)].filter(Boolean).join(' · ')
+        : '';
+      const click = v.upload_id ? `onclick="pcOpen('${pcEsc(v.upload_id)}')"` : '';
+      return `<button class="pc-visit pc-st-${pcEsc(v.status)}${v.upload_id ? ' click' : ''}" ${click}>
+        <b>${st.icon} ${st.label}</b><span>${title}</span>${meta ? `<span>${pcEsc(meta)}</span>` : ''}</button>`;
+    }).join('') : '<span class="pc-muted">Not scheduled</span>';
+    return `<tr>
+      <td><b>${pcEsc(o.name)}</b><div class="pc-muted">${pcEsc(o.code)}</div></td>
+      <td>${o.outlet_type === 'dine_in' ? 'Dine-in' : 'Cloud kitchen'}<div class="pc-muted">${pcEsc(o.frequency_label)}</div></td>
+      <td>${pcEsc(o.vendor_name) || '<span class="pc-muted">—</span>'}</td>
+      <td>${visits}</td></tr>`;
+  }).join('');
+  return pcMonthBar() + kpis + `<div class="ex-card pc-wrap"><table class="pc-tbl">
+    <thead><tr><th>Outlet</th><th>Type</th><th>Vendor</th><th>Visits (date · distance · posting delay)</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="4" class="pc-muted">No outlets</td></tr>'}</tbody></table></div>`;
+}
+
+/* ── uploads tables ── */
+function pcUploadRows(list) {
+  if (!list.length) return '<tr><td colspan="7" class="pc-muted">Nothing here</td></tr>';
+  return list.map(u => `<tr class="click" onclick="pcOpen('${pcEsc(u.id)}')">
+    <td>${pcDate(u.uploaded_at)}<div class="pc-muted">received ${pcDate(u.date_received)}</div></td>
+    <td>${pcEsc(u.matched_outlet || u.chosen_outlet || '—')}${u.extra ? ' <span class="pc-muted">(extra)</span>' : ''}</td>
+    <td>${pcEsc(u.vendor_name)}</td>
+    <td>${pcDate((u.overlay || {}).date)}</td>
+    <td>${u.distance_m != null ? u.distance_m + ' m' : '—'}</td>
+    <td>${pcEsc(u.uploader_name)}</td>
+    <td>${pcBadge(u.status)}${(u.reasons || []).length && u.status !== 'verified' ? `<div class="pc-reasons">${pcEsc(u.reasons.join(' · '))}</div>` : ''}</td>
+  </tr>`).join('');
+}
+const PC_UPLOAD_HEAD = '<thead><tr><th>Uploaded</th><th>Outlet</th><th>Vendor</th><th>Visit date</th><th>Distance</th><th>Uploader</th><th>Status</th></tr></thead>';
+
+function pcReviewHtml() {
+  return `<div class="ex-banner info">Videos the AI couldn't fully verify. Open one to watch it, then approve or reject with a reason.</div>
+    <div class="ex-card pc-wrap"><table class="pc-tbl">${PC_UPLOAD_HEAD}<tbody>${pcUploadRows(_pc.uploads)}</tbody></table></div>`;
+}
+
+function pcUploadsHtml() {
+  const s = _pc.settings, f = _pc.f;
+  const opt = (v, l, cur) => `<option value="${pcEsc(v)}"${cur === v ? ' selected' : ''}>${pcEsc(l)}</option>`;
+  const months = [...Array(12)].map((_, i) => pcShiftMonth(pcMonthNow(), -i));
+  return `<div class="pc-filters">
+      <select class="ex-sel" onchange="pcSetFilter('outlet',this.value)">${opt('', 'All outlets', f.outlet)}${s.outlets.map(o => opt(o.code, o.name, f.outlet)).join('')}</select>
+      <select class="ex-sel" onchange="pcSetFilter('vendor',this.value)">${opt('', 'All vendors', f.vendor)}${s.vendors.map(v => opt(v.id, v.name, f.vendor)).join('')}</select>
+      <select class="ex-sel" onchange="pcSetFilter('status',this.value)">${opt('', 'All statuses', f.status)}${['verified', 'needs_review', 'failed', 'queued'].map(k => opt(k, PC_STATUS[k].label, f.status)).join('')}</select>
+      <select class="ex-sel" onchange="pcSetFilter('month',this.value)">${opt('', 'All months', f.month)}${months.map(m => opt(m, pcMonthLabel(m), f.month)).join('')}</select>
+      <span class="pc-muted">${_pc.uploads.length} upload${_pc.uploads.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="ex-card pc-wrap"><table class="pc-tbl">${PC_UPLOAD_HEAD}<tbody>${pcUploadRows(_pc.uploads)}</tbody></table></div>`;
+}
+
+/* ── month-end report ── */
+function pcReportHtml() {
+  const r = _pc.report;
+  const pct = v => v == null ? '—' : v + '%';
+  const outletRows = r.per_outlet.map(o => `<tr><td><b>${pcEsc(o.name)}</b> <span class="pc-muted">${pcEsc(o.code)}</span></td>
+    <td>${o.outlet_type === 'dine_in' ? 'Dine-in' : 'Cloud kitchen'}</td><td>${o.expected}</td><td>${o.verified}</td>
+    <td>${o.extra_verified || '—'}</td><td>${o.overdue || '—'}</td><td><b>${pct(o.compliance_pct)}</b></td></tr>`).join('');
+  const vendorRows = r.per_vendor.length ? r.per_vendor.map(v => `<tr><td><b>${pcEsc(v.vendor_name)}</b></td><td>${v.uploads}</td>
+    <td><b>${v.verified}</b></td><td>${v.needs_review || '—'}</td><td>${v.failed || '—'}</td><td>${pcEsc(v.outlets.join(', ')) || '—'}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="pc-muted">No uploads this month</td></tr>';
+  const tot = r.per_outlet.reduce((a, o) => [a[0] + o.expected, a[1] + o.verified], [0, 0]);
+  return pcMonthBar() + `
+    <div class="ex-card pc-wrap"><h3>Per outlet · ${tot[1]} of ${tot[0]} scheduled visits verified</h3><table class="pc-tbl">
+      <thead><tr><th>Outlet</th><th>Type</th><th>Expected</th><th>Verified</th><th>Extra</th><th>Overdue</th><th>Compliance</th></tr></thead>
+      <tbody>${outletRows}</tbody></table></div>
+    <div class="ex-card pc-wrap"><h3>Per vendor · only verified visits count toward payment</h3><table class="pc-tbl">
+      <thead><tr><th>Vendor</th><th>Uploads</th><th>Verified (payable)</th><th>Needs review</th><th>Failed</th><th>Outlets verified</th></tr></thead>
+      <tbody>${vendorRows}</tbody></table></div>`;
+}
+
+/* ── settings ── */
+function pcFreqFields(o, i) {
+  const f = o.pest_frequency || { kind: 'monthly', n: 1 };
+  const kind = `<select class="ex-sel" id="pcFk${i}" onchange="pcFreqKind(${i},this.value)">
+    ${[['monthly', 'Visits per month'], ['every_days', 'Every N days'], ['custom', 'Custom windows'], ['none', 'Not scheduled']]
+      .map(([k, l]) => `<option value="${k}"${f.kind === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  let extra = '';
+  if (f.kind === 'monthly') extra = `<input class="ex-in pc-in-sm" id="pcFn${i}" type="number" min="1" max="8" value="${f.n || 1}">`;
+  if (f.kind === 'every_days') extra = `<input class="ex-in pc-in-sm" id="pcFn${i}" type="number" min="3" max="31" value="${f.days || 15}"> days`;
+  if (f.kind === 'custom') extra = `<input class="ex-in" style="width:150px" id="pcFn${i}" placeholder="1-10, 11-20, 21-31" value="${pcEsc((f.windows || []).map(w => w.join('-')).join(', '))}">`;
+  return `<div class="pc-row">${kind}${extra}</div>`;
+}
+function pcFreqKind(i, kind) {
+  const o = _pc.settings.outlets[i];
+  o.pest_frequency = kind === 'monthly' ? { kind, n: 1 } : kind === 'every_days' ? { kind, days: 15 } : kind === 'custom' ? { kind, windows: [[1, 15], [16, 31]] } : { kind };
+  pcRender();
+}
+function pcSettingsHtml() {
+  const s = _pc.settings;
+  const vendorOpts = cur => `<option value="">—</option>` + s.vendors.filter(v => v.active !== false || v.id === cur)
+    .map(v => `<option value="${pcEsc(v.id)}"${v.id === cur ? ' selected' : ''}>${pcEsc(v.name)}</option>`).join('');
+  const rows = s.outlets.map((o, i) => `<tr>
+    <td><b>${pcEsc(o.name)}</b> <span class="pc-muted">${pcEsc(o.code)}</span>${o.has_location ? '' : '<div class="pc-reasons">No GPS location in Firebase: videos can\'t be matched to it</div>'}</td>
+    <td><select class="ex-sel" id="pcT${i}"><option value="dine_in"${o.outlet_type === 'dine_in' ? ' selected' : ''}>Dine-in</option><option value="cloud_kitchen"${o.outlet_type !== 'dine_in' ? ' selected' : ''}>Cloud kitchen</option></select></td>
+    <td>${pcFreqFields(o, i)}</td>
+    <td><div class="pc-row"><input class="ex-in pc-in-sm" id="pcG${i}" type="number" min="20" max="2000" value="${o.pest_gps_tolerance_m}"> m</div></td>
+    <td><select class="ex-sel" id="pcV${i}">${vendorOpts(o.pest_vendor_id)}</select></td></tr>`).join('');
+  const vendors = s.vendors.map(v => `<tr>
+    <td><input class="ex-in" id="pcVn_${pcEsc(v.id)}" value="${pcEsc(v.name)}"></td>
+    <td><input class="ex-in" id="pcVp_${pcEsc(v.id)}" value="${pcEsc(v.phone || '')}"></td>
+    <td><label class="pc-row"><input type="checkbox" id="pcVa_${pcEsc(v.id)}"${v.active !== false ? ' checked' : ''}> Active</label></td>
+    <td><button class="ex-btn sm" onclick="pcSaveVendor('${pcEsc(v.id)}')">Save</button></td></tr>`).join('');
+  return `
+    <div class="ex-card pc-wrap"><h3>Outlets</h3>
+      <div class="pc-muted" style="margin-bottom:10px">Frequency changes apply to visits that haven't started yet; past and verified visits are never changed. "2 visits per month" means 1st–15th and 16th–end.</div>
+      <table class="pc-tbl"><thead><tr><th>Outlet</th><th>Type</th><th>Visit frequency</th><th>GPS tolerance</th><th>Vendor</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="pc-row" style="margin-top:12px"><button class="ex-btn pri" onclick="pcSaveOutlets()">Save outlet settings</button></div>
+    </div>
+    <div class="ex-card pc-wrap"><h3>Vendors</h3>
+      <table class="pc-tbl"><thead><tr><th>Name</th><th>Phone</th><th></th><th></th></tr></thead><tbody>${vendors || '<tr><td colspan="4" class="pc-muted">No vendors yet</td></tr>'}
+        <tr><td><input class="ex-in" id="pcVnNew" placeholder="New vendor name"></td><td><input class="ex-in" id="pcVpNew" placeholder="Phone"></td><td></td>
+        <td><button class="ex-btn pri sm" onclick="pcAddVendor()">+ Add</button></td></tr></tbody></table>
+    </div>`;
+}
+function pcReadFreq(i) {
+  const kind = document.getElementById('pcFk' + i).value;
+  const raw = (document.getElementById('pcFn' + i) || {}).value || '';
+  if (kind === 'monthly') return { kind, n: parseInt(raw, 10) };
+  if (kind === 'every_days') return { kind, days: parseInt(raw, 10) };
+  if (kind === 'custom') return { kind, windows: raw.split(',').map(p => p.trim()).filter(Boolean).map(p => p.split('-').map(n => parseInt(n, 10))) };
+  return { kind };
+}
+async function pcSaveOutlets() {
+  const outlets = _pc.settings.outlets.map((o, i) => ({
+    code: o.code, outlet_type: document.getElementById('pcT' + i).value, pest_frequency: pcReadFreq(i),
+    pest_gps_tolerance_m: parseInt(document.getElementById('pcG' + i).value, 10) || 150,
+    pest_vendor_id: document.getElementById('pcV' + i).value,
+  }));
+  try { await pcApi('PUT', '/settings/outlets', { outlets }); _pc.msg = 'Outlet settings saved. Upcoming visits were updated.'; }
+  catch (e) { _pc.msg = 'Not saved: ' + e.message; }
+  await renderPestControlPage();
+}
+async function pcAddVendor() {
+  const name = document.getElementById('pcVnNew').value.trim();
+  if (!name) return;
+  try { await pcApi('POST', '/vendors', { name, phone: document.getElementById('pcVpNew').value.trim(), active: true }); _pc.msg = `Added ${name}.`; }
+  catch (e) { _pc.msg = 'Not saved: ' + e.message; }
+  await renderPestControlPage();
+}
+async function pcSaveVendor(id) {
+  const g = p => document.getElementById(p + id);
+  try { await pcApi('PUT', `/vendors/${encodeURIComponent(id)}`, { name: g('pcVn_').value.trim(), phone: g('pcVp_').value.trim(), active: g('pcVa_').checked }); _pc.msg = 'Vendor saved.'; }
+  catch (e) { _pc.msg = 'Not saved: ' + e.message; }
+  await renderPestControlPage();
+}
+
+async function pcProcessNow() {
+  try { const r = await pcApi('POST', '/process-now'); _pc.msg = r.message; }
+  catch (e) { _pc.msg = 'Could not queue: ' + e.message; }
+  pcRender();
+}
+
+/* ── visit detail ── */
+async function pcOpen(id) {
+  pcCloseDetail();
+  const bg = document.createElement('div');
+  bg.className = 'pc-modal-bg'; bg.id = 'pcModal';
+  bg.onclick = e => { if (e.target === bg) pcCloseDetail(); };
+  bg.innerHTML = '<div class="pc-modal"><div class="ex-empty">Loading…</div></div>';
+  document.body.appendChild(bg);
+  try { _pc.detail = await pcApi('GET', `/uploads/${encodeURIComponent(id)}`); }
+  catch (e) { bg.querySelector('.pc-modal').innerHTML = errBox(escHtml(e.message)); return; }
+  if (!_pc.settings) { try { _pc.settings = await pcApi('GET', '/settings'); } catch (e) {} }
+  pcRenderDetail();
+}
+function pcCloseDetail() { document.getElementById('pcModal')?.remove(); }
+
+function pcRenderDetail() {
+  const u = _pc.detail, ov = u.overlay || {}, el = document.querySelector('#pcModal .pc-modal');
+  if (!el) return;
+  const names = Object.fromEntries(((_pc.settings || {}).outlets || []).map(o => [o.code, o.name]));
+  const kv = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
+  const checks = (u.checks || []).map(c => `<div class="pc-check"><span>${PC_CHECK_ICON[c.result] || ''}</span>
+    <div><b>${PC_CHECK_NAMES[c.name] || pcEsc(c.name)}</b><div class="pc-muted">${pcEsc(c.detail)}</div></div></div>`).join('')
+    || '<div class="pc-muted">Not checked yet: runs at 4:30am, or press Process now.</div>';
+  const outletOpts = Object.entries(names).map(([c, n]) => `<option value="${pcEsc(c)}"${(u.matched_outlet || u.chosen_outlet) === c ? ' selected' : ''}>${pcEsc(n)}</option>`).join('');
+  const rv = u.review;
+  const reviewed = rv ? `<div class="ex-banner ${rv.decision === 'approve' ? 'info' : ''}" style="margin:0">${rv.decision === 'approve' ? 'Approved' : 'Rejected'} by ${pcEsc(rv.by)} on ${pcDate(rv.at)}: ${pcEsc(rv.reason)}</div>` : '';
+  const canReview = ['needs_review', 'verified', 'failed'].includes(u.status);
+  const reviewBox = !canReview ? '' : `<div class="pc-review">${reviewed}
+    <div class="pc-row"><label class="pc-muted">Outlet</label><select class="ex-sel" id="pcRvOutlet"><option value="">${u.matched_outlet ? '' : 'Choose…'}</option>${outletOpts}</select></div>
+    <input class="ex-in" id="pcRvReason" placeholder="Reason (required)">
+    <div class="pc-row"><button class="ex-btn pri" onclick="pcReview('approve')">✅ Approve</button><button class="ex-btn" onclick="pcReview('reject')">❌ Reject</button>
+      <span class="pc-muted" id="pcRvMsg"></span></div></div>`;
+  el.innerHTML = `
+    <div class="pc-modal-h"><h3>${pcEsc(names[u.matched_outlet] || u.matched_outlet || 'Outlet not matched')} · ${pcBadge(u.status)}</h3>
+      <button class="ex-btn sm" onclick="pcCloseDetail()">✕</button></div>
+    <div class="pc-detail">
+      <div>
+        ${u.video_url ? `<video class="pc-video" src="${pcEsc(u.video_url)}" controls preload="metadata"></video>` : '<div class="pc-muted">Video not available</div>'}
+        ${(u.frame_urls || []).length ? `<div class="pc-frames">${u.frame_urls.map(f => `<a href="${pcEsc(f)}" target="_blank" rel="noopener"><img src="${pcEsc(f)}" loading="lazy" alt="frame"></a>`).join('')}</div>` : ''}
+      </div>
+      <div>
+        <dl class="pc-kv">
+          ${kv('Overlay date', pcEsc(ov.date || '—') + (ov.time ? ' ' + pcEsc(ov.time) : ''))}
+          ${kv('Overlay GPS', ov.latitude != null ? `${ov.latitude.toFixed(6)}, ${ov.longitude.toFixed(6)}` : '—')}
+          ${kv('AI confidence', pcEsc(ov.confidence || '—') + (u.ai_method === 'video' ? ' <span class="pc-muted">(full video)</span>' : ''))}
+          ${kv('Distance', u.distance_m != null ? `${u.distance_m} m from ${pcEsc(names[u.matched_outlet || u.nearest_outlet] || u.nearest_outlet || '')}` : '—')}
+          ${kv('Uploader chose', pcEsc(names[u.chosen_outlet] || u.chosen_outlet || 'Auto'))}
+          ${kv('Vendor', pcEsc(u.vendor_name))}
+          ${kv('Uploader', pcEsc(u.uploader_name))}
+          ${kv('Received', pcDate(u.date_received) + (u.posting_delay_days != null ? ` <span class="pc-muted">(${u.posting_delay_days} day delay)</span>` : ''))}
+          ${kv('Uploaded', pcDate(u.uploaded_at))}
+          ${u.ai_notes ? kv('AI notes', pcEsc(u.ai_notes)) : ''}
+        </dl>
+        <h3 style="font-size:12px;margin:14px 0 4px">Checks</h3>${checks}
+        ${reviewBox}
+      </div>
+    </div>`;
+}
+
+async function pcReview(decision) {
+  const reason = document.getElementById('pcRvReason').value.trim();
+  const msg = document.getElementById('pcRvMsg');
+  if (!reason) { msg.textContent = 'Add a reason first'; return; }
+  try {
+    await pcApi('POST', `/uploads/${encodeURIComponent(_pc.detail.id)}/review`,
+      { decision, reason, outlet_code: document.getElementById('pcRvOutlet').value });
+    pcCloseDetail();
+    _pc.msg = decision === 'approve' ? 'Approved: the visit is marked verified.' : 'Rejected: the visit stays open for a redo.';
+    await renderPestControlPage();
+  } catch (e) { msg.textContent = e.message; }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDetail(); });
+</script>
 </body>
 </html>
