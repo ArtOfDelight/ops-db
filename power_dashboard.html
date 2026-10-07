@@ -15095,8 +15095,10 @@ function pcRenderDetail() {
   const outletOpts = Object.entries(names).map(([c, n]) => `<option value="${pcEsc(c)}"${(u.matched_outlet || u.chosen_outlet) === c ? ' selected' : ''}>${pcEsc(n)}</option>`).join('');
   const rv = u.review;
   const reviewed = rv ? `<div class="ex-banner ${rv.decision === 'approve' ? 'info' : ''}" style="margin:0">${rv.decision === 'approve' ? 'Approved' : 'Rejected'} by ${pcEsc(rv.by)} on ${pcDate(rv.at)}: ${pcEsc(rv.reason)}</div>` : '';
-  const canReview = ['needs_review', 'verified', 'failed'].includes(u.status);
-  const reviewBox = !canReview ? '' : `<div class="pc-review">${reviewed}
+  // Approve / Reject only while a video is waiting for a decision; verified and
+  // failed ones just show who decided, if anyone did.
+  const reviewBox = u.status !== 'needs_review' ? (reviewed ? `<div class="pc-review">${reviewed}</div>` : '')
+    : `<div class="pc-review">${reviewed}
     <div class="pc-row"><label class="pc-muted">Outlet</label><select class="ex-sel" id="pcRvOutlet"><option value="">${u.matched_outlet ? '' : 'Choose…'}</option>${outletOpts}</select></div>
     <input class="ex-in" id="pcRvReason" placeholder="Reason (required)">
     <div class="pc-row"><button class="ex-btn pri" onclick="pcReview('approve')">✅ Approve</button><button class="ex-btn" onclick="pcReview('reject')">❌ Reject</button>
