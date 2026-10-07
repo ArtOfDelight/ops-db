@@ -14645,7 +14645,10 @@ function sfRow(f, frozen) {
   const what = f.kind === 'day'
     ? `<b>${f.date}</b> · ${f.reason_code === 'missed_signout' ? 'Missed sign-out' : 'Absent'} → <b>${sfEsc(f.claimed_value)}</b>
        <div style="color:#6b7280">in ${sfEsc(ev.sign_in_time || '—')} · out ${sfEsc(ev.sign_out_time || '—')} · checklist ${ev.checklist_submitted ? '✓' : '✗'}</div>`
-    : `<b>${sfEsc(f.label || f.item)}</b>: system ${sfEsc(f.system_value)} → claimed <b>${sfEsc(f.claimed_value)}</b>`;
+    : `<b>${sfEsc(f.label || f.item)}</b>: system ${sfEsc(f.system_value)} → claimed <b>${sfEsc(f.claimed_value)}</b>`
+      + (Number(f.system_value) === Number(f.claimed_value) ? ' <span style="color:#065f46">✓ matches system</span>' : '')
+      + (f.system_value_at_submit != null && Number(f.system_value_at_submit) !== Number(f.system_value)
+          ? `<div style="color:#6b7280">was ${sfEsc(f.system_value_at_submit)} when claimed</div>` : '');
   const status = f.status === 'pending' ? '' : `<span style="color:${f.status==='approved'?'#065f46':'#991b1b'}">${f.status}${f.approved_value && f.approved_value!==f.claimed_value?' ('+sfEsc(f.approved_value)+')':''} by ${sfEsc(f.decided_by)}${f.decision_note?' — "'+sfEsc(f.decision_note)+'"':''}</span>`;
   const actions = f.status !== 'pending' || frozen ? status : `
       <button onclick="sfDecide(['${f.flag_id}'],'approve')" style="background:#059669;color:#fff;border:0;padding:5px 10px;border-radius:6px">✓</button>
