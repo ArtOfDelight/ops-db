@@ -14859,6 +14859,7 @@ function pcShiftMonth(m, by) {
 function pcOutlets(u) {
   return (u.matched_outlets && u.matched_outlets.length) ? u.matched_outlets : (u.matched_outlet ? [u.matched_outlet] : []);
 }
+function pcNum(n) { return (n || 0).toLocaleString('en-IN'); }
 function pcBadge(st) {
   const s = PC_STATUS[st] || { icon: '', label: st || '—' };
   return `<span class="pc-badge pc-b-${pcEsc(st)}">${s.icon} ${s.label}</span>`;
@@ -14943,6 +14944,7 @@ function pcOverviewHtml() {
     ${kpi('Overdue', s.overdue, 'Window ended, no verified video')}
     ${kpi('Pending reviews', s.pending_reviews, 'Waiting for a decision')}
     ${kpi('Waiting for AI', s.queued, 'Checked at 4:30am')}
+    ${kpi('AI tokens', pcNum((s.ai_tokens || {}).total), `${pcNum((s.ai_tokens || {}).calls)} Gemini call${(s.ai_tokens || {}).calls === 1 ? '' : 's'} this month`)}
   </div>`;
   const rows = g.outlets.map(o => {
     const visits = o.visits.length ? o.visits.map(v => {
@@ -15117,6 +15119,7 @@ function pcRenderDetail() {
           ${kv('Uploader', pcEsc(u.uploader_name))}
           ${kv('Received', pcDate(u.date_received) + (u.posting_delay_days != null ? ` <span class="pc-muted">(${u.posting_delay_days} day delay)</span>` : ''))}
           ${kv('Uploaded', pcDate(u.uploaded_at))}
+          ${u.ai_usage ? kv('AI tokens', `${pcNum(u.ai_usage.total)} <span class="pc-muted">(input ${pcNum(u.ai_usage.input)} · output ${pcNum(u.ai_usage.output)} · thinking ${pcNum(u.ai_usage.thinking)}${u.ai_usage.calls > 1 ? ` · ${u.ai_usage.calls} calls` : ''})</span>`) : ''}
           ${u.ai_notes ? kv('AI notes', pcEsc(u.ai_notes)) : ''}
         </dl>
         <h3 style="font-size:12px;margin:14px 0 4px">Checks</h3>${checks}
