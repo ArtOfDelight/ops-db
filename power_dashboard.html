@@ -1257,7 +1257,7 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
         <span class="sb-icon">🏪</span> Outlet Visit Report
       </button>
       <button class="sb-item" id="sbitem-kitchenextra" onclick="navTo('kitchenextra')">
-        <span class="sb-icon">⏱️</span> Kitchen Extra Hours
+        <span class="sb-icon">⏱️</span> Extra Hours
       </button>
       <button class="sb-item" id="sbitem-pestcontrol" onclick="navTo('pestcontrol')">
         <span class="sb-icon">🐜</span> Pest Control
@@ -1338,7 +1338,7 @@ function navTo(page) {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Kitchen Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control' };
   const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
@@ -10926,8 +10926,8 @@ async function renderKitchenExtraPage() {
     <div style="padding:24px;max-width:1200px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
         <div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink)">Kitchen Extra Hours</div>
-          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Full month roster · editable sign in/out · extra hours calculation</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink)">Extra Hours</div>
+          <div style="font-size:11px;color:var(--ink-3);margin-top:3px">Full month · beyond 9h = extra · RR/KOR counter from roster shift, CK from sign in/out · approved values go to payroll</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="month" id="keMonthPicker" value="${defaultMonth}"
@@ -11046,13 +11046,13 @@ function keRender() {
     // Determine displayed sign in/out: override > actual > blank
     const signIn = e.sign_in_override || keExtractTime(e.sign_in_time);
     const signOut = e.sign_out_override || keExtractTime(e.sign_out_time);
-    const extraH = e.extra_hours != null ? e.extra_hours : keCalcExtra(e.shift_start, e.shift_end, signIn, signOut);
+    const extraH = e.extra_hours != null ? e.extra_hours : keCalcExtra(e, signIn, signOut);
     const rowId = `ke-${e.roster_id.replace(/[^a-zA-Z0-9]/g,'_')}`;
     const rowBg = i % 2 === 0 ? '' : 'background:var(--surface)';
     const noSignIn = !signIn;
     const noSignOut = !signOut;
     const extraColor = extraH > 0 ? '#2563EB' : 'var(--ink-3)';
-    const extraDisplay = noSignIn || noSignOut ? '—' : extraH.toFixed(2) + ' h';
+    const extraDisplay = e.basis !== 'roster' && (noSignIn || noSignOut) ? '—' : extraH.toFixed(2) + ' h';
 
     const statusBadge = e.approved
       ? `<span style="background:#F0FDF4;color:#16A34A;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">Approved</span>`
@@ -11070,12 +11070,12 @@ function keRender() {
         <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);text-align:center;color:var(--ink-2)">${e.outlet}</td>
         <td style="padding:9px 12px;border-bottom:1px solid var(--border-1);text-align:center;color:var(--ink-2);font-size:11px">${e.shift_start||'—'} – ${e.shift_end||'—'}</td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--border-1);text-align:center">
-          <input type="time" id="${rowId}-in" value="${signIn}" ${e.approved ? 'disabled' : ''}
+          <input type="time" id="${rowId}-in" value="${signIn}" ${e.approved || e.basis === 'roster' ? 'disabled' : ''} title="${e.basis === 'roster' ? 'Counter: extra hours from roster shift (minus 9h), not sign-in/out' : ''}"
             onchange="keRecalc('${e.roster_id}')"
             style="font-size:12px;border:1px solid ${noSignIn ? '#FCA5A5' : 'var(--border-2)'};border-radius:6px;padding:4px 6px;background:${e.approved ? 'var(--surface-2)' : '#fff'};color:var(--ink);width:90px;text-align:center" />
         </td>
         <td style="padding:6px 8px;border-bottom:1px solid var(--border-1);text-align:center">
-          <input type="time" id="${rowId}-out" value="${signOut}" ${e.approved ? 'disabled' : ''}
+          <input type="time" id="${rowId}-out" value="${signOut}" ${e.approved || e.basis === 'roster' ? 'disabled' : ''} title="${e.basis === 'roster' ? 'Counter: extra hours from roster shift (minus 9h), not sign-in/out' : ''}"
             onchange="keRecalc('${e.roster_id}')"
             style="font-size:12px;border:1px solid ${noSignOut ? '#FCA5A5' : 'var(--border-2)'};border-radius:6px;padding:4px 6px;background:${e.approved ? 'var(--surface-2)' : '#fff'};color:var(--ink);width:90px;text-align:center" />
         </td>
@@ -11116,17 +11116,19 @@ function keFmtDate(d) {
   return `${months[parseInt(parts[1])-1] || ''} ${parts[0]}`;
 }
 
-// Calculate extra hours: actual - shift, floor at 0
-function keCalcExtra(shiftStart, shiftEnd, signIn, signOut) {
+// Calculate extra hours, same rule as payroll: counter outlets (basis
+// 'roster') = rostered shift - 9h; CK ('actual') = sign-in/out - 9h; others 0.
+function keCalcExtra(e, signIn, signOut) {
   try {
-    if (!signIn || !signOut || !shiftStart || !shiftEnd) return 0;
     const toMins = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
-    let shift = toMins(shiftEnd) - toMins(shiftStart);
-    if (shift < 0) shift += 24*60; // overnight shift
-    let actual = toMins(signOut) - toMins(signIn);
-    if (actual < 0) actual += 24*60;
-    const extra = Math.max(0, actual - shift);
-    return Math.round(extra) / 60;
+    let start, end;
+    if (e.basis === 'roster') { start = e.shift_start; end = e.shift_end; }
+    else if (e.basis === 'actual') { start = signIn; end = signOut; }
+    else return 0;
+    if (!start || !end) return 0;
+    let mins = toMins(end) - toMins(start);
+    if (mins < 0 || (e.basis === 'roster' && toMins(end) < 240)) mins += 24*60; // overnight
+    return Math.max(0, Math.round(mins - 9*60)) / 60;
   } catch { return 0; }
 }
 
@@ -11137,10 +11139,10 @@ function keRecalc(rosterId) {
   const rowId = `ke-${rosterId.replace(/[^a-zA-Z0-9]/g,'_')}`;
   const signIn = document.getElementById(rowId + '-in')?.value || '';
   const signOut = document.getElementById(rowId + '-out')?.value || '';
-  const extra = keCalcExtra(entry.shift_start, entry.shift_end, signIn, signOut);
+  const extra = keCalcExtra(entry, signIn, signOut);
   const extraCell = document.getElementById(rowId + '-extra');
   if (extraCell) {
-    const display = (!signIn || !signOut) ? '—' : extra.toFixed(2) + ' h';
+    const display = entry.basis !== 'roster' && (!signIn || !signOut) ? '—' : extra.toFixed(2) + ' h';
     const color = extra > 0 ? '#2563EB' : 'var(--ink-3)';
     extraCell.innerHTML = `<span style="font-weight:700;color:${color}">${display}</span>`;
   }
@@ -11153,7 +11155,7 @@ async function keSave(rosterId, approve) {
   const rowId = `ke-${rosterId.replace(/[^a-zA-Z0-9]/g,'_')}`;
   const signIn = document.getElementById(rowId + '-in')?.value || '';
   const signOut = document.getElementById(rowId + '-out')?.value || '';
-  const extra = keCalcExtra(entry.shift_start, entry.shift_end, signIn, signOut);
+  const extra = keCalcExtra(entry, signIn, signOut);
 
   try {
     const res = await fetch(`${API}/kitchen/extra-hours/save`, {
