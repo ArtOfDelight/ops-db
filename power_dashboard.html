@@ -14877,6 +14877,7 @@ function pcShiftMonth(m, by) {
 function pcOutlets(u) {
   return (u.matched_outlets && u.matched_outlets.length) ? u.matched_outlets : (u.matched_outlet ? [u.matched_outlet] : []);
 }
+function pcNum(n) { return (n || 0).toLocaleString('en-IN'); }
 function pcBadge(st) {
   const s = PC_STATUS[st] || { icon: '', label: st || '—' };
   return `<span class="pc-badge pc-b-${pcEsc(st)}">${s.icon} ${s.label}</span>`;
@@ -14961,6 +14962,7 @@ function pcOverviewHtml() {
     ${kpi('Overdue', s.overdue, 'Window ended, no verified video')}
     ${kpi('Pending reviews', s.pending_reviews, 'Waiting for a decision')}
     ${kpi('Waiting for AI', s.queued, 'Checked at 4:30am')}
+    ${kpi('AI tokens', pcNum((s.ai_tokens || {}).total), `${pcNum((s.ai_tokens || {}).calls)} Gemini call${(s.ai_tokens || {}).calls === 1 ? '' : 's'} this month`)}
   </div>`;
   const rows = g.outlets.map(o => {
     const visits = o.visits.length ? o.visits.map(v => {
@@ -15111,14 +15113,17 @@ function pcRenderDetail() {
   const outletOpts = Object.entries(names).map(([c, n]) => `<option value="${pcEsc(c)}"${(u.matched_outlet || u.chosen_outlet) === c ? ' selected' : ''}>${pcEsc(n)}</option>`).join('');
   const rv = u.review;
   const reviewed = rv ? `<div class="ex-banner ${rv.decision === 'approve' ? 'info' : ''}" style="margin:0">${rv.decision === 'approve' ? 'Approved' : 'Rejected'} by ${pcEsc(rv.by)} on ${pcDate(rv.at)}: ${pcEsc(rv.reason)}</div>` : '';
-  const canReview = ['needs_review', 'verified', 'failed'].includes(u.status);
-  const reviewBox = !canReview ? '' : `<div class="pc-review">${reviewed}
+  // Approve / Reject only while a video is waiting for a decision; verified and
+  // failed ones just show who decided, if anyone did.
+  const reviewBox = u.status !== 'needs_review' ? (reviewed ? `<div class="pc-review">${reviewed}</div>` : '')
+    : `<div class="pc-review">${reviewed}
     <div class="pc-row"><label class="pc-muted">Outlet</label><select class="ex-sel" id="pcRvOutlet"><option value="">${u.matched_outlet ? '' : 'Choose…'}</option>${outletOpts}</select></div>
     <input class="ex-in" id="pcRvReason" placeholder="Reason (required)">
     <div class="pc-row"><button class="ex-btn pri" onclick="pcReview('approve')">✅ Approve</button><button class="ex-btn" onclick="pcReview('reject')">❌ Reject</button>
       <span class="pc-muted" id="pcRvMsg"></span></div></div>`;
   el.innerHTML = `
     <div class="pc-modal-h"><h3>${pcEsc(pcOutlets(u).map(c => names[c] || c).join(' + ') || 'Outlet not matched')} · ${pcBadge(u.status)}</h3>
+      ${u.status === 'processing' ? '' : '<button class="ex-btn sm" style="color:var(--red)" onclick="pcDelete()">🗑 Delete</button>'}
       <button class="ex-btn sm" onclick="pcCloseDetail()">✕</button></div>
     <div class="pc-detail">
       <div>
@@ -15135,12 +15140,24 @@ function pcRenderDetail() {
           ${kv('Uploader', pcEsc(u.uploader_name))}
           ${kv('Received', pcDate(u.date_received) + (u.posting_delay_days != null ? ` <span class="pc-muted">(${u.posting_delay_days} day delay)</span>` : ''))}
           ${kv('Uploaded', pcDate(u.uploaded_at))}
+          ${u.ai_usage ? kv('AI tokens', `${pcNum(u.ai_usage.total)} <span class="pc-muted">(input ${pcNum(u.ai_usage.input)} · output ${pcNum(u.ai_usage.output)} · thinking ${pcNum(u.ai_usage.thinking)}${u.ai_usage.calls > 1 ? ` · ${u.ai_usage.calls} calls` : ''})</span>`) : ''}
           ${u.ai_notes ? kv('AI notes', pcEsc(u.ai_notes)) : ''}
         </dl>
         <h3 style="font-size:12px;margin:14px 0 4px">Checks</h3>${checks}
         ${reviewBox}
       </div>
     </div>`;
+}
+
+// Deletes the upload, its video and frames; visits it filled go back to pending.
+async function pcDelete() {
+  if (!confirm(`Delete this video and its result? Any visit it filled goes back to Pending. This can't be undone.`)) return;
+  try {
+    await pcApi('DELETE', `/uploads/${encodeURIComponent(_pc.detail.id)}`);
+    pcCloseDetail();
+    _pc.msg = 'Video deleted. Any visit it filled is back to Pending.';
+    await renderPestControlPage();
+  } catch (e) { alert('Could not delete: ' + e.message); }
 }
 
 async function pcReview(decision) {
