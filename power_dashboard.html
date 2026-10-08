@@ -14746,6 +14746,9 @@ function sfEmp(e, frozen) {
   return `<details open style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:var(--surface)">
     <summary style="padding:12px;cursor:pointer;font-weight:700">${sfEsc(e.employee_id)} · ${sfEsc(e.employee_name)} · ${sfEsc(e.outlet)}
       <span style="font-weight:400;color:#6b7280"> — ${e.shown.length} shown, ${pend} pending</span>
+      ${e.sheet ? (e.sheet.status === 'uploaded'
+        ? `<a href="#" onclick="event.preventDefault();sfViewSheet('${e.employee_id}','${sfEsc(e.employee_name)}')" style="margin-left:10px;font-weight:600;color:#2563eb">📄 View salary sheet</a>`
+        : `<span style="margin-left:10px;font-weight:400;color:#b45309">📄 sheet requested, not uploaded</span>`) : ''}
       ${ids.length && !frozen ? `<a href="#" onclick="event.preventDefault();${JSON.stringify(ids).replace(/"/g,"'")}.forEach(i=>_sf.sel.add(i));sfDraw()" style="margin-left:10px;font-weight:400">select all pending</a>` : ''}
     </summary>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -14771,6 +14774,20 @@ function sfRow(f, frozen) {
     <td style="padding:8px">${what}</td>
     <td style="padding:8px;color:#374151;max-width:280px">“${sfEsc(f.note)}”</td>
     <td style="padding:8px;white-space:nowrap;text-align:right">${actions}</td></tr>`;
+}
+async function sfViewSheet(eid, name) {
+  // Sheet photos are private; fetch with the admin token and show in an overlay.
+  try {
+    const r = await fetch(`${API}/api/admin/salary-flags/sheet/${_sf.month}/${eid}`, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (!r.ok) throw new Error('Could not load sheet');
+    const url = URL.createObjectURL(await r.blob());
+    const box = document.createElement('div');
+    box.style = 'position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:16px';
+    box.innerHTML = `<div style="color:#fff;font-weight:700;margin-bottom:8px">${sfEsc(eid)} · ${name} — salary sheet (click to close)</div>
+      <img src="${url}" style="max-width:100%;max-height:85vh;border-radius:8px;background:#fff">`;
+    box.onclick = () => { box.remove(); URL.revokeObjectURL(url); };
+    document.body.appendChild(box);
+  } catch (err) { console.warn('[salary sheet]', err.message); }
 }
 function sfInlinePrompt(label, cb) {
   // No browser prompt() (blocks automation) — a tiny inline dialog instead.
