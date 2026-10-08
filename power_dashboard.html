@@ -2688,7 +2688,7 @@ function orRenderTable(outlets, el) {
   // platforms yet); they reappear automatically once any platform metric
   // comes in. Totals below are computed from the visible rows only.
   const _orDataKeys = ['swiggy_kpt','swiggy_mfr','zomato_kpt','zomato_mfr',
-    'swiggy_impressions','swiggy_m2o','zomato_impressions','zomato_m2o',
+    'swiggy_impressions','swiggy_i2m','swiggy_m2o','zomato_impressions','zomato_i2m','zomato_m2o',
     'swiggy_high','swiggy_low','zomato_high','zomato_low'];
   outlets = outlets.filter(o => _orDataKeys.some(k => Number(o[k]) > 0));
   if (!outlets.length) {
@@ -2705,8 +2705,10 @@ function orRenderTable(outlets, el) {
     <th ${th}>Zomato KPT</th>
     <th ${th}>Zomato MFR</th>
     <th ${th}>Swiggy Impressions</th>
+    <th ${th}>Swiggy L2M</th>
     <th ${th}>Swiggy M2O</th>
     <th ${th}>Zomato Impressions</th>
+    <th ${th}>Zomato L2M</th>
     <th ${th}>Zomato M2O</th>
     <th ${th}>Swiggy High Rated ⭐</th>
     <th ${th}>Swiggy Low Rated 👎</th>
@@ -2735,8 +2737,8 @@ function orRenderTable(outlets, el) {
       ${tdL(o.outlet_code)}
       ${td(metCell(o.swiggy_kpt, ' min', true))} ${td(metCell(o.swiggy_mfr, '%', false))}
       ${td(metCell(o.zomato_kpt, ' min', true))} ${td(metCell(o.zomato_mfr, '%', false))}
-      ${td(o.swiggy_impressions != null ? o.swiggy_impressions.toLocaleString('en-IN') : '—')} ${td(o.swiggy_m2o != null ? o.swiggy_m2o + '%' : '—')}
-      ${td(o.zomato_impressions != null ? o.zomato_impressions.toLocaleString('en-IN') : '—')} ${td(o.zomato_m2o != null ? o.zomato_m2o + '%' : '—')}
+      ${td(o.swiggy_impressions != null ? o.swiggy_impressions.toLocaleString('en-IN') : '—')} ${td(o.swiggy_i2m != null ? o.swiggy_i2m + '%' : '—')} ${td(o.swiggy_m2o != null ? o.swiggy_m2o + '%' : '—')}
+      ${td(o.zomato_impressions != null ? o.zomato_impressions.toLocaleString('en-IN') : '—')} ${td(o.zomato_i2m != null ? o.zomato_i2m + '%' : '—')} ${td(o.zomato_m2o != null ? o.zomato_m2o + '%' : '—')}
       ${td(o.swiggy_high)} ${td(o.swiggy_low)}
       ${td(o.zomato_high)} ${td(o.zomato_low)}
       ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
@@ -2764,7 +2766,7 @@ function orRenderTable(outlets, el) {
   const tdT  = (val, cls='') => `<td style="padding:11px 13px;text-align:right;font-size:12px;font-weight:800;font-family:var(--mono);background:var(--surface-2,#eef0f5);border-top:2px solid var(--border-2)"><span class="sc-pct ${cls}">${val}</span></td>`;
   const tdTL = (val) => `<td style="padding:11px 13px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;background:var(--surface-2,#eef0f5);border-top:2px solid var(--border-2);color:var(--ink-2);position:sticky;left:0;z-index:1;box-shadow:1px 0 0 var(--border-2)">${val}</td>`;
   const tdTB = (val) => `<td style="padding:11px 13px;text-align:right;font-size:12px;font-weight:800;font-family:var(--mono);background:var(--surface-2,#eef0f5);border-top:2px solid var(--border-2);color:var(--blue)">${val}</td>`;
-  // Metrics that can't be summed (KPT, MFR, M2O) show the average of the
+  // Metrics that can't be summed (KPT, MFR, L2M, M2O) show the average of the
   // outlets that have a value.
   const avg = k => {
     const vals = outlets.map(o => o[k]).filter(v => v !== null && v !== undefined).map(Number);
@@ -2775,8 +2777,8 @@ function orRenderTable(outlets, el) {
     ${tdTL('Total / Avg')}
     ${tdT(metCell(avg('swiggy_kpt'), ' min', true))} ${tdT(metCell(avg('swiggy_mfr'), '%', false))}
     ${tdT(metCell(avg('zomato_kpt'), ' min', true))} ${tdT(metCell(avg('zomato_mfr'), '%', false))}
-    ${tdT(sum('swiggy_impressions').toLocaleString('en-IN'))} ${tdT(avgPct('swiggy_m2o'))}
-    ${tdT(sum('zomato_impressions').toLocaleString('en-IN'))} ${tdT(avgPct('zomato_m2o'))}
+    ${tdT(sum('swiggy_impressions').toLocaleString('en-IN'))} ${tdT(avgPct('swiggy_i2m'))} ${tdT(avgPct('swiggy_m2o'))}
+    ${tdT(sum('zomato_impressions').toLocaleString('en-IN'))} ${tdT(avgPct('zomato_i2m'))} ${tdT(avgPct('zomato_m2o'))}
     ${tdT(tSwiggyH)} ${tdT(tSwiggyL)}
     ${tdT(tZomH)}   ${tdT(tZomL)}
     ${tdT(tRated)}  ${tdTB(tRista || '—')}
