@@ -1233,6 +1233,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-salaryflags" onclick="navTo('salaryflags')">
         <span class="sb-icon">🚩</span> Salary Flags
       </button>
+      <button class="sb-item" id="sbitem-salaries" onclick="navTo('salaries')">
+        <span class="sb-icon">💵</span> Salaries
+      </button>
       <button class="sb-item" id="sbitem-referrals" onclick="navTo('referrals')">
         <span class="sb-icon">🤝</span> Referrals
       </button>
@@ -1334,12 +1337,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','referrals','accounting','production','access','pestcontrol'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','accounting','production','access','pestcontrol'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1377,6 +1380,7 @@ function navTo(page) {
   if (page === 'stafffeedback') renderStaffFeedbackPage();
   if (page === 'kitchenextra') renderKitchenExtraPage();
   if (page === 'salaryflags') renderSalaryFlagsPage();
+  if (page === 'salaries')    renderSalariesPage();
   if (page === 'referrals')   renderReferralsPage();
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
@@ -2700,16 +2704,19 @@ function orRenderTable(outlets, el) {
   const th  = `style="${thStyle}"`;
   const thead = `<thead><tr>
     <th ${thL}>Outlet</th>
-    <th ${th}>Swiggy KPT</th>
-    <th ${th}>Swiggy MFR</th>
-    <th ${th}>Zomato KPT</th>
-    <th ${th}>Zomato MFR</th>
+    <th ${th}>High %</th>
+    <th ${th}>Error %</th>
+    <th ${th}>Net %</th>
     <th ${th}>Swiggy Impressions</th>
     <th ${th}>Swiggy L2M</th>
     <th ${th}>Swiggy M2O</th>
     <th ${th}>Zomato Impressions</th>
     <th ${th}>Zomato L2M</th>
     <th ${th}>Zomato M2O</th>
+    <th ${th}>Swiggy KPT</th>
+    <th ${th}>Swiggy MFR</th>
+    <th ${th}>Zomato KPT</th>
+    <th ${th}>Zomato MFR</th>
     <th ${th}>Swiggy High Rated ⭐</th>
     <th ${th}>Swiggy Low Rated 👎</th>
     <th ${th}>Zomato High Rated ⭐</th>
@@ -2720,9 +2727,6 @@ function orRenderTable(outlets, el) {
     <th ${th}>Low</th>
     <th ${th}>IGCC</th>
     <th ${th}>Errors</th>
-    <th ${th}>High %</th>
-    <th ${th}>Error %</th>
-    <th ${th}>Net %</th>
   </tr></thead>`;
 
   const td  = (val, cls='') => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)"><span class="sc-pct ${cls}">${val}</span></td>`;
@@ -2735,18 +2739,18 @@ function orRenderTable(outlets, el) {
     const highCls = o.high_rate_pct >= 20 ? 'good' : o.high_rate_pct >= 10 ? 'warn' : 'bad';
     return `<tr>
       ${tdL(o.outlet_code)}
-      ${td(metCell(o.swiggy_kpt, ' min', true))} ${td(metCell(o.swiggy_mfr, '%', false))}
-      ${td(metCell(o.zomato_kpt, ' min', true))} ${td(metCell(o.zomato_mfr, '%', false))}
+      ${td(o.high_rate_pct + '%', highCls)}
+      ${td(o.error_rate_pct + '%', errCls)}
+      ${td(o.net_pct + '%', netCls)}
       ${td(o.swiggy_impressions != null ? o.swiggy_impressions.toLocaleString('en-IN') : '—')} ${td(o.swiggy_i2m != null ? o.swiggy_i2m + '%' : '—')} ${td(o.swiggy_m2o != null ? o.swiggy_m2o + '%' : '—')}
       ${td(o.zomato_impressions != null ? o.zomato_impressions.toLocaleString('en-IN') : '—')} ${td(o.zomato_i2m != null ? o.zomato_i2m + '%' : '—')} ${td(o.zomato_m2o != null ? o.zomato_m2o + '%' : '—')}
+      ${td(metCell(o.swiggy_kpt, ' min', true))} ${td(metCell(o.swiggy_mfr, '%', false))}
+      ${td(metCell(o.zomato_kpt, ' min', true))} ${td(metCell(o.zomato_mfr, '%', false))}
       ${td(o.swiggy_high)} ${td(o.swiggy_low)}
       ${td(o.zomato_high)} ${td(o.zomato_low)}
       ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
       ${td(o.total_high)} ${td(o.total_low)}
       ${td(o.igcc)} ${td(o.total_errors)}
-      ${td(o.high_rate_pct + '%', highCls)}
-      ${td(o.error_rate_pct + '%', errCls)}
-      ${td(o.net_pct + '%', netCls)}
     </tr>`;
   }).join('');
 
@@ -2775,18 +2779,18 @@ function orRenderTable(outlets, el) {
   const avgPct = k => { const v = avg(k); return v === null ? '—' : v + '%'; };
   const totalRow = `<tr>
     ${tdTL('Total / Avg')}
-    ${tdT(metCell(avg('swiggy_kpt'), ' min', true))} ${tdT(metCell(avg('swiggy_mfr'), '%', false))}
-    ${tdT(metCell(avg('zomato_kpt'), ' min', true))} ${tdT(metCell(avg('zomato_mfr'), '%', false))}
+    ${tdT(tRista > 0 ? (tHigh / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tHigh/tRista*100 >= 20 ? 'good' : tHigh/tRista*100 >= 10 ? 'warn' : 'bad') : '')}
+    ${tdT(tRista > 0 ? (tErrors / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tErrors/tRista*100 < 1 ? 'good' : tErrors/tRista*100 < 2 ? 'warn' : 'bad') : '')}
+    ${tdT(tRista > 0 ? ((tHigh - tErrors) / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? ((tHigh-tErrors)/tRista*100 >= 10 ? 'good' : (tHigh-tErrors)/tRista*100 >= 0 ? '' : 'bad') : '')}
     ${tdT(sum('swiggy_impressions').toLocaleString('en-IN'))} ${tdT(avgPct('swiggy_i2m'))} ${tdT(avgPct('swiggy_m2o'))}
     ${tdT(sum('zomato_impressions').toLocaleString('en-IN'))} ${tdT(avgPct('zomato_i2m'))} ${tdT(avgPct('zomato_m2o'))}
+    ${tdT(metCell(avg('swiggy_kpt'), ' min', true))} ${tdT(metCell(avg('swiggy_mfr'), '%', false))}
+    ${tdT(metCell(avg('zomato_kpt'), ' min', true))} ${tdT(metCell(avg('zomato_mfr'), '%', false))}
     ${tdT(tSwiggyH)} ${tdT(tSwiggyL)}
     ${tdT(tZomH)}   ${tdT(tZomL)}
     ${tdT(tRated)}  ${tdTB(tRista || '—')}
     ${tdT(tHigh)}   ${tdT(tLow)}
     ${tdT(tIgcc)}   ${tdT(tErrors)}
-    ${tdT(tRista > 0 ? (tHigh / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tHigh/tRista*100 >= 20 ? 'good' : tHigh/tRista*100 >= 10 ? 'warn' : 'bad') : '')}
-    ${tdT(tRista > 0 ? (tErrors / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tErrors/tRista*100 < 1 ? 'good' : tErrors/tRista*100 < 2 ? 'warn' : 'bad') : '')}
-    ${tdT(tRista > 0 ? ((tHigh - tErrors) / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? ((tHigh-tErrors)/tRista*100 >= 10 ? 'good' : (tHigh-tErrors)/tRista*100 >= 0 ? '' : 'bad') : '')}
   </tr>`;
 
   el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}${totalRow}</tbody></table></div>`;
@@ -14602,6 +14606,94 @@ async function tmDrop(e) {
 <div class="dc-ctxmenu" id="dcCtxMenu">
   <div class="dc-ctxmenu-item" onclick="dcOpenAddComment()">💬 Add Comment</div>
 </div>
+<script>
+// ── Salaries: who earns what (base + the month's frozen slip), edit base salary ──
+let _sal = { month: null, q: '', sort: 'net', data: null, open: null, edit: null };
+const salInr = v => v == null || v === '' ? '—' : '₹' + Math.round(Number(v)).toLocaleString('en-IN');
+async function renderSalariesPage() {
+  const body = document.getElementById('pageBody');
+  if (!_sal.data) body.innerHTML = '<div style="padding:20px">Loading salaries…</div>';
+  try { _sal.data = await sfFetch(`/api/admin/salary-overview${_sal.month ? '?month_key=' + _sal.month : ''}`); _sal.month = _sal.data.month_key; }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  salDraw();
+}
+function salNet(e) { return e.slip ? Number(e.slip.net_pay ?? (e.slip.payment_10th || 0) + (e.slip.payment_15th || 0)) : null; }
+function salDraw() {
+  const d = _sal.data, body = document.getElementById('pageBody');
+  const q = _sal.q.toLowerCase();
+  let rows = d.employees.filter(e => !q || `${e.employee_id} ${e.name} ${e.department}`.toLowerCase().includes(q));
+  const key = { net: e => salNet(e) ?? -1, base: e => e.base_salary || 0, id: e => e.employee_id, name: e => e.name.toLowerCase(), dept: e => e.department };
+  const k = key[_sal.sort];
+  rows = rows.slice().sort((a, b) => { const x = k(a), y = k(b); return typeof x === 'string' ? x.localeCompare(y) : y - x; });
+  const tot = f => rows.reduce((a, e) => a + (Number(f(e)) || 0), 0);
+  const th = (label, sk, left) => `<th onclick="${sk ? `_sal.sort='${sk}';salDraw()` : ''}" style="padding:9px 10px;text-align:${left ? 'left' : 'right'};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);border-bottom:2px solid var(--border-2);white-space:nowrap;${sk ? 'cursor:pointer' : ''}">${label}${_sal.sort === sk ? ' ▾' : ''}</th>`;
+  const td = (v, left, extra = '') => `<td style="padding:9px 10px;text-align:${left ? 'left' : 'right'};font-size:12px;border-bottom:1px solid var(--border);${left ? '' : 'font-family:var(--mono);'}${extra}">${v}</td>`;
+  const card = (label, v) => `<div style="flex:1;min-width:140px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface)"><div style="font-size:11px;color:var(--ink-3);text-transform:uppercase;font-weight:700">${label}</div><div style="font-size:20px;font-weight:800;margin-top:4px;font-family:var(--mono)">${v}</div></div>`;
+  const body_rows = rows.map(e => {
+    const s = e.slip, open = _sal.open === e.employee_id;
+    const base = _sal.edit === e.employee_id
+      ? `<input id="sal-edit-inp" type="number" min="1" value="${e.base_salary || ''}" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')salSave('${e.employee_id}');if(event.key==='Escape'){_sal.edit=null;salDraw()}" style="width:90px;padding:4px;border:1px solid #2563eb;border-radius:6px;text-align:right">
+         <button onclick="event.stopPropagation();salSave('${e.employee_id}')" style="border:0;background:#2563eb;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer">Save</button>`
+      : `${salInr(e.base_salary)} <a href="#" title="Edit base salary" onclick="event.preventDefault();event.stopPropagation();_sal.edit='${e.employee_id}';salDraw();setTimeout(()=>document.getElementById('sal-edit-inp')?.focus(),0)" style="text-decoration:none;margin-left:4px">✏️</a>`;
+    return `<tr onclick="_sal.open=${open ? 'null' : `'${e.employee_id}'`};salDraw()" style="cursor:pointer;${open ? 'background:var(--surface-2,#f5f6fa)' : ''}">
+      ${td(sfEsc(e.employee_id), true)}${td(`<b>${sfEsc(e.name)}</b>${e.status && e.status !== 'Active' ? ` <span style="color:#b91c1c;font-size:11px">${sfEsc(e.status)}</span>` : ''}`, true)}${td(sfEsc(e.department), true)}
+      ${td(base, false, 'white-space:nowrap')}
+      ${td(s ? sfEsc(s.attendance?.payable_days ?? '—') : '—')}
+      ${td(s ? salInr(s.earnings?.gross_earnings) : '—')}${td(s ? salInr(s.deductions?.total) : '—')}
+      ${td(s ? salInr(s.payment_10th) : '—')}${td(s ? (s.pay_15th_pending ? '<span style="color:var(--ink-3)">pending</span>' : salInr(s.payment_15th)) : '—')}
+      ${td(s ? `<b>${salInr(salNet(e))}</b>` : '<span style="color:var(--ink-3)">no slip</span>')}
+    </tr>${open ? `<tr><td colspan="10" style="padding:0;border-bottom:1px solid var(--border)">${salSlip(e)}</td></tr>` : ''}`;
+  }).join('');
+  body.innerHTML = `<div style="padding:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <select onchange="_sal.month=this.value;_sal.open=null;renderSalariesPage()" style="padding:7px;border-radius:8px;border:1px solid #d1d5db">
+        ${d.months.map(m => `<option value="${m.key}" ${m.key === d.month_key ? 'selected' : ''}>${sfEsc(m.label)}</option>`).join('') || '<option>No frozen months</option>'}</select>
+      <input placeholder="Search name / ID / department" value="${sfEsc(_sal.q)}" oninput="_sal.q=this.value;salDraw()" id="sal-q" style="flex:1;min-width:180px;padding:7px;border:1px solid #d1d5db;border-radius:8px">
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${card('People', rows.length)}${card('Total base salary', salInr(tot(e => e.base_salary)))}
+      ${card('Paid on 10th', salInr(tot(e => e.slip?.payment_10th)))}${card('Paid on 15th', salInr(tot(e => e.slip?.payment_15th)))}${card('Net pay', salInr(tot(salNet)))}
+    </div>
+    <div style="font-size:11px;color:var(--ink-3);margin-bottom:8px">Click a row for the payslip. Base salary edits apply from the next salary run — frozen slips don't change.</div>
+    <div style="overflow-x:auto"><table class="sc-table" style="width:100%;min-width:900px;border-collapse:collapse">
+      <thead><tr>${th('ID', 'id', 1)}${th('Name', 'name', 1)}${th('Dept', 'dept', 1)}${th('Base salary', 'base')}${th('Payable days')}${th('Gross')}${th('Deductions')}${th('10th')}${th('15th')}${th('Net pay', 'net')}</tr></thead>
+      <tbody>${body_rows || '<tr><td colspan="10" style="padding:20px;color:var(--ink-3)">No one matches.</td></tr>'}</tbody></table></div>
+  </div>`;
+  const qi = document.getElementById('sal-q'); if (qi && _sal.q) { qi.focus(); qi.setSelectionRange(_sal.q.length, _sal.q.length); }
+}
+function salSlip(e) {
+  const s = e.slip;
+  if (!s) return `<div style="padding:14px;color:var(--ink-3)">No slip for this month.</div>`;
+  const nice = k => k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const list = (title, obj, totalKey) => {
+    const items = Object.entries(obj || {}).filter(([k, v]) => k !== totalKey && Number(v));
+    return `<div style="flex:1;min-width:240px"><div style="font-weight:700;margin-bottom:6px">${title}</div>
+      ${items.map(([k, v]) => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px"><span>${nice(k)}</span><span style="font-family:var(--mono)">${salInr(v)}</span></div>`).join('') || '<div style="font-size:12px;color:var(--ink-3)">None</div>'}
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:700;font-size:12px"><span>Total</span><span style="font-family:var(--mono)">${salInr(obj?.[totalKey])}</span></div></div>`;
+  };
+  const a = s.attendance || {};
+  const weeks = (s.weekly_incentive_breakdown || []).map(w => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>${sfEsc(w.period_start)} → ${sfEsc(w.period_end)}</span><span style="font-family:var(--mono)">${salInr(w.amount)}</span></div>`).join('');
+  return `<div style="padding:14px 18px;display:flex;gap:28px;flex-wrap:wrap;background:var(--surface-2,#f5f6fa)">
+    <div style="flex:1;min-width:200px"><div style="font-weight:700;margin-bottom:6px">${sfEsc(s.full_name || s.name)} · ${sfEsc(s.month)}</div>
+      <div style="font-size:12px;line-height:1.8">Working days <b>${sfEsc(a.working_days ?? '—')}</b> · Weekly offs <b>${sfEsc(a.weekly_offs ?? '—')}</b><br>Extra leave <b>${sfEsc(a.extra_leave ?? '—')}</b> · Payable days <b>${sfEsc(a.payable_days ?? '—')}</b><br>
+      Base on slip <b>${salInr(s.base_salary)}</b><br>Bank ${sfEsc(s.bank_account || '—')} · ${sfEsc(s.ifsc_code || '')}</div>
+      ${weeks ? `<div style="font-weight:700;margin:8px 0 4px">Weekly incentives</div>${weeks}` : ''}</div>
+    ${list('Earnings', s.earnings, 'gross_earnings')}${list('Deductions', s.deductions, 'total')}
+    <div style="min-width:160px"><div style="font-weight:700;margin-bottom:6px">Payouts</div>
+      <div style="font-size:12px;line-height:1.9">10th <b style="font-family:var(--mono)">${salInr(s.payment_10th)}</b><br>15th <b style="font-family:var(--mono)">${s.pay_15th_pending ? 'pending' : salInr(s.payment_15th)}</b><br>Net <b style="font-family:var(--mono)">${salInr(salNet(e))}</b></div></div>
+  </div>`;
+}
+async function salSave(id) {
+  const v = Number(document.getElementById('sal-edit-inp')?.value);
+  if (!(v > 0)) { alertInline('Enter a positive amount'); return; }
+  try {
+    await sfFetch(`/api/admin/salary/base-salary/${id}`, { method: 'PUT', body: JSON.stringify({ base_salary: v }) });
+    const e = _sal.data.employees.find(x => x.employee_id === id); if (e) e.base_salary = v;
+    _sal.edit = null; salDraw();
+  } catch (err) { alertInline(err.message); }
+}
+function alertInline(msg) { const i = document.getElementById('sal-edit-inp'); if (i) { i.style.borderColor = '#b91c1c'; i.title = msg; } console.warn('[salaries]', msg); }
+</script>
 <script>
 let _sf = { month: null, half: '10th', status: 'pending', q: '', data: null, sel: new Set() };
 function sfDefaultMonth() { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
