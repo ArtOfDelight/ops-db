@@ -14695,7 +14695,7 @@ async function salSave(id) {
 function alertInline(msg) { const i = document.getElementById('sal-edit-inp'); if (i) { i.style.borderColor = '#b91c1c'; i.title = msg; } console.warn('[salaries]', msg); }
 </script>
 <script>
-let _sf = { month: null, half: '10th', status: 'pending', q: '', data: null, sel: new Set() };
+let _sf = { month: null, half: '10th', status: 'pending', q: '', data: null, sel: new Set(), open: new Set() };
 function sfDefaultMonth() { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
   return `${d.getFullYear()}_${String(d.getMonth()+1).padStart(2,'0')}`; }
 async function sfFetch(path, opts = {}) {
@@ -14743,7 +14743,8 @@ function sfDraw() {
 function sfEmp(e, frozen) {
   const pend = e.flags.filter(f => f.status === 'pending' && f.half === _sf.half).length;
   const ids = e.shown.filter(f => f.status === 'pending').map(f => f.flag_id);
-  return `<details open style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:var(--surface)">
+  // Collapsed by default; remember which ones were expanded across redraws.
+  return `<details ${_sf.open.has(e.employee_id) ? 'open' : ''} ontoggle="this.open?_sf.open.add('${e.employee_id}'):_sf.open.delete('${e.employee_id}')" style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:10px;background:var(--surface)">
     <summary style="padding:12px;cursor:pointer;font-weight:700">${sfEsc(e.employee_id)} · ${sfEsc(e.employee_name)} · ${sfEsc(e.outlet)}
       <span style="font-weight:400;color:#6b7280"> — ${e.shown.length} shown, ${pend} pending</span>
       ${e.sheet ? (e.sheet.status === 'uploaded'
