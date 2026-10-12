@@ -2985,6 +2985,7 @@ async function fsOpenPanel(code) {
         ${a.zomato_url ? `<a class="fs-btn" href="${escHtml(a.zomato_url)}" target="_blank" rel="noopener">Open on Zomato</a>` : ''}
       </div>
       ${kv('License number', a.license_number)}${kv('Expiry date (Valid upto)', fsFmtDate(a.expiry_date))}
+      ${a.fbo_name ? kv('Entity name', a.fbo_name) : ''}${a.address ? kv('Address', a.address) : ''}
       ${kv('Zomato listing', `${a.zomato_name || ''} · ${a.zomato_res_id || ''}`)}
       ${kv('Last synced', a.last_synced_at ? new Date(a.last_synced_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '')}
       <h4 style="margin-top:18px">License history</h4>
