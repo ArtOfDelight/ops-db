@@ -284,6 +284,45 @@ td.c { text-align: center; }
 }
 .pill-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .pill.green { background: var(--green-dim); color: var(--green); }
+/* FSSAI license badges / drawer */
+.fs-badge { display:inline-flex; flex-direction:column; align-items:flex-start; gap:1px; padding:3px 8px; border-radius:5px; border:1px solid transparent; font:600 11px var(--mono); cursor:pointer; white-space:nowrap; line-height:1.25; }
+.fs-badge .fs-sub { font:500 9px var(--sans); opacity:.85; }
+.fs-valid       { background:var(--green-dim); color:var(--green); border-color:color-mix(in srgb, var(--green) 25%, transparent); }
+.fs-renewal_due { background:var(--amber-dim); color:var(--amber); border-color:color-mix(in srgb, var(--amber) 30%, transparent); }
+.fs-expired     { background:var(--red-dim);   color:var(--red);   border-color:color-mix(in srgb, var(--red) 30%, transparent); }
+.fs-missing     { background:var(--surface-2,#f3f4f6); color:var(--ink-2); border-color:var(--border); }
+.fs-strip { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-bottom:14px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
+.fs-summary { font-size:12px; color:var(--ink); }
+.fs-chips { display:flex; gap:4px; flex-wrap:wrap; }
+.fs-chip { padding:3px 10px; border-radius:999px; border:1px solid var(--border); background:transparent; font-size:10px; color:var(--ink-2); cursor:pointer; }
+.fs-chip.on { background:var(--ink); color:var(--surface); border-color:var(--ink); }
+.fs-chip-renewal_due b { color:var(--amber); } .fs-chip-expired b { color:var(--red); } .fs-chip-valid b { color:var(--green); }
+.fs-chip.on b { color:inherit; }
+.fs-muted { font-size:11px; color:var(--ink-3); }
+.fs-btn { padding:4px 11px; border:1px solid var(--border-2); border-radius:5px; background:var(--surface); color:var(--ink); font-size:11px; cursor:pointer; text-decoration:none; display:inline-block; }
+.fs-btn:disabled { opacity:.5; cursor:default; }
+.fs-btn-primary { background:var(--ink); color:var(--surface); border-color:var(--ink); }
+.fs-btn-warn { border-color:var(--amber); color:var(--amber); }
+.fs-link { background:none; border:none; color:var(--info); font-size:11px; cursor:pointer; padding:0; text-decoration:underline; }
+.fs-alerts { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; align-items:flex-start; }
+.fs-alert { display:flex; gap:10px; align-items:center; padding:7px 12px; border-radius:6px; font-size:12px; margin-bottom:10px; }
+.fs-alerts .fs-alert { margin:0; align-self:stretch; justify-content:space-between; }
+.fs-alert-amber { background:var(--amber-dim); color:var(--amber); }
+.fs-alert-red { background:var(--red-dim); color:var(--red); }
+#fs-drawer { display:none; position:fixed; inset:0; z-index:1000; }
+.fs-scrim { position:absolute; inset:0; background:rgba(0,0,0,.3); }
+.fs-panel { position:absolute; top:0; right:0; bottom:0; width:min(560px, 100vw); background:var(--surface); box-shadow:-4px 0 24px rgba(0,0,0,.15); padding:22px 22px 40px; overflow-y:auto; color:var(--ink); }
+.fs-panel h3 { margin:0 0 10px; font-size:16px; } .fs-panel h4 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-2); }
+.fs-close { position:absolute; top:14px; right:16px; border:none; background:none; font-size:16px; cursor:pointer; color:var(--ink-2); }
+.fs-preview { width:100%; height:420px; border:1px solid var(--border); border-radius:6px; object-fit:contain; background:var(--surface-2,#f3f4f6); }
+.fs-kv { display:flex; justify-content:space-between; gap:16px; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.fs-kv span { color:var(--ink-2); } .fs-kv b { text-align:right; font-weight:600; }
+.fs-hist { display:flex; justify-content:space-between; padding:6px 0; font-size:12px; font-family:var(--mono); border-bottom:1px solid var(--border); }
+.fs-review { padding:14px 0; border-bottom:1px solid var(--border-2); }
+.fs-review .fs-preview { height:300px; }
+.fs-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.fs-form label { display:flex; flex-direction:column; gap:3px; font-size:10px; color:var(--ink-2); text-transform:uppercase; letter-spacing:.06em; }
+.fs-input { padding:5px 8px; border:1px solid var(--border); border-radius:4px; font-size:12px; background:var(--surface); color:var(--ink); }
 .pill.red   { background: var(--red-dim);   color: var(--red); }
 .pill.amber { background: var(--amber-dim); color: var(--amber); }
 .pill.gray  { background: #f1f5f9; color: var(--ink-3); }
@@ -2670,11 +2709,15 @@ async function orLoad() {
   const el = document.getElementById('or-content');
   if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
   try {
-    const r = await fetch(`${API}/api/admin/outlet-ratings-summary?date_from=${from}&date_to=${to}`,
-      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    const [r] = await Promise.all([
+      fetch(`${API}/api/admin/outlet-ratings-summary?date_from=${from}&date_to=${to}`,
+        { headers: { 'Authorization': `Bearer ${_lsToken}` } }),
+      fsLoadBoard(),
+    ]);
     if (r.status === 401 || r.status === 403) { lsLogout(); renderRatingsPage(); return; }
     const d = await r.json();
     const outlets = d.outlets || [];
+    _orOutlets = outlets;
     const statusEl = document.getElementById('or-status');
     let statusTxt = outlets.length ? `${outlets.length} outlets · ${d.date_from} → ${d.date_to}` : '';
     if (d.swiggy_period || d.zomato_label) {
@@ -2695,8 +2738,23 @@ function orRenderTable(outlets, el) {
     'swiggy_impressions','swiggy_i2m','swiggy_m2o','zomato_impressions','zomato_i2m','zomato_m2o',
     'swiggy_high','swiggy_low','zomato_high','zomato_low'];
   outlets = outlets.filter(o => _orDataKeys.some(k => Number(o[k]) > 0));
-  if (!outlets.length) {
-    el.innerHTML = '<div class="no-outages" style="padding:40px">No data for this range.</div>';
+  const fsHead = fsSummaryHtml();
+  // FSSAI status filter / sort. With a filter on, outlets that have no platform
+  // data yet (new outlets) still show, so nothing needing a license is hidden.
+  const fsRow = code => _fsBoard?.byCode[code];
+  let extra = [];
+  if (_fsBoard && _fsFilter !== 'all') {
+    outlets = outlets.filter(o => fsRow(o.outlet_code)?.status === _fsFilter);
+    const shown = new Set(outlets.map(o => o.outlet_code));
+    extra = _fsBoard.outlets.filter(b => !b.closed && b.status === _fsFilter && !shown.has(b.code));
+  }
+  if (_fsBoard && _fsSort) {
+    const rank = { expired: 0, renewal_due: 1, missing: 2, valid: 3 };
+    const key = o => { const b = fsRow(o.outlet_code); return b ? rank[b.status] * 1e5 + (b.days_left ?? 0) : 9e5; };
+    outlets = [...outlets].sort((a, b) => (key(a) - key(b)) * _fsSort);
+  }
+  if (!outlets.length && !extra.length) {
+    el.innerHTML = fsHead + '<div class="no-outages" style="padding:40px">No data for this range.</div>';
     return;
   }
   const thStyle = 'padding:10px 13px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);border-bottom:2px solid var(--border-2);white-space:nowrap;font-family:var(--mono)';
@@ -2704,6 +2762,7 @@ function orRenderTable(outlets, el) {
   const th  = `style="${thStyle}"`;
   const thead = `<thead><tr>
     <th ${thL}>Outlet</th>
+    <th style="${thStyle};text-align:left;cursor:pointer" onclick="fsToggleSort()" title="Sort by FSSAI status">FSSAI ${_fsSort === 1 ? '▲' : _fsSort === -1 ? '▼' : '↕'}</th>
     <th ${th}>High %</th>
     <th ${th}>Error %</th>
     <th ${th}>Net %</th>
@@ -2739,6 +2798,7 @@ function orRenderTable(outlets, el) {
     const highCls = o.high_rate_pct >= 20 ? 'good' : o.high_rate_pct >= 10 ? 'warn' : 'bad';
     return `<tr>
       ${tdL(o.outlet_code)}
+      <td style="padding:8px 13px;border-bottom:1px solid var(--border)">${fsBadge(o.outlet_code)}</td>
       ${td(o.high_rate_pct + '%', highCls)}
       ${td(o.error_rate_pct + '%', errCls)}
       ${td(o.net_pct + '%', netCls)}
@@ -2779,6 +2839,7 @@ function orRenderTable(outlets, el) {
   const avgPct = k => { const v = avg(k); return v === null ? '—' : v + '%'; };
   const totalRow = `<tr>
     ${tdTL('Total / Avg')}
+    ${tdT('')}
     ${tdT(tRista > 0 ? (tHigh / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tHigh/tRista*100 >= 20 ? 'good' : tHigh/tRista*100 >= 10 ? 'warn' : 'bad') : '')}
     ${tdT(tRista > 0 ? (tErrors / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tErrors/tRista*100 < 1 ? 'good' : tErrors/tRista*100 < 2 ? 'warn' : 'bad') : '')}
     ${tdT(tRista > 0 ? ((tHigh - tErrors) / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? ((tHigh-tErrors)/tRista*100 >= 10 ? 'good' : (tHigh-tErrors)/tRista*100 >= 0 ? '' : 'bad') : '')}
@@ -2793,7 +2854,181 @@ function orRenderTable(outlets, el) {
     ${tdT(tIgcc)}   ${tdT(tErrors)}
   </tr>`;
 
-  el.innerHTML = `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}${totalRow}</tbody></table></div>`;
+  const extraRows = extra.map(b => `<tr>${tdL(escHtml(b.code))}
+      <td style="padding:8px 13px;border-bottom:1px solid var(--border)">${fsBadge(b.code)}</td>
+      <td colspan="23" style="padding:10px 13px;font-size:11px;color:var(--ink-3);border-bottom:1px solid var(--border)">No platform data in this range</td></tr>`).join('');
+  el.innerHTML = fsHead + `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}${extraRows}${outlets.length ? totalRow : ''}</tbody></table></div>`;
+}
+
+/* ── FSSAI LICENSES (badge column, summary, side panel, review) ── */
+let _orOutlets = [];
+let _fsBoard = null;       // { outlets, counts, byCode, alerts, ... }
+let _fsFilter = 'all';     // all | valid | renewal_due | expired | missing
+let _fsSort = 0;           // 0 off, 1 most urgent first, -1 reverse
+const FS_LABEL = { valid: 'Valid', renewal_due: 'Renewal Due', expired: 'Expired', missing: 'No License Found' };
+
+async function fsApi(path, opts = {}) {
+  const r = await fetch(`${API}/api/admin/fssai${path}`, {
+    ...opts, headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+  return d;
+}
+
+async function fsLoadBoard() {
+  try {
+    const d = await fsApi('/board');
+    d.byCode = Object.fromEntries(d.outlets.map(o => [o.code, o]));
+    _fsBoard = d;
+  } catch (e) { _fsBoard = null; console.warn('FSSAI board', e); }
+}
+
+function fsRerender() {
+  const el = document.getElementById('or-content');
+  if (el) orRenderTable(_orOutlets, el);
+}
+function fsSetFilter(f) { _fsFilter = f; fsRerender(); }
+function fsToggleSort() { _fsSort = _fsSort === 0 ? 1 : _fsSort === 1 ? -1 : 0; fsRerender(); }
+
+function fsFmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fsBadge(code) {
+  if (!_fsBoard) return '<span class="fs-badge fs-missing" title="FSSAI data unavailable">—</span>';
+  const b = _fsBoard.byCode[code];
+  const st = b ? b.status : 'missing';
+  let sub = FS_LABEL[st];
+  if (st === 'renewal_due') sub = `Expires in ${b.days_left} day${b.days_left === 1 ? '' : 's'}`;
+  if (st === 'expired') sub = `Expired ${-b.days_left}d ago`;
+  const main = b && b.expiry_date ? fsFmtDate(b.expiry_date) : 'No License Found';
+  return `<button class="fs-badge fs-${st}" onclick="fsOpenPanel('${escHtml(code).replace(/'/g, '')}')" title="${FS_LABEL[st]}">
+    <span class="fs-main">${main}</span>${b && b.expiry_date ? `<span class="fs-sub">${sub}</span>` : ''}</button>`;
+}
+
+function fsSummaryHtml() {
+  if (!_fsBoard) return `<div class="fs-strip"><span class="fs-muted">FSSAI license data couldn't be loaded.</span></div>`;
+  const c = _fsBoard.counts;
+  const chip = (f, label, n) => `<button class="fs-chip fs-chip-${f} ${_fsFilter === f ? 'on' : ''}" onclick="fsSetFilter('${f}')">${label}${n != null ? ` <b>${n}</b>` : ''}</button>`;
+  const alerts = (_fsBoard.alerts || []);
+  const alertHtml = alerts.length ? `<div class="fs-alerts">
+      ${alerts.map(a => `<div class="fs-alert fs-alert-${a.stage === 'expired' ? 'red' : 'amber'}">
+        <span><b>${escHtml(a.outlet_name)}</b> — FSSAI ${a.stage === 'expired' ? 'license has expired' : a.stage === 'flagged' ? 'flagged for renewal' : `expires in ${a.days_left} day${a.days_left === 1 ? '' : 's'}`} (${fsFmtDate(a.expiry_date)})</span>
+        <button class="fs-link" onclick="fsOpenPanel('${escHtml(a.outlet_id)}')">View</button></div>`).join('')}
+      <button class="fs-link" onclick="fsAckAlerts()">Dismiss all</button></div>` : '';
+  const err = _fsBoard.last_error ? `<span class="fs-muted" style="color:var(--red)">Last sync error: ${escHtml(_fsBoard.last_error)}</span>` : '';
+  return `${alertHtml}<div class="fs-strip">
+      <span class="fs-summary"><b>${c.renewal_due}</b> outlets due for renewal, <b>${c.expired}</b> expired, <b>${c.missing}</b> missing licenses</span>
+      <span class="fs-chips">${chip('all', 'All')}${chip('renewal_due', 'Renewal Due', c.renewal_due)}${chip('expired', 'Expired', c.expired)}${chip('missing', 'Missing', c.missing)}${chip('valid', 'Valid', c.valid)}</span>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        ${err}
+        <span class="fs-muted">${_fsBoard.last_synced_at ? 'Synced from Zomato ' + new Date(_fsBoard.last_synced_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never synced'}</span>
+        <button class="fs-btn ${_fsBoard.needs_review ? 'fs-btn-warn' : ''}" onclick="fsOpenReview()">Needs Review${_fsBoard.needs_review ? ` (${_fsBoard.needs_review})` : ''}</button>
+        <button class="fs-btn" onclick="fsSyncNow(this)">Sync now</button>
+      </span></div>`;
+}
+
+async function fsSyncNow(btn) {
+  btn.disabled = true; btn.textContent = 'Queued…';
+  try {
+    await fsApi('/sync', { method: 'POST' });
+    // the worker starts within a minute; refresh the board after it has had time to run
+    setTimeout(async () => { await fsLoadBoard(); fsRerender(); }, 75000);
+  } catch (e) { btn.textContent = 'Failed'; console.warn(e); }
+}
+
+async function fsAckAlerts() {
+  const ids = (_fsBoard?.alerts || []).map(a => a.id);
+  if (!ids.length) return;
+  try { await fsApi('/alerts/ack', { method: 'POST', body: JSON.stringify({ ids }) }); _fsBoard.alerts = []; fsRerender(); }
+  catch (e) { console.warn(e); }
+}
+
+function fsDrawer(html) {
+  let d = document.getElementById('fs-drawer');
+  if (!d) {
+    d = document.createElement('div');
+    d.id = 'fs-drawer';
+    d.innerHTML = `<div class="fs-scrim" onclick="fsCloseDrawer()"></div><aside class="fs-panel"><button class="fs-close" onclick="fsCloseDrawer()">✕</button><div id="fs-panel-body"></div></aside>`;
+    document.body.appendChild(d);
+  }
+  d.style.display = 'block';
+  document.getElementById('fs-panel-body').innerHTML = html;
+}
+function fsCloseDrawer() { const d = document.getElementById('fs-drawer'); if (d) d.style.display = 'none'; }
+
+function fsPreview(url, mime) {
+  if (!url) return '<div class="fs-muted" style="padding:30px;text-align:center">License document not available on Zomato</div>';
+  return mime === 'application/pdf'
+    ? `<iframe class="fs-preview" src="${escHtml(url)}"></iframe>`
+    : `<img class="fs-preview" src="${escHtml(url)}" alt="License document"/>`;
+}
+
+async function fsOpenPanel(code) {
+  fsDrawer('<div class="loader-box"><div class="loader"></div> Loading…</div>');
+  try {
+    const d = await fsApi('/outlets/' + encodeURIComponent(code));
+    const a = d.active;
+    if (!a) {
+      fsDrawer(`<h3>${escHtml(d.name)}</h3><span class="fs-badge fs-missing"><span class="fs-main">No License Found</span></span>
+        <p class="fs-muted" style="margin-top:12px">Zomato has no FSSAI license for this outlet, or the outlet isn't linked to its Zomato listing yet. Check <a href="#" onclick="fsOpenReview();return false">Needs Review</a>.</p>`);
+      return;
+    }
+    const kv = (k, v) => `<div class="fs-kv"><span>${k}</span><b>${escHtml(v || '—')}</b></div>`;
+    fsDrawer(`<h3>${escHtml(d.name)}</h3>
+      <div style="margin-bottom:12px">${fsBadge(code)}</div>
+      ${fsPreview(a.preview_url, a.mime_type)}
+      <div style="display:flex;gap:8px;margin:12px 0">
+        ${a.download_url ? `<a class="fs-btn fs-btn-primary" href="${escHtml(a.download_url)}">Download</a>` : ''}
+        ${a.zomato_url ? `<a class="fs-btn" href="${escHtml(a.zomato_url)}" target="_blank" rel="noopener">Open on Zomato</a>` : ''}
+      </div>
+      ${kv('License number', a.license_number)}${kv('Expiry date (Valid upto)', fsFmtDate(a.expiry_date))}
+      ${kv('Zomato listing', `${a.zomato_name || ''} · ${a.zomato_res_id || ''}`)}
+      ${kv('Last synced', a.last_synced_at ? new Date(a.last_synced_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '')}
+      <h4 style="margin-top:18px">License history</h4>
+      ${d.history.length ? d.history.map(h => `<div class="fs-hist"><span>${escHtml(h.license_number)} · valid upto ${fsFmtDate(h.expiry_date)}</span>
+          ${h.preview_url ? `<a class="fs-link" href="${escHtml(h.preview_url)}" target="_blank" rel="noopener">View</a>` : ''}</div>`).join('')
+        : '<p class="fs-muted">No previous licenses.</p>'}`);
+  } catch (e) { fsDrawer(`<p style="color:var(--red)">${escHtml(e.message)}</p>`); }
+}
+
+async function fsOpenReview() {
+  fsDrawer('<div class="loader-box"><div class="loader"></div> Loading…</div>');
+  try {
+    const d = await fsApi('/review');
+    if (!d.items.length) { fsDrawer('<h3>Needs Review</h3><p class="fs-muted">Nothing to review.</p>'); return; }
+    const opts = d.outlets.map(o => `<option value="${escHtml(o.code)}">${escHtml(o.name)} (${escHtml(o.code)})</option>`).join('');
+    fsDrawer(`<h3>Needs Review (${d.items.length})</h3>
+      <p class="fs-muted">Zomato listings with no usable license, or not linked to a dashboard outlet. Fix the license on Zomato and it updates on the next sync.</p>` + d.items.map(f => {
+      const id = escHtml(f.id);
+      const linked = !!f.outlet_id;
+      return `<div class="fs-review" id="fsr-${id}">
+        <div style="display:flex;justify-content:space-between;gap:8px"><b>${escHtml(f.zomato_name || f.id)}</b>
+          <a class="fs-link" href="https://www.zomato.com/partners/onlineordering/outletInfo/aboutOutlet?resId=${encodeURIComponent(f.id)}" target="_blank" rel="noopener">Open on Zomato</a></div>
+        <div class="fs-muted" style="margin:4px 0 8px;color:var(--amber)">${escHtml((f.reasons || []).join(' · '))}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${linked ? `<span class="fs-muted">Outlet: ${escHtml(f.outlet_id)}</span>` : `<select class="fs-input" id="fsr-o-${id}"><option value="">Link to outlet…</option>${opts}</select>
+          <button class="fs-btn fs-btn-primary" onclick="fsMap('${id}',false,this)">Link</button>`}
+          <button class="fs-btn" onclick="fsMap('${id}',true,this)">Ignore</button>
+          <span class="fs-muted" id="fsr-m-${id}"></span></div>
+      </div>`;
+    }).join(''));
+  } catch (e) { fsDrawer(`<p style="color:var(--red)">${escHtml(e.message)}</p>`); }
+}
+
+async function fsMap(id, ignore, btn) {
+  const code = document.getElementById(`fsr-o-${id}`)?.value || '';
+  const msg = document.getElementById(`fsr-m-${id}`);
+  if (!ignore && !code) { msg.textContent = 'Pick an outlet.'; msg.style.color = 'var(--red)'; return; }
+  btn.disabled = true;
+  try {
+    const r = await fsApi('/review/' + encodeURIComponent(id), { method: 'POST', body: JSON.stringify({ outlet_code: code, ignore }) });
+    if (ignore) document.getElementById('fsr-' + id)?.remove();
+    else msg.textContent = r.message || 'Linked.';
+    await fsLoadBoard(); fsRerender();
+  } catch (e) { msg.textContent = e.message; msg.style.color = 'var(--red)'; btn.disabled = false; }
 }
 
 /* ── PRODUCT RANKINGS PAGE ── */
