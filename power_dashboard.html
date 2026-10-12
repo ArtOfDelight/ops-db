@@ -290,6 +290,7 @@ td.c { text-align: center; }
 .fs-valid       { background:var(--green-dim); color:var(--green); border-color:color-mix(in srgb, var(--green) 25%, transparent); }
 .fs-renewal_due { background:var(--amber-dim); color:var(--amber); border-color:color-mix(in srgb, var(--amber) 30%, transparent); }
 .fs-expired     { background:var(--red-dim);   color:var(--red);   border-color:color-mix(in srgb, var(--red) 30%, transparent); }
+.fs-flag { margin-left:6px; padding:1px 6px; border-radius:4px; border:1px solid transparent; font:700 9px var(--mono); cursor:pointer; vertical-align:middle; white-space:nowrap; }
 .fs-missing     { background:var(--surface-2,#f3f4f6); color:var(--ink-2); border-color:var(--border); }
 .fs-strip { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-bottom:14px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); }
 .fs-summary { font-size:12px; color:var(--ink); }
@@ -2762,7 +2763,6 @@ function orRenderTable(outlets, el) {
   const th  = `style="${thStyle}"`;
   const thead = `<thead><tr>
     <th ${thL}>Outlet</th>
-    <th style="${thStyle};text-align:left;cursor:pointer" onclick="fsToggleSort()" title="Sort by FSSAI status">FSSAI ${_fsSort === 1 ? '▲' : _fsSort === -1 ? '▼' : '↕'}</th>
     <th ${th}>High %</th>
     <th ${th}>Error %</th>
     <th ${th}>Net %</th>
@@ -2786,6 +2786,7 @@ function orRenderTable(outlets, el) {
     <th ${th}>Low</th>
     <th ${th}>IGCC</th>
     <th ${th}>Errors</th>
+    <th style="${thStyle};text-align:left;cursor:pointer" onclick="fsToggleSort()" title="Sort by FSSAI status">FSSAI ${_fsSort === 1 ? '▲' : _fsSort === -1 ? '▼' : '↕'}</th>
   </tr></thead>`;
 
   const td  = (val, cls='') => `<td style="padding:10px 13px;text-align:right;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono)"><span class="sc-pct ${cls}">${val}</span></td>`;
@@ -2797,8 +2798,7 @@ function orRenderTable(outlets, el) {
     const errCls  = o.error_rate_pct < 1 ? 'good' : o.error_rate_pct < 2 ? 'warn' : 'bad';
     const highCls = o.high_rate_pct >= 20 ? 'good' : o.high_rate_pct >= 10 ? 'warn' : 'bad';
     return `<tr>
-      ${tdL(o.outlet_code)}
-      <td style="padding:8px 13px;border-bottom:1px solid var(--border)">${fsBadge(o.outlet_code)}</td>
+      ${tdL(o.outlet_code + fsFlag(o.outlet_code))}
       ${td(o.high_rate_pct + '%', highCls)}
       ${td(o.error_rate_pct + '%', errCls)}
       ${td(o.net_pct + '%', netCls)}
@@ -2811,6 +2811,7 @@ function orRenderTable(outlets, el) {
       ${td(o.total_rated)} ${tdB(o.rista_orders ?? '—')}
       ${td(o.total_high)} ${td(o.total_low)}
       ${td(o.igcc)} ${td(o.total_errors)}
+      <td style="padding:8px 13px;border-bottom:1px solid var(--border)">${fsBadge(o.outlet_code)}</td>
     </tr>`;
   }).join('');
 
@@ -2839,7 +2840,6 @@ function orRenderTable(outlets, el) {
   const avgPct = k => { const v = avg(k); return v === null ? '—' : v + '%'; };
   const totalRow = `<tr>
     ${tdTL('Total / Avg')}
-    ${tdT('')}
     ${tdT(tRista > 0 ? (tHigh / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tHigh/tRista*100 >= 20 ? 'good' : tHigh/tRista*100 >= 10 ? 'warn' : 'bad') : '')}
     ${tdT(tRista > 0 ? (tErrors / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? (tErrors/tRista*100 < 1 ? 'good' : tErrors/tRista*100 < 2 ? 'warn' : 'bad') : '')}
     ${tdT(tRista > 0 ? ((tHigh - tErrors) / tRista * 100).toFixed(1) + '%' : '—', tRista > 0 ? ((tHigh-tErrors)/tRista*100 >= 10 ? 'good' : (tHigh-tErrors)/tRista*100 >= 0 ? '' : 'bad') : '')}
@@ -2852,11 +2852,12 @@ function orRenderTable(outlets, el) {
     ${tdT(tRated)}  ${tdTB(tRista || '—')}
     ${tdT(tHigh)}   ${tdT(tLow)}
     ${tdT(tIgcc)}   ${tdT(tErrors)}
+    ${tdT('')}
   </tr>`;
 
-  const extraRows = extra.map(b => `<tr>${tdL(escHtml(b.code))}
-      <td style="padding:8px 13px;border-bottom:1px solid var(--border)">${fsBadge(b.code)}</td>
-      <td colspan="23" style="padding:10px 13px;font-size:11px;color:var(--ink-3);border-bottom:1px solid var(--border)">No platform data in this range</td></tr>`).join('');
+  const extraRows = extra.map(b => `<tr>${tdL(escHtml(b.code) + fsFlag(b.code))}
+      <td colspan="23" style="padding:10px 13px;font-size:11px;color:var(--ink-3);border-bottom:1px solid var(--border)">No platform data in this range</td>
+      <td style="padding:8px 13px;border-bottom:1px solid var(--border)">${fsBadge(b.code)}</td></tr>`).join('');
   el.innerHTML = fsHead + `<div style="overflow-x:auto"><table class="sc-table" style="min-width:1000px">${thead}<tbody>${rows}${extraRows}${outlets.length ? totalRow : ''}</tbody></table></div>`;
 }
 
@@ -2906,6 +2907,14 @@ function fsBadge(code) {
   const main = b && b.expiry_date ? fsFmtDate(b.expiry_date) : 'No License Found';
   return `<button class="fs-badge fs-${st}" onclick="fsOpenPanel('${escHtml(code).replace(/'/g, '')}')" title="${FS_LABEL[st]}">
     <span class="fs-main">${main}</span>${b && b.expiry_date ? `<span class="fs-sub">${sub}</span>` : ''}</button>`;
+}
+
+// Small flag beside the outlet name once the 45-day renewal window starts (or it has expired).
+function fsFlag(code) {
+  const b = _fsBoard?.byCode[code];
+  if (!b || (b.status !== 'renewal_due' && b.status !== 'expired')) return '';
+  const txt = b.status === 'expired' ? 'FSSAI expired' : `FSSAI ${b.days_left}d`;
+  return ` <button class="fs-flag fs-${b.status}" onclick="fsOpenPanel('${escHtml(code).replace(/'/g, '')}')" title="FSSAI ${FS_LABEL[b.status]} – ${fsFmtDate(b.expiry_date)}">⚑ ${txt}</button>`;
 }
 
 function fsSummaryHtml() {
