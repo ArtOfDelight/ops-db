@@ -14568,9 +14568,33 @@ function tmLoadCache() {
   return false;
 }
 
+/* Near-live: while the Tasks page is open and the tab is in front, re-check every
+   20s (and on returning to the tab). Skipped while someone is typing, adding or
+   dragging, and only redraws when the task list actually changed. */
+const TM_POLL_MS = 20000;
+let _tmPoll = null;
+function tmStartPolling() {
+  if (!_tmPoll) _tmPoll = setInterval(tmPollTick, TM_POLL_MS);
+}
+async function tmPollTick() {
+  if (_currentPage !== 'tasks') { clearInterval(_tmPoll); _tmPoll = null; return; }
+  if (document.hidden || _tm.adding || _tm.dragId || document.activeElement?.closest?.('#tmBody')) return;
+  const before = JSON.stringify(_tm.tasks);
+  let d;
+  try { d = await tmApi('GET', ''); } catch (e) { return; }
+  tmApply(d, _tm.allEmployees);
+  try { localStorage.setItem(TM_CACHE, JSON.stringify({ d, emps: _tm.allEmployees })); } catch (e) {}
+  if (_currentPage === 'tasks' && JSON.stringify(_tm.tasks) !== before
+      && !_tm.adding && !_tm.dragId && !document.activeElement?.closest?.('#tmBody')) tmRender();
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && _currentPage === 'tasks') tmPollTick();
+});
+
 async function renderTasksPage() {
   const body = document.getElementById('pageBody');
   if (!_lsToken) { renderSigninLogin(body); return; }
+  tmStartPolling();
   if (_tm.loaded || tmLoadCache()) tmRender();      // instant from memory / cache
   else body.innerHTML = '<div class="tm-empty">Loading…</div>';
   try { await tmLoad(); }
