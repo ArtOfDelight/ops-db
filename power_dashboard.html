@@ -1328,6 +1328,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-expansion" onclick="navTo('expansion')">
         <span class="sb-icon">🚀</span> Expansion
       </button>
+      <button class="sb-item" id="sbitem-catalogue" onclick="navTo('catalogue')">
+        <span class="sb-icon">🖼️</span> Catalogue
+      </button>
     </div>
   </div>
 
@@ -1377,12 +1380,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','accounting','production','access','pestcontrol'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','accounting','production','access','pestcontrol','catalogue'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', catalogue: '🖼️ Catalogue' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1427,6 +1430,7 @@ function navTo(page) {
   if (page === 'comments')    renderCommentsPage();
   if (page === 'broadcast')   renderBroadcastPage();
   if (page === 'expansion')   renderExpansionPage();
+  if (page === 'catalogue')   renderCataloguePage();
   if (page === 'tasks')       renderTasksPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
   if (page === 'access')      renderAccessPage();
@@ -15554,6 +15558,100 @@ async function pcReview(decision) {
   } catch (e) { msg.textContent = e.message; }
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDetail(); });
+</script>
+
+<script>
+/* ── CATALOGUE ── final product photos (Drive: Catalogue/<category>/), with
+   comments per photo. Backend: /api/admin/catalogue */
+let _ct = { items: [], cat: '', open: null };
+const ctImg = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w}`;
+async function renderCataloguePage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading catalogue…</div>';
+  try { _ct.items = (await sfFetch('/api/admin/catalogue')).items || []; }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  const cats = [...new Set(_ct.items.map(i => i.category))];
+  if (!cats.includes(_ct.cat)) _ct.cat = cats[0] || '';
+  ctDraw();
+}
+function ctDraw() {
+  const body = document.getElementById('pageBody');
+  const cats = [...new Set(_ct.items.map(i => i.category))];
+  const tab = c => `<button onclick="_ct.cat='${sfEsc(c)}';ctDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_ct.cat===c?'#111827':'var(--surface)'};color:${_ct.cat===c?'#fff':'inherit'};font-weight:600">${sfEsc(c)} (${_ct.items.filter(i=>i.category===c).length})</button>`;
+  const rows = _ct.items.filter(i => i.category === _ct.cat);
+  body.innerHTML = `<div style="padding:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">${cats.map(tab).join('')}</div>
+    ${rows.length ? '' : '<div style="color:var(--ink-2)">No photos yet.</div>'}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+    ${rows.map(i => { const n = (i.comments||[]).length; return `
+      <div onclick="ctOpen('${i.id}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <img loading="lazy" src="${ctImg(i.drive_file_id, 600)}" style="width:100%;aspect-ratio:3/2;object-fit:cover;display:block;background:#f3f4f6">
+        <div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <b style="font-size:14px">${sfEsc(i.name)}</b>
+          <span style="font-size:12px;color:${n?'#2563eb':'var(--ink-3)'};white-space:nowrap">💬 ${n}</span>
+        </div>
+      </div>`; }).join('')}
+    </div></div>
+    <div id="ctModal"></div>`;
+  if (_ct.open) ctOpen(_ct.open);
+}
+function ctOpen(id) {
+  const i = _ct.items.find(x => x.id === id); if (!i) return;
+  _ct.open = id;
+  const cs = (i.comments || []).slice().sort((a, b) => (a.at || '').localeCompare(b.at || ''));
+  const me = (OPSDB_ME && OPSDB_ME.employee_id) || '';
+  document.getElementById('ctModal').innerHTML = `
+  <div onclick="if(event.target===this)ctClose()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--surface);border-radius:12px;max-width:1100px;width:100%;max-height:92vh;overflow:auto;display:flex;flex-wrap:wrap">
+      <div style="flex:2 1 420px;background:#f3f4f6">
+        <img src="${ctImg(i.drive_file_id, 1600)}" style="width:100%;display:block">
+      </div>
+      <div style="flex:1 1 280px;padding:16px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <div><div style="font-weight:700;font-size:16px">${sfEsc(i.name)}</div>
+          <div style="font-size:12px;color:var(--ink-2)">${sfEsc(i.category)} · ${i.width}×${i.height}</div></div>
+          <button onclick="ctClose()" style="border:0;background:none;font-size:20px;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;font-size:13px">
+          <a href="https://drive.google.com/file/d/${i.drive_file_id}/view" target="_blank">Open in Drive</a>
+          <a href="https://drive.google.com/uc?export=download&id=${i.drive_file_id}" target="_blank">Download full size</a>
+        </div>
+        <div style="font-weight:600;margin-top:6px">Comments (${cs.length})</div>
+        <div style="display:flex;flex-direction:column;gap:8px;flex:1;overflow:auto">
+          ${cs.length ? cs.map(c => `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+            <div style="font-size:12px;color:var(--ink-2);display:flex;justify-content:space-between;gap:6px">
+              <span><b>${sfEsc(c.by_name||c.by_id)}</b> · ${sfEsc((c.at||'').slice(0,16).replace('T',' '))}</span>
+              ${c.by_id===me || (OPSDB_ME && OPSDB_ME.is_access_admin) ? `<a href="#" onclick="ctDelete('${i.id}','${c.id}');return false" style="color:#b91c1c">delete</a>` : ''}
+            </div>
+            <div style="white-space:pre-wrap;margin-top:4px;font-size:14px">${sfEsc(c.text)}</div></div>`).join('')
+            : '<div style="color:var(--ink-3);font-size:13px">No comments yet.</div>'}
+        </div>
+        <textarea id="ctText" rows="3" placeholder="Add a comment…" style="width:100%;padding:8px;border:1px solid var(--border-2);border-radius:8px;font:inherit"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span id="ctMsg" style="font-size:12px;color:#b91c1c"></span>
+          <button id="ctSend" onclick="ctComment('${i.id}')" style="padding:8px 16px;background:#111827;color:#fff;border:0;border-radius:8px;font-weight:600;cursor:pointer">Post</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function ctClose() { _ct.open = null; document.getElementById('ctModal').innerHTML = ''; }
+async function ctComment(id) {
+  const t = document.getElementById('ctText').value.trim(); if (!t) return;
+  const btn = document.getElementById('ctSend'); btn.disabled = true;
+  try {
+    const r = await sfFetch(`/api/admin/catalogue/${id}/comments`, { method: 'POST', body: JSON.stringify({ text: t }) });
+    const i = _ct.items.find(x => x.id === id); (i.comments = i.comments || []).push(r.comment);
+    ctDraw();
+  } catch (e) { document.getElementById('ctMsg').textContent = e.message; btn.disabled = false; }
+}
+async function ctDelete(id, cid) {
+  try {
+    await sfFetch(`/api/admin/catalogue/${id}/comments/${cid}`, { method: 'DELETE' });
+    const i = _ct.items.find(x => x.id === id); i.comments = (i.comments || []).filter(c => c.id !== cid);
+    ctDraw();
+  } catch (e) { document.getElementById('ctMsg').textContent = e.message; }
+}
 </script>
 </body>
 </html>
