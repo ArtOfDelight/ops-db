@@ -15564,7 +15564,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDetai
 /* ── CATALOGUE ── final product photos (Drive: Catalogue/<category>/), with
    comments per photo. Backend: /api/admin/catalogue */
 let _ct = { items: [], cat: '', open: null };
-const ctImg = (id, w) => `https://lh3.googleusercontent.com/d/${id}=w${w}`;
+// ?v= busts the browser's 24h cache when a photo is replaced on Drive.
+const ctImg = (i, w) => `https://lh3.googleusercontent.com/d/${i.drive_file_id}=w${w}?v=${encodeURIComponent(i.updated_at || '')}`;
 async function renderCataloguePage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = '<div style="padding:20px">Loading catalogue…</div>';
@@ -15585,7 +15586,7 @@ function ctDraw() {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
     ${rows.map(i => { const n = (i.comments||[]).length; return `
       <div onclick="ctOpen('${i.id}')" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
-        <img loading="lazy" src="${ctImg(i.drive_file_id, 600)}" style="width:100%;aspect-ratio:3/2;object-fit:cover;display:block;background:#f3f4f6">
+        <img loading="lazy" src="${ctImg(i, 600)}" style="width:100%;aspect-ratio:3/2;object-fit:cover;display:block;background:#f3f4f6">
         <div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
           <b style="font-size:14px">${sfEsc(i.name)}</b>
           <span style="font-size:12px;color:${n?'#2563eb':'var(--ink-3)'};white-space:nowrap">💬 ${n}</span>
@@ -15604,7 +15605,7 @@ function ctOpen(id) {
   <div onclick="if(event.target===this)ctClose()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px">
     <div style="background:var(--surface);border-radius:12px;max-width:1100px;width:100%;max-height:92vh;overflow:auto;display:flex;flex-wrap:wrap">
       <div style="flex:2 1 420px;background:#f3f4f6">
-        <img src="${ctImg(i.drive_file_id, 1600)}" style="width:100%;display:block">
+        <img src="${ctImg(i, 1600)}" style="width:100%;display:block">
       </div>
       <div style="flex:1 1 280px;padding:16px;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;justify-content:space-between;gap:8px">
