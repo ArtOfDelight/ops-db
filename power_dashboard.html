@@ -9409,10 +9409,18 @@ function _otEmpLabel(id) {
   return e ? `${e.short_name || e.full_name || id} (${id})` : id;
 }
 
+// Pool candidates: rosterable at every outlet, but only one outlet per day (enforced on publish)
+const _OT_POOL_CANDIDATES = [['AOD021', 'Jimmy'], ['AOD091', 'Sanu']];
+const _OT_POOL_IDS = new Set(_OT_POOL_CANDIDATES.map(([id]) => id));
+
 function _otRenderHost(staging) {
   const host = document.getElementById('otHost');
+  staging = { ...staging,
+    outlets: staging.outlets.map(o => ({ ...o, staff: o.staff.filter(s => !_OT_POOL_IDS.has(s.employee_id)) })),
+    unassigned: staging.unassigned.filter(s => !_OT_POOL_IDS.has(s.employee_id)) };
+  const poolChips = `<div class="ot-staff-list">${_OT_POOL_CANDIDATES.map(([id, nm]) => `<span class="ot-chip" style="background:#fff3e0;padding-right:10px">${nm} (${id})</span>`).join('')}</div>`;
   const assignedIds = new Set(staging.outlets.flatMap(o => o.staff.map(s => s.employee_id)));
-  const pickable = _otAllEmployees.slice().sort((a, b) => (a.short_name || a.full_name || '').localeCompare(b.short_name || b.full_name || ''));
+  const pickable = _otAllEmployees.filter(e => !_OT_POOL_IDS.has(e.employee_id)).sort((a, b) => (a.short_name || a.full_name || '').localeCompare(b.short_name || b.full_name || ''));
 
   const cards = staging.outlets.map(o => {
     const managerOpts = ['<option value="">— none —</option>'].concat(
@@ -9437,6 +9445,8 @@ function _otRenderHost(staging) {
           <select class="ot-select" onchange="if(this.value) _otAddStaff(this.value, '${o.code}'); this.value=''">${addOpts}</select>
         </div>
         ${staffChips}
+        <div class="ot-row" style="margin-bottom:0"><span class="ot-label">Pool candidates</span><span class="ot-empty">any outlet, one outlet per day</span></div>
+        ${poolChips}
         ${o.is_cloud_roster ? `
         <div class="ot-row">
           <span class="ot-label">Roster shifts</span>
