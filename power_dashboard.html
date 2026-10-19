@@ -15687,6 +15687,12 @@ async function ctDelete(id, cid) {
 .oa-row-cat .oa-name { cursor:pointer; }
 .oa-ind   { padding-left:34px !important; }
 .oa-caret { width:18px;display:inline-block;color:var(--ink-3);user-select:none; }
+.oa-in.oa-chg, input[type=checkbox].oa-chg { background:#fef9c3;border-color:#eab308;outline:2px solid #fde68a; }
+tr.oa-dirty td:first-child { box-shadow:inset 3px 0 0 #eab308; }
+.oa-edited { display:none;color:#b45309;font-weight:600; }
+tr.oa-dirty .oa-edited { display:block; }
+tr.oa-dirty .oa-last { display:none; }
+.ex-btn:disabled { opacity:.45;cursor:default; }
 </style>
 <script>
 const OA_OUTLETS = ['SKN', 'WF', 'KOR', 'KLN', 'BLN', 'IND', 'ARK'];
@@ -15730,7 +15736,8 @@ async function renderOrderAuditPage() {
   oaRender();
 }
 
-function oaGo(tab) { _oa.tab = tab; _oa.msg = ''; renderOrderAuditPage(); }
+function oaUnsavedOk() { return !document.querySelector('tr.oa-dirty') || confirm('You have unsaved threshold changes. Discard them?'); }
+function oaGo(tab) { if (!oaUnsavedOk()) return; _oa.tab = tab; _oa.msg = ''; renderOrderAuditPage(); }
 function oaSetFilter(k, v) { _oa.f[k] = v; renderOrderAuditPage(); }
 
 function oaRender() {
@@ -15830,20 +15837,20 @@ function oaThresholdsHtml() {
         <td class="oa-name" onclick="oaCat(${ci})"><span class="oa-caret">${items.length ? (open ? '▾' : '▸') : ''}</span><b>${pcEsc(cat)}</b>
           <div class="oa-sub">${items.length} item${items.length === 1 ? '' : 's'}${nOver ? ` · ${nOver} override${nOver > 1 ? 's' : ''}` : ''}</div></td>
         <td><span class="pc-badge">${pcEsc(oaUnit(unit))}</span></td>
-        <td class="oa-c"><input type="checkbox" data-k="off" ${t.off ? 'checked' : ''}></td>
-        <td><input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step(unit)}" value="${v(t.min_qty)}" placeholder="${oaIsWeight(unit) ? 'any' : '1'}"></td>
-        <td><input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(t.pct)}" placeholder="—"></td>
-        <td class="oa-sub">${t.updated_by ? pcEsc(t.updated_by) + '<br>' + pcEsc((t.updated_at || '').slice(0, 16).replace('T', ' ')) : 'not set'}</td>
-        <td><button class="ex-btn sm pri" onclick="oaSave(${ci})">Save</button></td></tr>`;
+        <td class="oa-c"><input type="checkbox" data-k="off" data-orig="${t.off ? 1 : 0}" ${t.off ? 'checked' : ''} oninput="oaMark(this)" onchange="oaMark(this)"></td>
+        <td><input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step(unit)}" value="${v(t.min_qty)}" data-orig="${v(t.min_qty)}" placeholder="${oaIsWeight(unit) ? 'any' : '1'}" oninput="oaMark(this)" onchange="oaMark(this)"></td>
+        <td><input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(t.pct)}" data-orig="${v(t.pct)}" placeholder="—" oninput="oaMark(this)" onchange="oaMark(this)"></td>
+        <td class="oa-sub"><span class="oa-edited">● edited</span><span class="oa-last">${oaLastChange(t)}</span></td>
+        <td><button class="ex-btn sm pri oa-save" onclick="oaSave(${ci})" disabled>Save</button></td></tr>`;
     const itemRows = items.map(it => {
       const o = (t.items || {})[it.name] || {};
       return `<tr class="oa-row-item" data-ci="${ci}" data-item="${pcEsc(it.name)}" style="display:${open ? '' : 'none'}">
         <td class="oa-name oa-ind">${pcEsc(it.name)}<div class="oa-sub">${pcEsc(oaInherited(t, unit, it.unit))}</div></td>
         <td><span class="oa-sub">${pcEsc(oaUnit(it.unit))}</span></td>
-        <td class="oa-c"><input type="checkbox" data-k="off" ${o.off ? 'checked' : ''}></td>
-        <td><input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step(it.unit)}" value="${v(o.min_qty)}" placeholder="inherit"></td>
-        <td><input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(o.pct)}" placeholder="inherit"></td>
-        <td></td><td></td></tr>`;
+        <td class="oa-c"><input type="checkbox" data-k="off" data-orig="${o.off ? 1 : 0}" ${o.off ? 'checked' : ''} oninput="oaMark(this)" onchange="oaMark(this)"></td>
+        <td><input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step(it.unit)}" value="${v(o.min_qty)}" data-orig="${v(o.min_qty)}" placeholder="inherit" oninput="oaMark(this)" onchange="oaMark(this)"></td>
+        <td><input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(o.pct)}" data-orig="${v(o.pct)}" placeholder="inherit" oninput="oaMark(this)" onchange="oaMark(this)"></td>
+        <td class="oa-sub"><span class="oa-edited">● edited</span></td><td></td></tr>`;
     }).join('');
     return catRow + itemRows;
   }).join('');
@@ -15853,6 +15860,7 @@ function oaThresholdsHtml() {
       <button class="ex-btn sm" onclick="oaExpandAll(false)">Collapse all</button>
       <span class="sp"></span>
       <span class="pc-muted">${names.length} categories · ${totalItems} items</span>
+      <button class="ex-btn sm pri" id="oaSaveAll" onclick="oaSaveAll()" disabled>Save all changes</button>
       <button class="ex-btn sm" onclick="oaSyncCatalog(this)" title="Checks the last 7 days of Rista audits at every outlet and adds only items not in the list yet">↻ Sync new items from Rista</button>
     </div>
     <div class="ex-card pc-wrap">
@@ -15903,6 +15911,7 @@ function oaFilter(q) {
 }
 
 async function oaSyncCatalog(btn) {
+  if (!oaUnsavedOk()) return;
   btn.disabled = true; btn.textContent = 'Checking Rista…';
   try {
     const r = await oaApi('POST', '/catalog/sync');
@@ -15911,8 +15920,40 @@ async function oaSyncCatalog(btn) {
   } catch (e) { _oa.msg = e.message; oaRender(); }
 }
 
-async function oaSave(ci) {
-  const head = document.querySelector(`tr.oa-row-cat[data-ci="${ci}"]`), cat = head.dataset.cat, unit = head.dataset.unit;
+const oaLastChange = t => t.updated_by ? pcEsc(t.updated_by) + '<br>' + pcEsc((t.updated_at || '').slice(0, 16).replace('T', ' ')) : 'not set';
+const oaInputVal = el => el.type === 'checkbox' ? (el.checked ? '1' : '0') : el.value.trim();
+
+// Edited state: a field differs from what was last loaded/saved (data-orig)
+function oaMark(el) {
+  el.classList.toggle('oa-chg', oaInputVal(el) !== el.dataset.orig);
+  const row = el.closest('tr');
+  row.classList.toggle('oa-dirty', !!row.querySelector('.oa-chg'));
+  oaUpdateDirty();
+}
+
+function oaDirtyCats() {
+  const cis = new Set();
+  document.querySelectorAll('tr.oa-dirty').forEach(r => cis.add(r.dataset.ci));
+  return [...cis];
+}
+
+function oaUpdateDirty() {
+  const dirty = new Set(oaDirtyCats());
+  document.querySelectorAll('tr.oa-row-cat').forEach(head => {
+    const d = dirty.has(head.dataset.ci);
+    head.querySelector('.oa-save').disabled = !d;
+    const badge = head.querySelector('.oa-edited');
+    const itemsOnly = d && !head.classList.contains('oa-dirty');
+    badge.style.display = itemsOnly ? 'block' : '';
+    badge.textContent = itemsOnly ? '● items edited' : '● edited';
+  });
+  const btn = document.getElementById('oaSaveAll');
+  const n = document.querySelectorAll('tr.oa-dirty').length;
+  if (btn) { btn.disabled = !dirty.size; btn.textContent = dirty.size ? `Save all changes (${n} row${n === 1 ? '' : 's'})` : 'Save all changes'; }
+}
+
+function oaPayload(ci) {
+  const head = document.querySelector(`tr.oa-row-cat[data-ci="${ci}"]`);
   const val = (row, k) => { const x = row.querySelector(`input[data-k="${k}"]`).value.trim(); return x === '' ? null : Number(x); };
   const off = row => row.querySelector('input[data-k="off"]').checked;
   const items = {};
@@ -15920,12 +15961,43 @@ async function oaSave(ci) {
     const o = { pct: val(row, 'pct'), min_qty: val(row, 'min_qty'), off: off(row) };
     if (o.pct != null || o.min_qty != null || o.off) items[row.dataset.item] = o;
   });
-  try {
-    const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`,
-      { unit, off: off(head), pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items });
-    _oa.th[cat] = saved; _oa.msg = `Saved ${cat}`;
-  } catch (e) { _oa.msg = e.message; }
-  oaRender();
+  return { cat: head.dataset.cat, body: { unit: head.dataset.unit, off: off(head), pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items } };
+}
+
+// Saved values become the new baseline; other categories' unsaved edits are left alone
+function oaCommitSaved(ci, saved) {
+  const head = document.querySelector(`tr.oa-row-cat[data-ci="${ci}"]`);
+  _oa.th[head.dataset.cat] = saved;
+  document.querySelectorAll(`tr[data-ci="${ci}"]`).forEach(row => {
+    row.querySelectorAll('input[data-orig]').forEach(el => { el.dataset.orig = oaInputVal(el); el.classList.remove('oa-chg'); });
+    row.classList.remove('oa-dirty');
+  });
+  head.querySelector('.oa-last').innerHTML = oaLastChange(saved);
+  oaUpdateDirty();
+}
+
+async function oaSaveOne(ci) {
+  const { cat, body } = oaPayload(ci);
+  const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`, body);
+  oaCommitSaved(ci, saved);
+  return cat;
+}
+
+function oaSetMsg(m) { _oa.msg = m; const el = document.getElementById('oaMsg'); if (el) el.textContent = m; }
+
+async function oaSave(ci) {
+  try { oaSetMsg(`Saved ${await oaSaveOne(ci)}`); } catch (e) { oaSetMsg(e.message); }
+}
+
+async function oaSaveAll() {
+  const cis = oaDirtyCats(), done = [], failed = [];
+  const btn = document.getElementById('oaSaveAll'); btn.disabled = true; btn.textContent = 'Saving…';
+  for (const ci of cis) {
+    try { done.push(await oaSaveOne(ci)); }
+    catch (e) { failed.push(`${document.querySelector(`tr.oa-row-cat[data-ci="${ci}"]`).dataset.cat}: ${e.message}`); }
+  }
+  oaUpdateDirty();
+  oaSetMsg([done.length ? `Saved ${done.length} categor${done.length === 1 ? 'y' : 'ies'}` : '', failed.length ? `Not saved — ${failed.join('; ')}` : ''].filter(Boolean).join(' · '));
 }
 </script>
 </body>
