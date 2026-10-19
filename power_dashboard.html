@@ -1305,6 +1305,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-pestcontrol" onclick="navTo('pestcontrol')">
         <span class="sb-icon">🐜</span> Pest Control
       </button>
+      <button class="sb-item" id="sbitem-orderaudit" onclick="navTo('orderaudit')">
+        <span class="sb-icon">📦</span> Order Audit
+      </button>
     </div>
   </div>
 
@@ -1380,12 +1383,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','accounting','production','access','pestcontrol','catalogue'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','accounting','production','access','pestcontrol','orderaudit','catalogue'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', catalogue: '🖼️ Catalogue' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1435,6 +1438,7 @@ function navTo(page) {
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
   if (page === 'access')      renderAccessPage();
   if (page === 'pestcontrol') renderPestControlPage();
+  if (page === 'orderaudit') renderOrderAuditPage();
   // Accounting / Supply Chain get the full width; ☰ brings the menu back.
   setSidebarCollapsed(!!EMBED_PAGES[page]);
 }
@@ -15662,6 +15666,191 @@ async function ctDelete(id, cid) {
     const i = _ct.items.find(x => x.id === id); i.comments = (i.comments || []).filter(c => c.id !== cid);
     ctDraw();
   } catch (e) { document.getElementById('ctMsg').textContent = e.message; }
+}
+</script>
+
+
+<!-- ══ ORDER AUDIT (Rista stock audit → checklist recount) ══ -->
+<style>
+.oa-sub   { font-size:11px;color:var(--ink-3); }
+.oa-exp   { background:var(--bg); }
+.oa-exp td { padding:0 !important; }
+.oa-inner { width:100%;border-collapse:collapse;font-size:11px; }
+.oa-inner th, .oa-inner td { padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top; }
+.oa-inner th { font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-3); }
+.oa-in    { width:80px; }
+.oa-cat   { border-bottom:1px solid var(--border); }
+.oa-cat-h { display:flex;align-items:center;gap:10px;padding:10px 4px;flex-wrap:wrap; }
+.oa-caret { cursor:pointer;width:16px;display:inline-block;color:var(--ink-3);user-select:none; }
+.oa-items { padding:0 0 10px 26px; }
+.oa-item  { display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;flex-wrap:wrap; }
+.oa-item span.n { min-width:240px; }
+</style>
+<script>
+const OA_OUTLETS = ['SKN', 'WF', 'KOR', 'KLN', 'BLN', 'IND', 'ARK'];
+const OA_STATUS = {
+  needs_recount: ['pc-b-needs_review', 'Needs recount'], closed: ['pc-b-verified', 'Closed'],
+  ok: ['pc-b-verified', 'OK'], no_main_audit: ['pc-b-failed', 'No main audit'],
+};
+const OA_RESULT = {
+  confirmed_variance: ['pc-b-needs_review', 'Variance confirmed'], counting_mistake: ['pc-b-verified', 'Counting mistake'],
+  unresolved: ['pc-b-failed', 'Unresolved'], not_recounted: ['pc-b-failed', 'Not recounted'],
+};
+const OA_FLAG = { recount_not_done: 'Recount not done', no_main_audit: 'No main audit' };
+const oaIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const _oa = { tab: 'reports', f: { outlet: '', status: '', date_from: oaIso(new Date(Date.now() - 6 * 864e5)), date_to: oaIso(new Date()) },
+              reports: [], open: new Set(), th: null, cats: {}, catOpen: new Set(), msg: '' };
+
+async function oaApi(method, path, body) {
+  const r = await fetch(`${API}/api/admin/order-audit${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${_lsToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let d = {};
+  try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
+  return d;
+}
+
+async function renderOrderAuditPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div class="ex-empty">Loading…</div>';
+  try {
+    if (_oa.tab === 'reports') {
+      const q = new URLSearchParams(Object.entries(_oa.f).filter(([, v]) => v)).toString();
+      _oa.reports = (await oaApi('GET', `/reports${q ? '?' + q : ''}`)).reports;
+    } else {
+      const d = await oaApi('GET', '/thresholds');
+      _oa.th = d.thresholds; _oa.cats = d.categories;
+    }
+  } catch (e) { if (_currentPage === 'orderaudit') body.innerHTML = errBox(pcEsc(e.message)); return; }
+  oaRender();
+}
+
+function oaGo(tab) { _oa.tab = tab; _oa.msg = ''; renderOrderAuditPage(); }
+function oaSetFilter(k, v) { _oa.f[k] = v; renderOrderAuditPage(); }
+
+function oaRender() {
+  const body = document.getElementById('pageBody');
+  if (!body || _currentPage !== 'orderaudit') return;
+  const tab = (k, l) => `<button class="cmp-ftab ${_oa.tab === k ? 'active' : ''}" onclick="oaGo('${k}')">${l}</button>`;
+  body.innerHTML = `
+    <div class="ex-bar"><div class="cmp-ftabs pc-tabs" style="margin:0">${tab('reports', 'Reports')}${tab('thresholds', 'Thresholds')}</div>
+      <span class="sp"></span><span class="pc-muted" id="oaMsg">${pcEsc(_oa.msg)}</span></div>
+    ${_oa.tab === 'reports' ? oaReportsHtml() : oaThresholdsHtml()}`;
+}
+
+/* ── reports ── */
+const oaBadge = (map, k) => { const [c, l] = map[k] || ['', k || '—']; return `<span class="pc-badge ${c}">${pcEsc(l)}</span>`; };
+const oaNum = (v, unit) => v == null ? '—' : (unit === 'kg' ? (+v).toFixed(3) + ' kg' : Math.round(v) + ' pcs');
+const oaSigned = (v, unit) => v == null ? '—' : (v > 0 ? '+' : '') + oaNum(v, unit);
+const oaTh = t => !t ? '—' : [t.pct != null ? `>${t.pct}%` : '', t.min_qty != null ? `≥${t.min_qty}` : ''].filter(Boolean).join(' & ') || 'any diff';
+
+function oaReportsHtml() {
+  const f = _oa.f;
+  const opt = (v, l, cur) => `<option value="${pcEsc(v)}"${cur === v ? ' selected' : ''}>${pcEsc(l)}</option>`;
+  const rows = _oa.reports.map(r => {
+    const flagged = (r.items || []).filter(i => i.flagged);
+    const counts = {};
+    flagged.forEach(i => { if (i.result) counts[i.result] = (counts[i.result] || 0) + 1; });
+    const results = Object.entries(counts).map(([k, n]) => `${oaBadge(OA_RESULT, k)} ${n}`).join(' ') || '<span class="pc-muted">—</span>';
+    const flags = (r.flags || []).map(k => `<span class="pc-badge pc-b-failed">${pcEsc(OA_FLAG[k] || k)}</span>`).join(' ');
+    const open = _oa.open.has(r.id);
+    return `<tr class="click" onclick="oaToggle('${pcEsc(r.id)}')">
+        <td>${open ? '▾' : '▸'} <b>${pcEsc(r.outlet)}</b></td><td>${pcEsc(r.date)}</td>
+        <td>${pcEsc(r.audit_time || '—')}<div class="oa-sub">${r.audit_number ? '#' + pcEsc(r.audit_number) : ''}</div></td>
+        <td>${oaBadge(OA_STATUS, r.status)}</td><td>${flagged.length}</td><td>${results}</td><td>${flags}</td>
+        <td><button class="ex-btn sm" onclick="event.stopPropagation();oaDelete('${pcEsc(r.id)}')">🗑</button></td></tr>
+      ${open ? `<tr class="oa-exp"><td colspan="8">${oaItemsHtml(flagged)}</td></tr>` : ''}`;
+  }).join('');
+  return `<div class="pc-filters">
+      <select class="ex-sel" onchange="oaSetFilter('outlet',this.value)">${opt('', 'All outlets', f.outlet)}${OA_OUTLETS.map(o => opt(o, o, f.outlet)).join('')}</select>
+      <select class="ex-sel" onchange="oaSetFilter('status',this.value)">${opt('', 'All statuses', f.status)}${Object.entries(OA_STATUS).map(([k, [, l]]) => opt(k, l, f.status)).join('')}</select>
+      <input type="date" class="ex-sel" value="${f.date_from}" onchange="oaSetFilter('date_from',this.value)">
+      <span class="pc-muted">to</span>
+      <input type="date" class="ex-sel" value="${f.date_to}" onchange="oaSetFilter('date_to',this.value)">
+      <span class="pc-muted">${_oa.reports.length} report${_oa.reports.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="ex-card pc-wrap"><table class="pc-tbl">
+      <thead><tr><th>Outlet</th><th>Date</th><th>Rista audit</th><th>Status</th><th>Flagged</th><th>Results</th><th>Flags</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="8" class="pc-muted">No reports for these filters.</td></tr>'}</tbody></table></div>`;
+}
+
+function oaItemsHtml(items) {
+  if (!items.length) return '<div class="pc-muted" style="padding:10px">Nothing over threshold.</div>';
+  return `<table class="oa-inner"><thead><tr><th>Item</th><th>Counted</th><th>System</th><th>Off by</th><th>Threshold</th>
+      <th>Ticked by</th><th>Recount off by</th><th>Result</th></tr></thead><tbody>${items.map(i => `<tr>
+      <td><b>${pcEsc(i.name)}</b><div class="oa-sub">${pcEsc(i.category)}</div></td>
+      <td>${oaNum(i.counted, i.unit)}</td><td>${oaNum(i.system, i.unit)}</td>
+      <td>${oaSigned(i.variance, i.unit)} <span class="oa-sub">${i.pct}%</span></td><td>${oaTh(i.threshold)}</td>
+      <td>${i.ticked_by ? `${pcEsc(i.ticked_name || '')} <span class="oa-sub">${pcEsc(i.ticked_by)}</span>
+          <div class="oa-sub">${pcEsc((i.ticked_at || '').slice(0, 16).replace('T', ' '))} · ${pcEsc(i.ticked_slot || '')}</div>` : '<span class="pc-muted">—</span>'}</td>
+      <td>${oaSigned(i.recount_var, i.unit)}</td><td>${i.result ? oaBadge(OA_RESULT, i.result) : '<span class="pc-muted">Pending</span>'}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function oaToggle(id) { _oa.open.has(id) ? _oa.open.delete(id) : _oa.open.add(id); oaRender(); }
+
+async function oaDelete(id) {
+  if (!confirm('Delete this report? It will be hidden and its open checklist task removed.')) return;
+  try { await oaApi('DELETE', `/reports/${encodeURIComponent(id)}`); _oa.msg = 'Report deleted'; await renderOrderAuditPage(); }
+  catch (e) { _oa.msg = e.message; oaRender(); }
+}
+
+/* ── thresholds ── */
+function oaThresholdsHtml() {
+  const names = [...new Set([...Object.keys(_oa.th || {}), ...Object.keys(_oa.cats || {})])].sort();
+  if (!names.length) return '<div class="ex-card pc-muted">No categories yet — they appear after the first 6 am pull.</div>';
+  const v = x => x == null ? '' : x;
+  const rows = names.map((cat, ci) => {
+    const t = (_oa.th || {})[cat] || {};
+    const unit = t.unit || (_oa.cats[cat] || {}).unit || 'ea';
+    const step = unit === 'kg' ? '0.001' : '1';
+    const items = ((_oa.cats[cat] || {}).items || []).concat(Object.keys(t.items || {})).filter((x, i, a) => a.indexOf(x) === i).sort();
+    const nOver = Object.keys(t.items || {}).length;
+    const open = _oa.catOpen.has(cat);
+    return `<div class="oa-cat" data-cat="${pcEsc(cat)}" data-unit="${unit}">
+      <div class="oa-cat-h">
+        <span class="oa-caret" onclick="oaCat(${ci})">${items.length ? (open ? '▾' : '▸') : ''}</span>
+        <b style="min-width:240px">${pcEsc(cat)}</b><span class="pc-badge">${unit === 'kg' ? 'kg' : 'pcs'}</span>
+        <label class="pc-muted">over % <input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(t.pct)}"></label>
+        <label class="pc-muted">and at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(t.min_qty)}"> ${unit === 'kg' ? 'kg' : 'pcs'}</label>
+        <button class="ex-btn sm pri" onclick="oaSave(${ci})">Save</button>
+        <span class="pc-muted">${nOver ? nOver + ' item override' + (nOver > 1 ? 's' : '') + ' · ' : ''}${t.updated_by ? 'by ' + pcEsc(t.updated_by) + ' · ' + pcEsc((t.updated_at || '').slice(0, 16).replace('T', ' ')) : 'not set'}</span>
+      </div>
+      <div class="oa-items" style="display:${open ? 'block' : 'none'}">${items.map(name => {
+        const o = (t.items || {})[name] || {};
+        return `<div class="oa-item" data-item="${pcEsc(name)}"><span class="n">${pcEsc(name)}</span>
+          <label class="pc-muted">over % <input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(o.pct)}" placeholder="${v(t.pct)}"></label>
+          <label class="pc-muted">at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(o.min_qty)}" placeholder="${v(t.min_qty)}"></label></div>`;
+      }).join('')}</div></div>`;
+  }).join('');
+  return `<div class="ex-card"><div class="pc-muted" style="margin-bottom:8px">An item is sent for recount when it is off by more than the % <b>and</b> at least the quantity (both only if set; blank = not used).
+    Nothing set = any difference. Open a category to override single items; blank item fields use the category value.</div>${rows}</div>`;
+}
+
+function oaCat(ci) {
+  const el = document.querySelectorAll('.oa-cat')[ci], cat = el.dataset.cat;
+  _oa.catOpen.has(cat) ? _oa.catOpen.delete(cat) : _oa.catOpen.add(cat);
+  el.querySelector('.oa-items').style.display = _oa.catOpen.has(cat) ? 'block' : 'none';
+  el.querySelector('.oa-caret').textContent = _oa.catOpen.has(cat) ? '▾' : '▸';
+}
+
+async function oaSave(ci) {
+  const el = document.querySelectorAll('.oa-cat')[ci], cat = el.dataset.cat, unit = el.dataset.unit;
+  const val = (root, k) => { const x = root.querySelector(`input[data-k="${k}"]`).value.trim(); return x === '' ? null : Number(x); };
+  const head = el.querySelector('.oa-cat-h');
+  const items = {};
+  el.querySelectorAll('.oa-item').forEach(row => {
+    const pct = val(row, 'pct'), min_qty = val(row, 'min_qty');
+    if (pct != null || min_qty != null) items[row.dataset.item] = { pct, min_qty };
+  });
+  try {
+    const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`, { unit, pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items });
+    _oa.th[cat] = saved; _oa.msg = `Saved ${cat}`;
+  } catch (e) { _oa.msg = e.message; }
+  oaRender();
 }
 </script>
 </body>
