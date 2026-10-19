@@ -97,10 +97,10 @@ tr:hover td { background: var(--bg); }
 <div id="loginScreen" class="login-shell">
   <div class="login-card">
     <h1>Order Audit</h1>
-    <p>Residency Road — limited testing access</p>
+    <p>Limited testing access</p>
     <div id="step1">
-      <input id="empId" placeholder="Employee ID" value="AOD019">
       <input id="phone" placeholder="10-digit phone" maxlength="10">
+      <div id="recaptcha"></div>
       <div id="loginErr" class="login-err"></div>
       <button class="btn btn-primary" onclick="sendOtp()">Send OTP</button>
     </div>
@@ -115,7 +115,7 @@ tr:hover td { background: var(--bg); }
 <div id="mainScreen" class="hidden">
   <div class="topbar">
     <div>
-      <div class="topbar-title">Order Audit — Residency Road</div>
+      <div class="topbar-title">Order Audit</div>
       <div class="topbar-sub" id="whoami"></div>
     </div>
     <div class="topbar-gap"></div>
@@ -172,51 +172,74 @@ let reviewToken = localStorage.getItem('orderAuditToken') || null;
 let statusFilter = '';
 
 // ─── AUTH ───────────────────────────────────────────────────────────────────
+// Firebase phone OTP by SMS, same as the main Ops DB login (/api/opsdb/login).
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyAB3vEbf0_641OLA4jojFy0ivDl9SF_xZM',
+  authDomain: 'aodchecklist.firebaseapp.com',
+  projectId: 'aodchecklist',
+  appId: '1:814508960061:web:f1f973a5db12b790ad3d54',
+};
+const FB_SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
+let _fb = null, _fbConfirm = null, _fbVerifier = null;
+
+async function firebaseAuth() {
+  if (_fb) return _fb;
+  const appMod  = await import(`${FB_SDK}/firebase-app.js`);
+  const authMod = await import(`${FB_SDK}/firebase-auth.js`);
+  const app = appMod.initializeApp(FIREBASE_CONFIG, 'orderaudit');
+  _fb = { auth: authMod.getAuth(app), mod: authMod };
+  return _fb;
+}
+
 async function sendOtp() {
-  const employee_id = document.getElementById('empId').value.trim();
   const phone = document.getElementById('phone').value.replace(/\D/g, '');
   const err = document.getElementById('loginErr');
-  if (!employee_id) { err.textContent = 'Enter an employee ID'; return; }
   if (phone.length !== 10) { err.textContent = 'Enter a valid 10-digit phone number'; return; }
   err.textContent = 'Sending OTP…';
   try {
-    const r = await fetch(`${API}/api/auth/send-otp`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id, phone }),
-    });
-    const d = await r.json();
-    if (!r.ok || !d.success) { err.textContent = d.message || d.detail || 'Failed to send OTP'; return; }
+    const { auth, mod } = await firebaseAuth();
+    if (!_fbVerifier) _fbVerifier = new mod.RecaptchaVerifier(auth, 'recaptcha', { size: 'invisible' });
+    _fbConfirm = await mod.signInWithPhoneNumber(auth, '+91' + phone, _fbVerifier);
     err.textContent = '';
     document.getElementById('step1').classList.add('hidden');
     document.getElementById('step2').classList.remove('hidden');
-  } catch (e) { err.textContent = 'Network error sending OTP'; }
+  } catch (e) {
+    err.textContent = 'Could not send OTP: ' + (e.code || e.message || e);
+    try { _fbVerifier && _fbVerifier.clear(); } catch {}
+    _fbVerifier = null;
+  }
 }
 
 async function verifyOtp() {
-  const employee_id = document.getElementById('empId').value.trim();
-  const phone = document.getElementById('phone').value.replace(/\D/g, '');
   const otp = document.getElementById('otp').value.trim();
   const err = document.getElementById('loginErr2');
-  if (!otp) { err.textContent = 'Enter the OTP'; return; }
+  if (!_fbConfirm || !/^\d{6}$/.test(otp)) { err.textContent = 'Enter the 6-digit OTP'; return; }
   err.textContent = 'Verifying…';
   try {
-    const r = await fetch(`${API}/api/auth/verify-otp`, {
+    const cred = await _fbConfirm.confirm(otp);
+    const idToken = await cred.user.getIdToken();
+    const r = await fetch(`${API}/api/opsdb/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee_id, phone, otp }),
+      body: JSON.stringify({ id_token: idToken }),
     });
     const d = await r.json();
-    if (!r.ok || !d.success || !d.token) { err.textContent = d.message || d.detail || 'Invalid OTP'; return; }
+    if (!r.ok || !d.token) { err.textContent = d.detail || 'Login failed'; return; }
+    try { await _fb.mod.signOut(_fb.auth); } catch {}
     reviewToken = d.token;
     localStorage.setItem('orderAuditToken', reviewToken);
-    localStorage.setItem('orderAuditEmp', employee_id);
+    localStorage.setItem('orderAuditEmp', d.name ? `${d.name} (${d.employee_id})` : d.employee_id);
     showMain();
-  } catch (e) { err.textContent = 'Network error verifying OTP'; }
+  } catch (e) {
+    err.textContent = e.code === 'auth/invalid-verification-code' ? 'Wrong OTP — try again' : ('Login failed: ' + (e.code || e.message || e));
+  }
 }
 
 function logout() {
   localStorage.removeItem('orderAuditToken');
   localStorage.removeItem('orderAuditEmp');
   reviewToken = null;
+  document.getElementById('step2').classList.add('hidden');
+  document.getElementById('step1').classList.remove('hidden');
   document.getElementById('mainScreen').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
 }
