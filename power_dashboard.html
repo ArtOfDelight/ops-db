@@ -15678,13 +15678,15 @@ async function ctDelete(id, cid) {
 .oa-inner { width:100%;border-collapse:collapse;font-size:11px; }
 .oa-inner th, .oa-inner td { padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top; }
 .oa-inner th { font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-3); }
-.oa-in    { width:80px; }
-.oa-cat   { border-bottom:1px solid var(--border); }
-.oa-cat-h { display:flex;align-items:center;gap:10px;padding:10px 4px;flex-wrap:wrap; }
-.oa-caret { cursor:pointer;width:16px;display:inline-block;color:var(--ink-3);user-select:none; }
-.oa-items { padding:0 0 10px 26px; }
-.oa-item  { display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;flex-wrap:wrap; }
-.oa-item span.n { min-width:240px; }
+.oa-in    { width:100%;max-width:100px;box-sizing:border-box; }
+.oa-th    { table-layout:fixed; }
+.oa-th td { vertical-align:middle; }
+.oa-th .oa-c { text-align:center; }
+.oa-name  { overflow-wrap:anywhere; }
+.oa-row-cat td { background:var(--bg); border-top:1px solid var(--border-2); }
+.oa-row-cat .oa-name { cursor:pointer; }
+.oa-ind   { padding-left:34px !important; }
+.oa-caret { width:18px;display:inline-block;color:var(--ink-3);user-select:none; }
 </style>
 <script>
 const OA_OUTLETS = ['SKN', 'WF', 'KOR', 'KLN', 'BLN', 'IND', 'ARK'];
@@ -15802,56 +15804,125 @@ async function oaDelete(id) {
 }
 
 /* ── thresholds ── */
+// What an item falls back to when its own fields are blank
+function oaInherited(t, catUnit, itemUnit) {
+  if (t.off) return "Off (category)";
+  const sameUnit = !t.unit || t.unit === itemUnit;
+  const parts = sameUnit ? [t.min_qty != null ? `≥ ${t.min_qty} ${oaUnit(itemUnit)}` : '', t.pct != null ? `> ${t.pct}%` : ''].filter(Boolean) : [];
+  if (parts.length) return 'Category: ' + parts.join(' & ');
+  return oaIsWeight(itemUnit) ? 'Default: any difference' : `Default: ≥ 1 ${oaUnit(itemUnit) === "pcs" ? "pc" : oaUnit(itemUnit)}`;
+}
+
 function oaThresholdsHtml() {
   const names = [...new Set([...Object.keys(_oa.th || {}), ...Object.keys(_oa.cats || {})])].sort();
-  if (!names.length) return '<div class="ex-card pc-muted">No categories yet — they appear after the first 6 am pull.</div>';
   const v = x => x == null ? '' : x;
+  const totalItems = names.reduce((n, c) => n + ((_oa.cats[c] || {}).items || []).length, 0);
   const rows = names.map((cat, ci) => {
     const t = (_oa.th || {})[cat] || {};
     const unit = t.unit || (_oa.cats[cat] || {}).unit || 'ea';
-    const step = oaIsWeight(unit) ? '0.001' : '1';
-    const items = ((_oa.cats[cat] || {}).items || []).concat(Object.keys(t.items || {})).filter((x, i, a) => a.indexOf(x) === i).sort();
+    const step = u => oaIsWeight(u) ? '0.001' : '1';
+    const known = ((_oa.cats[cat] || {}).items || []);
+    const extra = Object.keys(t.items || {}).filter(n => !known.some(k => k.name === n)).map(n => ({ name: n, unit }));
+    const items = known.concat(extra);
     const nOver = Object.keys(t.items || {}).length;
     const open = _oa.catOpen.has(cat);
-    return `<div class="oa-cat" data-cat="${pcEsc(cat)}" data-unit="${unit}">
-      <div class="oa-cat-h">
-        <span class="oa-caret" onclick="oaCat(${ci})">${items.length ? (open ? '▾' : '▸') : ''}</span>
-        <b style="min-width:240px">${pcEsc(cat)}</b><span class="pc-badge">${oaUnit(unit)}</span>
-        <label class="pc-muted"><input type="checkbox" data-k="off" ${t.off ? 'checked' : ''}> Don't flag</label>
-        <label class="pc-muted">over % <input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(t.pct)}"></label>
-        <label class="pc-muted">and at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(t.min_qty)}"> ${oaUnit(unit)}</label>
-        <button class="ex-btn sm pri" onclick="oaSave(${ci})">Save</button>
-        <span class="pc-muted">${nOver ? nOver + ' item override' + (nOver > 1 ? 's' : '') + ' · ' : ''}${t.updated_by ? 'by ' + pcEsc(t.updated_by) + ' · ' + pcEsc((t.updated_at || '').slice(0, 16).replace('T', ' ')) : 'not set'}</span>
-      </div>
-      <div class="oa-items" style="display:${open ? 'block' : 'none'}">${items.map(name => {
-        const o = (t.items || {})[name] || {};
-        return `<div class="oa-item" data-item="${pcEsc(name)}"><span class="n">${pcEsc(name)}</span>
-          <label class="pc-muted">over % <input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(o.pct)}" placeholder="${v(t.pct)}"></label>
-          <label class="pc-muted">at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(o.min_qty)}" placeholder="${v(t.min_qty)}"></label></div>`;
-      }).join('')}</div></div>`;
+    const catRow = `<tr class="oa-row-cat" data-ci="${ci}" data-cat="${pcEsc(cat)}" data-unit="${pcEsc(unit)}">
+        <td class="oa-name" onclick="oaCat(${ci})"><span class="oa-caret">${items.length ? (open ? '▾' : '▸') : ''}</span><b>${pcEsc(cat)}</b>
+          <div class="oa-sub">${items.length} item${items.length === 1 ? '' : 's'}${nOver ? ` · ${nOver} override${nOver > 1 ? 's' : ''}` : ''}</div></td>
+        <td><span class="pc-badge">${pcEsc(oaUnit(unit))}</span></td>
+        <td class="oa-c"><input type="checkbox" data-k="off" ${t.off ? 'checked' : ''}></td>
+        <td><input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step(unit)}" value="${v(t.min_qty)}" placeholder="${oaIsWeight(unit) ? 'any' : '1'}"></td>
+        <td><input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(t.pct)}" placeholder="—"></td>
+        <td class="oa-sub">${t.updated_by ? pcEsc(t.updated_by) + '<br>' + pcEsc((t.updated_at || '').slice(0, 16).replace('T', ' ')) : 'not set'}</td>
+        <td><button class="ex-btn sm pri" onclick="oaSave(${ci})">Save</button></td></tr>`;
+    const itemRows = items.map(it => {
+      const o = (t.items || {})[it.name] || {};
+      return `<tr class="oa-row-item" data-ci="${ci}" data-item="${pcEsc(it.name)}" style="display:${open ? '' : 'none'}">
+        <td class="oa-name oa-ind">${pcEsc(it.name)}<div class="oa-sub">${pcEsc(oaInherited(t, unit, it.unit))}</div></td>
+        <td><span class="oa-sub">${pcEsc(oaUnit(it.unit))}</span></td>
+        <td class="oa-c"><input type="checkbox" data-k="off" ${o.off ? 'checked' : ''}></td>
+        <td><input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step(it.unit)}" value="${v(o.min_qty)}" placeholder="inherit"></td>
+        <td><input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(o.pct)}" placeholder="inherit"></td>
+        <td></td><td></td></tr>`;
+    }).join('');
+    return catRow + itemRows;
   }).join('');
-  return `<div class="ex-card"><div class="pc-muted" style="margin-bottom:8px">An item is sent for recount when it is off by at least the quantity (in the item's own unit) and, if set, by more than the %.
-    Nothing set = any difference (1 for counted items). Category values only apply to items in the category's unit; others use the default. Open a category to override single items; blank item fields use the category value.</div>${rows}</div>`;
+  return `<div class="pc-filters">
+      <input class="ex-sel" style="width:240px" placeholder="Search category or item…" oninput="oaFilter(this.value)">
+      <button class="ex-btn sm" onclick="oaExpandAll(true)">Expand all</button>
+      <button class="ex-btn sm" onclick="oaExpandAll(false)">Collapse all</button>
+      <span class="sp"></span>
+      <span class="pc-muted">${names.length} categories · ${totalItems} items</span>
+      <button class="ex-btn sm" onclick="oaRefreshCatalog(this)">↻ Rebuild item list from Rista</button>
+    </div>
+    <div class="ex-card pc-wrap">
+      <div class="pc-muted" style="margin-bottom:10px">An item goes for recount when it is off by at least the <b>min qty</b> (in its own unit) and, if set, by more than the <b>%</b>.
+        Category values cover items in the category's unit; an item's own values beat the category. Blank = inherit; nothing set anywhere = any difference (1 for counted items). Save each category to store it with its items.</div>
+      <table class="pc-tbl oa-th">
+        <colgroup><col><col style="width:80px"><col style="width:84px"><col style="width:120px"><col style="width:100px"><col style="width:130px"><col style="width:70px"></colgroup>
+        <thead><tr><th>Category / item</th><th>Unit</th><th class="oa-c">Don't flag</th><th>Min qty</th><th>Over %</th><th>Last change</th><th></th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" class="pc-muted">No items yet — tap “Rebuild item list from Rista”.</td></tr>'}</tbody>
+      </table></div>`;
 }
 
 function oaCat(ci) {
-  const el = document.querySelectorAll('.oa-cat')[ci], cat = el.dataset.cat;
-  _oa.catOpen.has(cat) ? _oa.catOpen.delete(cat) : _oa.catOpen.add(cat);
-  el.querySelector('.oa-items').style.display = _oa.catOpen.has(cat) ? 'block' : 'none';
-  el.querySelector('.oa-caret').textContent = _oa.catOpen.has(cat) ? '▾' : '▸';
+  const head = document.querySelector(`tr.oa-row-cat[data-ci="${ci}"]`), cat = head.dataset.cat;
+  const open = !_oa.catOpen.has(cat);
+  open ? _oa.catOpen.add(cat) : _oa.catOpen.delete(cat);
+  document.querySelectorAll(`tr.oa-row-item[data-ci="${ci}"]`).forEach(r => { r.style.display = open ? '' : 'none'; });
+  const caret = head.querySelector('.oa-caret');
+  if (caret.textContent) caret.textContent = open ? '▾' : '▸';
+}
+
+function oaExpandAll(open) {
+  document.querySelectorAll('tr.oa-row-cat').forEach(head => {
+    if (_oa.catOpen.has(head.dataset.cat) !== open) oaCat(head.dataset.ci);
+  });
+}
+
+// Empty search: categories as they were, items per expand state.
+// A category match shows it with all its items; otherwise only matching items show, under their category.
+function oaFilter(q) {
+  q = q.trim().toLowerCase();
+  document.querySelectorAll('tr.oa-row-cat').forEach(head => {
+    const rows = document.querySelectorAll(`tr.oa-row-item[data-ci="${head.dataset.ci}"]`);
+    if (!q) {
+      head.style.display = '';
+      rows.forEach(r => { r.style.display = _oa.catOpen.has(head.dataset.cat) ? '' : 'none'; });
+      return;
+    }
+    const catHit = head.dataset.cat.toLowerCase().includes(q);
+    let any = false;
+    rows.forEach(r => {
+      const show = catHit || r.dataset.item.toLowerCase().includes(q);
+      any = any || show;
+      r.style.display = show ? '' : 'none';
+    });
+    head.style.display = catHit || any ? '' : 'none';
+  });
+}
+
+async function oaRefreshCatalog(btn) {
+  btn.disabled = true; btn.textContent = 'Rebuilding… (about a minute)';
+  try {
+    const r = await oaApi('POST', '/catalog/refresh');
+    _oa.msg = `Item list rebuilt: ${r.items} items`;
+    await renderOrderAuditPage();
+  } catch (e) { _oa.msg = e.message; oaRender(); }
 }
 
 async function oaSave(ci) {
-  const el = document.querySelectorAll('.oa-cat')[ci], cat = el.dataset.cat, unit = el.dataset.unit;
-  const val = (root, k) => { const x = root.querySelector(`input[data-k="${k}"]`).value.trim(); return x === '' ? null : Number(x); };
-  const head = el.querySelector('.oa-cat-h');
+  const head = document.querySelector(`tr.oa-row-cat[data-ci="${ci}"]`), cat = head.dataset.cat, unit = head.dataset.unit;
+  const val = (row, k) => { const x = row.querySelector(`input[data-k="${k}"]`).value.trim(); return x === '' ? null : Number(x); };
+  const off = row => row.querySelector('input[data-k="off"]').checked;
   const items = {};
-  el.querySelectorAll('.oa-item').forEach(row => {
-    const pct = val(row, 'pct'), min_qty = val(row, 'min_qty');
-    if (pct != null || min_qty != null) items[row.dataset.item] = { pct, min_qty };
+  document.querySelectorAll(`tr.oa-row-item[data-ci="${ci}"]`).forEach(row => {
+    const o = { pct: val(row, 'pct'), min_qty: val(row, 'min_qty'), off: off(row) };
+    if (o.pct != null || o.min_qty != null || o.off) items[row.dataset.item] = o;
   });
   try {
-    const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`, { unit, off: head.querySelector('input[data-k="off"]').checked, pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items });
+    const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`,
+      { unit, off: off(head), pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items });
     _oa.th[cat] = saved; _oa.msg = `Saved ${cat}`;
   } catch (e) { _oa.msg = e.message; }
   oaRender();
