@@ -134,6 +134,11 @@ tr:hover td { background: var(--bg); }
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);">
         <input type="checkbox" id="flaggedOnly" onchange="loadRecords()"> Flagged only
       </label>
+      <select id="outletFilter" onchange="loadRecords()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--line, #ddd);background:transparent;color:var(--ink-2);">
+        <option value="">All outlets</option>
+        <option>RR</option><option>SKN</option><option>KOR</option><option>WF</option>
+        <option>KLN</option><option>BLN</option><option>IND</option><option>ARK</option>
+      </select>
       <div class="topbar-gap"></div>
       <button class="btn btn-ghost" style="width:auto" onclick="loadRecords()">Refresh</button>
     </div>
@@ -142,6 +147,7 @@ tr:hover td { background: var(--bg); }
       <table>
         <thead>
           <tr>
+            <th>Outlet</th>
             <th>Order</th>
             <th>Submitted</th>
             <th>Status</th>
@@ -255,6 +261,9 @@ function outcomeBadge(matrixResult) {
     initial_error_valid: ['badge-amber', 'Initial error valid'],
     reversed_mistake_flag_alert: ['badge-red', 'Counting mistake — alert'],
     different_mismatch_flag: ['badge-red', 'Mismatch flagged'],
+    confirmed_variance_flag: ['badge-amber', 'Variance confirmed'],
+    resolved_counting_mistake: ['badge-green', 'Counting mistake'],
+    unresolved_mismatch_flag: ['badge-red', 'Unresolved mismatch'],
   };
   if (!matrixResult) return `<span class="badge badge-grey">Pending</span>`;
   const [cls, label] = map[matrixResult] || ['badge-grey', matrixResult];
@@ -291,7 +300,9 @@ function setStatusFilter(status) {
 
 async function loadRecords() {
   const flaggedOnly = document.getElementById('flaggedOnly').checked;
-  const params = new URLSearchParams({ outlet: 'RR' });
+  const params = new URLSearchParams();
+  const outlet = document.getElementById('outletFilter').value;
+  if (outlet) params.set('outlet', outlet);
   if (statusFilter) params.set('status', statusFilter);
   if (flaggedOnly) params.set('flagged_only', 'true');
 
@@ -327,6 +338,7 @@ function renderRecords(records) {
     const nokCount = (r.items || []).filter(i => i.status === 'NOK').length;
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td>${escHtml(r.outlet || '')}</td>
       <td class="mono">${escHtml(r.rista_order_id)}</td>
       <td class="dim">${escHtml((r.order_submitted_at || '').slice(0, 16).replace('T', ' '))}</td>
       <td>${statusBadge(r.status)}</td>
