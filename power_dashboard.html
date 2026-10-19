@@ -15853,7 +15853,7 @@ function oaThresholdsHtml() {
       <button class="ex-btn sm" onclick="oaExpandAll(false)">Collapse all</button>
       <span class="sp"></span>
       <span class="pc-muted">${names.length} categories · ${totalItems} items</span>
-      <button class="ex-btn sm" onclick="oaRefreshCatalog(this)">↻ Rebuild item list from Rista</button>
+      <button class="ex-btn sm" onclick="oaSyncCatalog(this)" title="Checks the last 7 days of Rista audits at every outlet and adds only items not in the list yet">↻ Sync new items from Rista</button>
     </div>
     <div class="ex-card pc-wrap">
       <div class="pc-muted" style="margin-bottom:10px">An item goes for recount when it is off by at least the <b>min qty</b> (in its own unit) and, if set, by more than the <b>%</b>.
@@ -15861,7 +15861,7 @@ function oaThresholdsHtml() {
       <table class="pc-tbl oa-th">
         <colgroup><col><col style="width:80px"><col style="width:84px"><col style="width:120px"><col style="width:100px"><col style="width:130px"><col style="width:70px"></colgroup>
         <thead><tr><th>Category / item</th><th>Unit</th><th class="oa-c">Don't flag</th><th>Min qty</th><th>Over %</th><th>Last change</th><th></th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="7" class="pc-muted">No items yet — tap “Rebuild item list from Rista”.</td></tr>'}</tbody>
+        <tbody>${rows || '<tr><td colspan="7" class="pc-muted">No items yet — tap “Sync new items from Rista”.</td></tr>'}</tbody>
       </table></div>`;
 }
 
@@ -15902,11 +15902,11 @@ function oaFilter(q) {
   });
 }
 
-async function oaRefreshCatalog(btn) {
-  btn.disabled = true; btn.textContent = 'Rebuilding… (about a minute)';
+async function oaSyncCatalog(btn) {
+  btn.disabled = true; btn.textContent = 'Checking Rista…';
   try {
-    const r = await oaApi('POST', '/catalog/refresh');
-    _oa.msg = `Item list rebuilt: ${r.items} items`;
+    const r = await oaApi('POST', '/catalog/sync');
+    _oa.msg = r.new ? `Added ${r.new} new item${r.new === 1 ? '' : 's'} · ${r.total} in total` : `No new items · ${r.total} in total`;
     await renderOrderAuditPage();
   } catch (e) { _oa.msg = e.message; oaRender(); }
 }
