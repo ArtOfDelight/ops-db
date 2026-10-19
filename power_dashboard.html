@@ -15743,7 +15743,10 @@ function oaRender() {
 
 /* ── reports ── */
 const oaBadge = (map, k) => { const [c, l] = map[k] || ['', k || '—']; return `<span class="pc-badge ${c}">${pcEsc(l)}</span>`; };
-const oaNum = (v, unit) => v == null ? '—' : (unit === 'kg' ? (+v).toFixed(3) + ' kg' : Math.round(v) + ' pcs');
+const OA_WEIGHT = ['kg', 'g', 'lt', 'l', 'ml'];
+const oaIsWeight = u => OA_WEIGHT.includes(String(u || '').toLowerCase());
+const oaUnit = u => oaIsWeight(u) ? u : (u && u !== 'ea' ? u : 'pcs');
+const oaNum = (v, unit) => v == null ? '—' : (oaIsWeight(unit) ? (+v).toFixed(3) : Math.round(v)) + ' ' + oaUnit(unit);
 const oaSigned = (v, unit) => v == null ? '—' : (v > 0 ? '+' : '') + oaNum(v, unit);
 const oaTh = t => !t ? '—' : [t.pct != null ? `>${t.pct}%` : '', t.min_qty != null ? `≥${t.min_qty}` : ''].filter(Boolean).join(' & ') || 'any diff';
 
@@ -15806,16 +15809,17 @@ function oaThresholdsHtml() {
   const rows = names.map((cat, ci) => {
     const t = (_oa.th || {})[cat] || {};
     const unit = t.unit || (_oa.cats[cat] || {}).unit || 'ea';
-    const step = unit === 'kg' ? '0.001' : '1';
+    const step = oaIsWeight(unit) ? '0.001' : '1';
     const items = ((_oa.cats[cat] || {}).items || []).concat(Object.keys(t.items || {})).filter((x, i, a) => a.indexOf(x) === i).sort();
     const nOver = Object.keys(t.items || {}).length;
     const open = _oa.catOpen.has(cat);
     return `<div class="oa-cat" data-cat="${pcEsc(cat)}" data-unit="${unit}">
       <div class="oa-cat-h">
         <span class="oa-caret" onclick="oaCat(${ci})">${items.length ? (open ? '▾' : '▸') : ''}</span>
-        <b style="min-width:240px">${pcEsc(cat)}</b><span class="pc-badge">${unit === 'kg' ? 'kg' : 'pcs'}</span>
+        <b style="min-width:240px">${pcEsc(cat)}</b><span class="pc-badge">${oaUnit(unit)}</span>
+        <label class="pc-muted"><input type="checkbox" data-k="off" ${t.off ? 'checked' : ''}> Don't flag</label>
         <label class="pc-muted">over % <input class="ex-sel oa-in" data-k="pct" type="number" min="0" step="0.1" value="${v(t.pct)}"></label>
-        <label class="pc-muted">and at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(t.min_qty)}"> ${unit === 'kg' ? 'kg' : 'pcs'}</label>
+        <label class="pc-muted">and at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(t.min_qty)}"> ${oaUnit(unit)}</label>
         <button class="ex-btn sm pri" onclick="oaSave(${ci})">Save</button>
         <span class="pc-muted">${nOver ? nOver + ' item override' + (nOver > 1 ? 's' : '') + ' · ' : ''}${t.updated_by ? 'by ' + pcEsc(t.updated_by) + ' · ' + pcEsc((t.updated_at || '').slice(0, 16).replace('T', ' ')) : 'not set'}</span>
       </div>
@@ -15826,8 +15830,8 @@ function oaThresholdsHtml() {
           <label class="pc-muted">at least <input class="ex-sel oa-in" data-k="min_qty" type="number" min="0" step="${step}" value="${v(o.min_qty)}" placeholder="${v(t.min_qty)}"></label></div>`;
       }).join('')}</div></div>`;
   }).join('');
-  return `<div class="ex-card"><div class="pc-muted" style="margin-bottom:8px">An item is sent for recount when it is off by more than the % <b>and</b> at least the quantity (both only if set; blank = not used).
-    Nothing set = any difference. Open a category to override single items; blank item fields use the category value.</div>${rows}</div>`;
+  return `<div class="ex-card"><div class="pc-muted" style="margin-bottom:8px">An item is sent for recount when it is off by at least the quantity (in the item's own unit) and, if set, by more than the %.
+    Nothing set = any difference (1 for counted items). Category values only apply to items in the category's unit; others use the default. Open a category to override single items; blank item fields use the category value.</div>${rows}</div>`;
 }
 
 function oaCat(ci) {
@@ -15847,7 +15851,7 @@ async function oaSave(ci) {
     if (pct != null || min_qty != null) items[row.dataset.item] = { pct, min_qty };
   });
   try {
-    const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`, { unit, pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items });
+    const saved = await oaApi('PUT', `/thresholds/${encodeURIComponent(cat)}`, { unit, off: head.querySelector('input[data-k="off"]').checked, pct: val(head, 'pct'), min_qty: val(head, 'min_qty'), items });
     _oa.th[cat] = saved; _oa.msg = `Saved ${cat}`;
   } catch (e) { _oa.msg = e.message; }
   oaRender();
