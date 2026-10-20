@@ -7362,69 +7362,69 @@ function _renderBriefSidebar(logs) {
     </div>`;
 }
 
+// Daily Brief: three live metrics, loaded every time the page opens (no
+// Generate button). Last result shows instantly while the fresh one loads.
 function renderDailyBriefPage() {
-  const today    = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const todayKey = _briefTodayKey();
-
-  // Auto-load saved brief for today if none in memory
-  if (!_briefResult) {
-    const saved = _briefLoad(todayKey);
-    if (saved) _briefResult = saved;
-  }
-
-  const viewData = _briefViewDate ? _briefLoad(_briefViewDate) : _briefResult;
-
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  if (!_briefResult) _briefResult = _briefLoad(_briefTodayKey());
   document.getElementById('pageBody').innerHTML = `
-    <div class="brief-shell">
-      <div id="briefSidebar">${_renderBriefSidebar((viewData||_briefResult)?.logs || [])}</div>
-      <div class="brief-main">
-        <div class="brief-topbar">
-          <div>
-            <div style="font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-bottom:3px">Daily Ops Brief</div>
-            <div style="font-size:12px;color:var(--ink-3)">${today}</div>
-            <div id="briefHistoryPills" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
-          </div>
-          <button class="brief-generate-btn" id="briefGenBtn" onclick="generateBrief()">
-            <span id="briefGenIcon">📋</span> Generate
-          </button>
+    <div class="db2">
+      <div class="db2-head">
+        <div>
+          <div class="db2-title">Daily Ops Brief</div>
+          <div class="db2-date">${today}</div>
         </div>
-        <div id="briefBody"></div>
-        <div class="brief-chat" id="briefChat">
-          <div class="brief-chat-head">
-            <div class="brief-chat-dot"></div>
-            Ops Assistant
-            <span style="font-size:10px;font-weight:400;color:var(--ink-3);margin-left:4px">— ask anything about today's ops</span>
-          </div>
-          <div class="brief-chat-msgs" id="bcMsgs">
-            <div class="bc-hint">Generate the brief first for best answers, or ask freely — I'll fetch what I need.</div>
-          </div>
-          <div class="brief-chat-input">
-            <textarea id="bcInput" placeholder="e.g. Who was late today? Which outlet has best ratings?" rows="1"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();bcSend();}"></textarea>
-            <button class="brief-chat-send" id="bcSend" onclick="bcSend()" title="Send">➤</button>
-          </div>
-        </div>
+        <span class="sp"></span>
+        <span class="db2-updated" id="db2Updated"></span>
+        <button class="ex-btn sm" id="db2Reload" onclick="briefFetch()">↻ Refresh</button>
+      </div>
+      <div id="briefBody"></div>
+      <div id="briefActionSection" class="db2-actions">
+        <div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>
+        <div style="color:var(--ink-3);font-size:13px;padding:8px 0">Loading actions…</div>
       </div>
     </div>`;
+  if (_briefResult?.metrics) renderBriefResult(_briefResult);
+  else document.getElementById('briefBody').innerHTML = '<div class="db2-loading">Loading today\'s numbers…</div>';
+  _renderActionTabs().then(html => {
+    const sec = document.getElementById('briefActionSection');
+    if (sec) sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
+  });
+  briefFetch();
+}
 
-  _briefRenderHistoryPills();
-
-  if (viewData) renderBriefResult(viewData);
-
-  // Always show action list (pending carry-overs visible even before brief generated)
-  (async () => {
-    const existingSection = document.getElementById('briefActionSection');
-    if (existingSection) return;
-    const tabsHtml = await _renderActionTabs();
-    const briefBody = document.getElementById('briefBody');
-    if (briefBody) {
-      const sec = document.createElement('div');
-      sec.style.marginTop = '24px';
-      sec.id = 'briefActionSection';
-      sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + tabsHtml;
-      briefBody.after(sec);
+async function briefFetch() {
+  const btn = document.getElementById('db2Reload');
+  const upd = document.getElementById('db2Updated');
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  try {
+    const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const res = await fetch(`${API}/api/daily-brief`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+      body: JSON.stringify({ date: today }),
+    });
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+    const data = await res.json();
+    _briefResult = data;
+    _briefSave(data);
+    if (data.actions?.length) _mergeActionsIntoStore(data.actions);
+    if (_currentPage === 'brief') {
+      renderBriefResult(data);
+      _renderActionTabs().then(html => {
+        const sec = document.getElementById('briefActionSection');
+        if (sec) sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
+      });
     }
-  })();
+  } catch (e) {
+    if (upd) upd.innerHTML = `<span style="color:var(--red)">Couldn't refresh: ${escHtml(e.message)}</span>`;
+    if (!_briefResult?.metrics) {
+      const b = document.getElementById('briefBody');
+      if (b) b.innerHTML = `<div class="db2-loading" style="color:var(--red)">Couldn't load the brief: ${escHtml(e.message)}</div>`;
+    }
+  }
+  const b2 = document.getElementById('db2Reload');
+  if (b2) { b2.disabled = false; b2.textContent = '↻ Refresh'; }
 }
 
 function briefViewDate(dateKey) {
@@ -7442,53 +7442,7 @@ function briefProgress(pct, msg) {
   if (ml) ml.textContent = msg;
 }
 
-async function generateBrief() {
-  if (_briefViewDate) { briefViewDate(_briefTodayKey()); return; }
-  const btn  = document.getElementById('briefGenBtn');
-  const body = document.getElementById('briefBody');
-  if (!btn || !body) return;
-  btn.disabled = true;
-  document.getElementById('briefGenIcon').textContent = '⏳';
-
-  body.innerHTML = `
-    <div class="brief-loading">
-      <div id="briefProgressMsg" style="font-size:12px;color:var(--ink-3)">Gathering live data…</div>
-      <div class="brief-progress"><div class="brief-progress-fill" id="briefProgressFill" style="width:0%"></div></div>
-    </div>`;
-
-  briefProgress(10, 'Sending to server…');
-
-  try {
-    const today = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    briefProgress(30, 'Server gathering live data…');
-    const res = await fetch(`${API}/api/daily-brief`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
-      body: JSON.stringify({ date: today }),
-    });
-    if (!res.ok) {
-      const err = await res.text().catch(() => res.statusText);
-      throw new Error(`Server error ${res.status}: ${err.slice(0,200)}`);
-    }
-    briefProgress(90, 'Generating brief with Claude…');
-    const data = await res.json();
-    briefProgress(100, 'Done');
-    _briefResult = data;
-    _briefSave(data);
-    _briefViewDate = null;
-    const freshActions = data.actions || [];
-    if (freshActions.length) _mergeActionsIntoStore(freshActions);
-    renderBriefResult(data);
-    _briefRenderHistoryPills();
-  } catch(e) {
-    const b = document.getElementById('briefBody');
-    if (b) b.innerHTML = `<div style="color:var(--red);padding:20px 0;font-size:13px">Failed to generate brief: ${e.message}</div>`;
-  }
-  const b2 = document.getElementById('briefGenBtn');
-  if (b2) { b2.disabled = false; }
-  const ic = document.getElementById('briefGenIcon');
-  if (ic) ic.textContent = '📋';
-}
+async function generateBrief() { return briefFetch(); }
 
 function _briefRenderHistoryPills() {
   const wrap = document.getElementById('briefHistoryPills');
@@ -7507,102 +7461,61 @@ function _briefRenderHistoryPills() {
 function renderBriefResult(data) {
   const body = document.getElementById('briefBody');
   if (!body) return;
-  const brief = data.brief || '';
-  const actions = data.actions || [];
-  const logs = data.logs || [];
+  const m = data.metrics;
+  if (!m) { body.innerHTML = '<div class="db2-loading">Loading today\'s numbers…</div>'; return; }
+  const fmtDay = iso => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—';
+  const upd = document.getElementById('db2Updated');
+  if (upd && m.generated_at) upd.textContent = 'Updated ' + new Date(m.generated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const err = name => (data.logs || []).find(l => l.section === name && l.status !== 'ok');
+  const errHtml = name => { const e = err(name); return e ? `<div class="db2-err">Couldn't load: ${escHtml(e.detail)}</div>` : ''; };
 
-  // Update the always-visible sidebar
-  const sidebar = document.getElementById('briefSidebar');
-  if (sidebar) sidebar.innerHTML = _renderBriefSidebar(logs);
+  // 1. stock check
+  const sc = m.stock_check;
+  let scBody;
+  if (err('Missed Stock Check')) scBody = errHtml('Missed Stock Check');
+  else if (!sc.checked) scBody = '<div class="db2-ok">No outlet had a delivery day</div>';
+  else if (!sc.missing.length) scBody = `<div class="db2-ok">✓ All ${sc.checked} delivery outlets did their stock audit</div>`;
+  else scBody = `<div class="db2-list">${sc.missing.map(o => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(o)}</b><span class="db2-sub">no Rista audit over ₹5,000</span></div>`).join('')}</div>`;
+  const scCount = sc.missing.length;
 
-  // Parse brief text into named sections
-  const SECTION_ICONS = {
-    'power': '⚡', 'late sign': '🕐', 'kpt': '📊', 'mfr': '📊',
-    'outlet rating': '⭐', 'product': '🍽️', 'daily recon': '💰',
-    'mango': '🥭', 'checklist': '✅',
+  // 2. missed sign-ins
+  const ppl = m.missed_signins.people || [];
+  let siBody;
+  if (err('Missed Sign-ins')) siBody = errHtml('Missed Sign-ins');
+  else if (!ppl.length) siBody = '<div class="db2-ok">✓ Everyone rostered signed in</div>';
+  else siBody = `<div class="db2-list">${ppl.map(p => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(p.name || '')}</b><span class="db2-sub">${escHtml(p.employee_id || '')}</span><span class="sp"></span><span class="db2-tag">${escHtml(p.outlet || '')}</span></div>`).join('')}</div>`;
+
+  // 3. availability: one row per outlet below threshold on either platform
+  const av = m.availability, th = av.threshold || 95, plats = ['Swiggy', 'Zomato'];
+  const P = av.platforms || {};
+  const outlets = new Set();
+  plats.forEach(pl => Object.entries((P[pl] || {}).outlets || {}).forEach(([o, v]) => { if (v < th) outlets.add(o); }));
+  const cell = (pl, o) => {
+    const v = ((P[pl] || {}).outlets || {})[o];
+    if (v == null) return '<td class="db2-na">—</td>';
+    const cls = v < 90 ? 'red' : v < th ? 'amber' : 'green';
+    return `<td><span class="db2-pct ${cls}">${v}%</span></td>`;
   };
-  function secIcon(title) {
-    const t = title.toLowerCase();
-    for (const [k,v] of Object.entries(SECTION_ICONS)) if (t.includes(k)) return v;
-    return '•';
-  }
-  function secColor(title) {
-    const t = title.toLowerCase();
-    if (t.includes('priority') || t.includes('alert')) return 'var(--red)';
-    if (t.includes('notable') || t.includes('change')) return 'var(--blue)';
-    return 'var(--ink)';
-  }
+  const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
+  const rows = [...outlets].sort((a, b) => worst(a) - worst(b));
+  let avBody;
+  if (err('Availability Below 95%')) avBody = errHtml('Availability Below 95%');
+  else if (!rows.length) avBody = `<div class="db2-ok">✓ All outlets online ${th}% or more</div>`;
+  else avBody = `<table class="db2-tbl"><thead><tr><th>Outlet</th>${plats.map(pl => `<th>${pl}<div class="db2-sub">${fmtDay((P[pl] || {}).date)}</div></th>`).join('')}</tr></thead>
+    <tbody>${rows.map(o => `<tr><td><b>${escHtml(o)}</b></td>${plats.map(pl => cell(pl, o)).join('')}</tr>`).join('')}</tbody></table>
+    <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–95%</span> Platform data runs a day or two behind.</div>`;
 
-  // Split on lines that look like section headers (plain, markdown ##, or **bold**)
-  const sectionBlocks = [];
-  const lines = brief.split('\n');
-  let curTitle = '', curLines = [];
-  for (const line of lines) {
-    // Strip markdown: ## Heading or **Heading** or __Heading__
-    const stripped = line.trim()
-      .replace(/^#+\s*/, '')
-      .replace(/^\*\*(.*)\*\*$/, '$1')
-      .replace(/^__(.*?)__$/, '$1')
-      .trim();
-    const isHeader = /^[A-Z][A-Za-z0-9\s\-\/]+$/.test(stripped) && stripped.length > 3 && stripped.length < 60;
-    if (isHeader && curLines.join('').trim()) {
-      sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
-      curTitle = stripped; curLines = [];
-    } else if (isHeader && !curLines.join('').trim()) {
-      curTitle = stripped;
-    } else {
-      // Strip inline bold from body lines too
-      curLines.push(line);
-    }
-  }
-  if (curLines.join('').trim()) sectionBlocks.push({ title: curTitle, body: curLines.join('\n').trim() });
-
-  function bodyToHtml(bodyText) {
-    const lines = bodyText.split('\n').map(l => l.trim()).filter(Boolean);
-    const bullets = lines.filter(l => l.startsWith('- ') || l.startsWith('• '));
-    if (bullets.length > 0) {
-      // Render all as bullet list; non-bullet lines become their own bullet
-      return '<ul class="brief-bullets">' +
-        lines.map(l => {
-          const text = l.startsWith('- ') ? l.slice(2) : l.startsWith('• ') ? l.slice(2) : l;
-          return `<li>${escHtml(text)}</li>`;
-        }).join('') +
-        '</ul>';
-    }
-    // Fallback: split on '. ' to make bullets from prose
-    const sentences = bodyText.split(/(?<=\.)\s+/).map(s => s.trim()).filter(Boolean);
-    if (sentences.length > 1) {
-      return '<ul class="brief-bullets">' + sentences.map(s => `<li>${escHtml(s)}</li>`).join('') + '</ul>';
-    }
-    return `<p class="brief-para">${escHtml(bodyText)}</p>`;
-  }
-
-  const sectionCards = sectionBlocks.map(s => {
-    if (!s.body) return '';
-    const icon = secIcon(s.title);
-    const col  = secColor(s.title);
-    const isPriority = s.title.toLowerCase().includes('priority') || s.title.toLowerCase().includes('alert');
-    return `
-    <div class="brief-section-card${isPriority?' brief-section-alert':''}">
-      ${s.title ? `<div class="brief-section-title" style="color:${col}">${icon} ${escHtml(s.title)}</div>` : ''}
-      <div class="brief-section-body">${bodyToHtml(s.body)}</div>
+  const card = (icon, title, sub, count, inner) => `
+    <div class="db2-card ${count ? 'bad' : 'good'}">
+      <div class="db2-card-h"><span class="db2-ic">${icon}</span><div><div class="db2-card-t">${title}</div><div class="db2-sub">${sub}</div></div>
+        <span class="sp"></span><span class="db2-count ${count ? 'bad' : 'good'}">${count ? count : '✓'}</span></div>
+      ${inner}
     </div>`;
-  }).join('');
-
-  const sectionsHtml = sectionCards || `<div class="brief-output" style="white-space:pre-wrap">${escHtml(brief)}</div>`;
-
-  body.innerHTML = `
-    <div class="brief-sections">${sectionsHtml}</div>
-    <div style="margin-top:24px" id="briefActionSection">
-      <div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>
-      <div style="color:var(--ink-3);font-size:13px;padding:8px 0">Loading actions…</div>
-    </div>`;
-
-  // Async: fetch from Firestore then render tabs
-  _renderActionTabs().then(tabsHtml => {
-    const sec = document.getElementById('briefActionSection');
-    if (sec) sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + tabsHtml;
-  });
+  body.innerHTML = `<div class="db2-grid">
+    ${card('📦', 'Missed stock check', 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
+    ${card('🕐', 'Missed sign-ins', fmtDay(m.missed_signins.date) + ' · rostered, never signed in', ppl.length, siBody)}
+    ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online %', rows.length, avBody)}
+  </div>`;
 }
 
 /* ── BRIEF CHATBOT ── */
@@ -15807,6 +15720,44 @@ async function ctDelete(id, cid) {
 </script>
 
 
+<style>
+.db2 { max-width:1100px; }
+.db2-head { display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap; }
+.db2-title { font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.02em; }
+.db2-date { font-size:12px;color:var(--ink-3);margin-top:2px; }
+.db2-updated { font-size:12px;color:var(--ink-3); }
+.db2-loading { padding:28px 0;color:var(--ink-3);font-size:13px; }
+.db2-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start; }
+.db2-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--sh);padding:16px 18px;border-top:4px solid var(--green); }
+.db2-card.bad { border-top-color:var(--red); }
+.db2-card-h { display:flex;align-items:center;gap:10px;margin-bottom:12px; }
+.db2-ic { font-size:20px; }
+.db2-card-t { font-size:15px;font-weight:700;color:var(--ink); }
+.db2-sub { font-size:11px;color:var(--ink-3);font-weight:400; }
+.db2-count { min-width:28px;height:28px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;padding:0 8px; }
+.db2-count.bad { background:var(--red-dim);color:var(--red); }
+.db2-count.good { background:var(--green-dim);color:var(--green); }
+.db2-ok { font-size:13px;color:var(--green);font-weight:600;padding:6px 0; }
+.db2-err { font-size:12px;color:var(--red);padding:6px 0; }
+.db2-list { display:flex;flex-direction:column; }
+.db2-row { display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--ink); }
+.db2-row:last-child { border-bottom:0; }
+.db2-dot { width:8px;height:8px;border-radius:4px;flex:none; }
+.db2-dot.red { background:var(--red); }
+.db2-tag { font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--ink-2);border:1px solid var(--border); }
+.db2-tbl { width:100%;border-collapse:collapse;font-size:13px; }
+.db2-tbl th { text-align:left;font-size:11px;font-weight:700;color:var(--ink-3);padding:6px 4px;border-bottom:1px solid var(--border); }
+.db2-tbl td { padding:8px 4px;border-bottom:1px solid var(--border); }
+.db2-tbl tr:last-child td { border-bottom:0; }
+.db2-na { color:var(--ink-3); }
+.db2-pct { display:inline-block;font-weight:700;font-size:12px;padding:2px 8px;border-radius:10px; }
+.db2-pct.red { background:var(--red-dim);color:var(--red); }
+.db2-pct.amber { background:var(--amber-dim);color:var(--amber); }
+.db2-pct.green { background:var(--green-dim);color:var(--green); }
+.db2-legend { display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--ink-3);margin-top:10px; }
+.db2-actions { margin-top:26px; }
+.db2-head .sp, .db2-card-h .sp, .db2-row .sp { flex:1; }
+</style>
 <!-- ══ ORDER AUDIT (Rista stock audit → checklist recount) ══ -->
 <style>
 .oa-sub   { font-size:11px;color:var(--ink-3); }
