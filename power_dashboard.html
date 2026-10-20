@@ -15722,6 +15722,9 @@ async function oaApi(method, path, body) {
 }
 
 async function renderOrderAuditPage() {
+  // Until someone picks dates, the range is always the last 7 days up to today
+  // (the tab can stay open across midnight).
+  if (!_oa.datesPicked) { _oa.f.date_from = oaIso(new Date(Date.now() - 6 * 864e5)); _oa.f.date_to = oaIso(new Date()); }
   const body = document.getElementById('pageBody');
   body.innerHTML = '<div class="ex-empty">Loading…</div>';
   try {
@@ -15738,7 +15741,7 @@ async function renderOrderAuditPage() {
 
 function oaUnsavedOk() { return !document.querySelector('tr.oa-dirty') || confirm('You have unsaved threshold changes. Discard them?'); }
 function oaGo(tab) { if (!oaUnsavedOk()) return; _oa.tab = tab; _oa.msg = ''; renderOrderAuditPage(); }
-function oaSetFilter(k, v) { _oa.f[k] = v; renderOrderAuditPage(); }
+function oaSetFilter(k, v) { _oa.f[k] = v; if (k.startsWith('date_')) _oa.datesPicked = true; renderOrderAuditPage(); }
 
 function oaRender() {
   const body = document.getElementById('pageBody');
