@@ -7475,11 +7475,17 @@ function renderBriefResult(data) {
   const P = av.platforms || {};
   const outlets = new Set();
   plats.forEach(pl => Object.entries((P[pl] || {}).outlets || {}).forEach(([o, v]) => { if (v < th) outlets.add(o); }));
+  const VERDICT = { power: ['pw', '⚡ power cut'], partly_power: ['part', '⚡ partly power'], not_power: ['staff', 'not power'] };
+  const fmtM = n => n >= 60 ? `${Math.floor(n / 60)}h ${n % 60}m` : `${n}m`;
   const cell = (pl, o) => {
     const v = ((P[pl] || {}).outlets || {})[o];
     if (v == null) return '<td class="db2-na">—</td>';
     const cls = v < 90 ? 'red' : v < th ? 'amber' : 'green';
-    return `<td><span class="db2-pct ${cls}">${v}%</span></td>`;
+    const c = ((av.checks || {})[pl] || {})[o];
+    const tag = c && VERDICT[c.verdict]
+      ? `<div class="db2-verdict ${VERDICT[c.verdict][0]}" title="Offline about ${fmtM(c.offline_mins)}; power-off forms ${fmtM(c.power_off_mins)}">${VERDICT[c.verdict][1]}</div>
+         <div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}</div>` : '';
+    return `<td><span class="db2-pct ${cls}">${v}%</span>${tag}</td>`;
   };
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
   const rows = [...outlets].sort((a, b) => worst(a) - worst(b));
@@ -7488,10 +7494,13 @@ function renderBriefResult(data) {
   else if (!rows.length) avBody = `<div class="db2-ok">✓ All outlets online ${th}% or more</div>`;
   else avBody = `<table class="db2-tbl"><thead><tr><th>Outlet</th>${plats.map(pl => `<th>${pl}<div class="db2-sub">${fmtDay((P[pl] || {}).date)}</div></th>`).join('')}</tr></thead>
     <tbody>${rows.map(o => `<tr><td><b>${escHtml(o)}</b></td>${plats.map(pl => cell(pl, o)).join('')}</tr>`).join('')}</tbody></table>
-    <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–95%</span> Platform data runs a day or two behind.</div>`;
+    <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–95%</span></div>
+    <div class="db2-legend"><span class="db2-verdict pw">⚡ power cut</span> staff filed power-off forms covering the offline time</div>
+    <div class="db2-legend"><span class="db2-verdict staff">not power</span> offline without a power cut — check with the outlet</div>
+    <div class="db2-legend">Offline time is estimated from the online % and opening hours. Platform data runs a day or two behind.</div>`;
 
-  const card = (icon, title, sub, count, inner) => `
-    <div class="db2-card ${count ? 'bad' : 'good'}">
+  const card = (icon, title, sub, count, inner, wide) => `
+    <div class="db2-card ${count ? 'bad' : 'good'}${wide ? ' wide' : ''}">
       <div class="db2-card-h"><span class="db2-ic">${icon}</span><div><div class="db2-card-t">${title}</div><div class="db2-sub">${sub}</div></div>
         <span class="sp"></span><span class="db2-count ${count ? 'bad' : 'good'}">${count ? count : '✓'}</span></div>
       ${inner}
@@ -7499,7 +7508,7 @@ function renderBriefResult(data) {
   body.innerHTML = `<div class="db2-grid">
     ${card('📦', 'Missed stock check', 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
     ${card('🕐', 'Missed sign-ins', fmtDay(m.missed_signins.date) + ' · rostered, never signed in', ppl.length, siBody)}
-    ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online %', rows.length, avBody)}
+    ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online % · checked against staff power-off forms', rows.length, avBody, true)}
   </div>`;
 }
 
@@ -15739,6 +15748,13 @@ async function ctDelete(id, cid) {
 .db2-pct.red { background:var(--red-dim);color:var(--red); }
 .db2-pct.amber { background:var(--amber-dim);color:var(--amber); }
 .db2-pct.green { background:var(--green-dim);color:var(--green); }
+.db2-verdict { display:inline-block;font-size:11px;font-weight:600;margin-top:4px;padding:1px 7px;border-radius:9px; }
+.db2-verdict.pw { background:var(--bg);color:var(--ink-2);border:1px solid var(--border-2); }
+.db2-verdict.part { background:var(--amber-dim);color:var(--amber); }
+.db2-verdict.staff { background:var(--red-dim);color:var(--red); }
+.db2-card.wide { grid-column:1 / -1; }
+.db2-tbl td .db2-sub { white-space:nowrap; }
+.db2-tbl td .db2-verdict { margin-left:6px; }
 .db2-legend { display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--ink-3);margin-top:10px; }
 .db2-actions { margin-top:26px; }
 .db2-head .sp, .db2-card-h .sp, .db2-row .sp { flex:1; }
