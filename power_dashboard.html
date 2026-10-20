@@ -14446,6 +14446,8 @@ function exRemoveCapex(pid, cid) {
 .tm-auto-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px; }
 .tm-auto-h { display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:13px; }
 .tm-auto-meta { font-size:11px;color:var(--ink-3);margin-left:auto; }
+.tm-auto-caret { color:var(--ink-3);width:12px; }
+.tm-auto-outlets { flex-basis:100%;font-size:11px;color:var(--ink-3); }
 .tm-auto-bar { flex-basis:100%;height:4px;background:var(--bg);border-radius:2px;overflow:hidden; }
 .tm-auto-bar i { display:block;height:100%;background:var(--green); }
 .tm-sub { display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--border);font-size:12px;cursor:pointer; }
@@ -14646,10 +14648,13 @@ function tmAutoHtml() {
   if (!auto.length) return '';
   const card = t => {
     const subs = t.subtasks || [], done = subs.filter(x => x.done).length;
+    const open = (_tm.autoOpen || new Set()).has(t.id);
+    const outlets = subs.filter(x => !x.done).map(x => x.outlet_code).join(', ');
     return `<div class="tm-auto-card">
-      <div class="tm-auto-h"><b>${tmEsc(t.name)}</b><span class="tm-auto-meta">${tmEsc(t.responsible_name || '')} · ${done}/${subs.length} done</span>
-        <div class="tm-auto-bar"><i style="width:${subs.length ? Math.round(done / subs.length * 100) : 0}%"></i></div></div>
-      ${subs.map(x => `<label class="tm-sub${x.done ? ' done' : ''}">
+      <div class="tm-auto-h" onclick="tmAutoToggle(${t.id})" style="cursor:pointer"><span class="tm-auto-caret">${open ? '▾' : '▸'}</span><b>${tmEsc(t.name)}</b><span class="tm-auto-meta">${tmEsc(t.responsible_name || '')} · ${done}/${subs.length} done</span>
+        <div class="tm-auto-bar"><i style="width:${subs.length ? Math.round(done / subs.length * 100) : 0}%"></i></div>
+        ${!open && outlets ? `<div class="tm-auto-outlets">${tmEsc(outlets)}</div>` : ''}</div>
+      ${!open ? '' : subs.map(x => `<label class="tm-sub${x.done ? ' done' : ''}">
         <input type="checkbox" ${x.done ? 'checked' : ''} onchange="tmSubToggle(${x.id}, this.checked, this)">
         <span class="tm-sub-o">${tmEsc(x.title || x.outlet_code)}</span>
         <span class="tm-sub-n">${tmEsc(x.notes || '').replace(/\n/g, '<br>')}${x.done ? `<em>done by ${tmEsc(x.done_by)} · ${tmEsc((x.done_at || '').slice(0, 10))}</em>` : ''}</span>
@@ -14659,6 +14664,12 @@ function tmAutoHtml() {
   return `<div class="tm-group"><div class="tm-group-h">⚙️ Automatic tasks <span>from outlet visits · not part of the priority list</span></div>
     <div class="tm-auto-grid">${auto.map(card).join('')}</div></div>
     <div class="tm-group-h" style="margin-top:18px">✍️ Assigned tasks <span>priority order</span></div>`;
+}
+
+function tmAutoToggle(id) {
+  _tm.autoOpen = _tm.autoOpen || new Set();
+  _tm.autoOpen.has(id) ? _tm.autoOpen.delete(id) : _tm.autoOpen.add(id);
+  tmRenderBody();
 }
 
 async function tmSubToggle(id, done, el) {
