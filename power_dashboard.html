@@ -15796,8 +15796,10 @@ function oaItemsHtml(items) {
       <td><b>${pcEsc(i.name)}</b><div class="oa-sub">${pcEsc(i.category)}</div></td>
       <td>${oaNum(i.counted, i.unit)}</td><td>${oaNum(i.system, i.unit)}</td>
       <td>${oaSigned(i.variance, i.unit)} <span class="oa-sub">${i.pct}%</span></td><td>${oaTh(i.threshold)}</td>
-      <td>${i.ticked_by ? `${pcEsc(i.ticked_name || '')} <span class="oa-sub">${pcEsc(i.ticked_by)}</span>
-          <div class="oa-sub">${pcEsc((i.ticked_at || '').slice(0, 16).replace('T', ' '))} · ${pcEsc(i.ticked_slot || '')}</div>` : '<span class="pc-muted">—</span>'}</td>
+      <td>${(i.ticks || []).map(t => `<div class="oa-sub">${pcEsc(t.name || '')} ${pcEsc(t.by || '')} · ${pcEsc(t.slot || '')} ${pcEsc((t.at || '').slice(11, 16))}
+            <span style="color:var(--red)">ticked, no recount on Rista</span></div>`).join('')}
+          ${i.ticked_by ? `${pcEsc(i.ticked_name || '')} <span class="oa-sub">${pcEsc(i.ticked_by)}</span>
+          <div class="oa-sub">${pcEsc((i.ticked_at || '').slice(0, 16).replace('T', ' '))} · ${pcEsc(i.ticked_slot || '')}</div>` : ((i.ticks || []).length ? '' : '<span class="pc-muted">—</span>')}</td>
       <td>${oaSigned(i.recount_var, i.unit)}</td><td>${i.result ? oaBadge(OA_RESULT, i.result) : '<span class="pc-muted">Pending</span>'}</td>
     </tr>`).join('')}</tbody></table>`;
 }
