@@ -7485,7 +7485,9 @@ function renderBriefResult(data) {
     const c = ((av.checks || {})[pl] || {})[o];
     const tag = c && VERDICT[c.verdict]
       ? `<div class="db2-verdict ${VERDICT[c.verdict][0]}" title="Offline about ${fmtM(c.offline_mins)}; power-off forms ${fmtM(c.power_off_mins)}">${VERDICT[c.verdict][1]}</div>
-         <div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}${c.no_power_on ? ` · ${c.no_power_on} without power-on` : ''}</div>` : '';
+         <div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}${c.no_power_on ? ` · ${c.no_power_on} without power-on` : ''}</div>
+         ${(c.power_log || []).length ? `<div class="db2-plog">${c.power_log.map(l => `<div class="${l.no_power_on ? 'warn' : ''}">⚡ ${escHtml(l.off || '')} → ${escHtml(l.no_power_on ? 'no Power On form' : (l.on || ''))}${l.no_power_on ? '' : ` <span>(${fmtM(l.mins || 0)})</span>`}</div>`).join('')}</div>`
+           : '<div class="db2-plog none">No power-off forms that day</div>'}` : '';
     return `<td><span class="db2-pct ${cls}">${v}%</span>${tag}</td>`;
   };
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
@@ -15757,6 +15759,10 @@ async function ctDelete(id, cid) {
 .db2-card.wide { grid-column:1 / -1; }
 .db2-tbl td .db2-sub { white-space:nowrap; }
 .db2-tbl td .db2-verdict { margin-left:6px; }
+.db2-plog { margin-top:4px;font-size:11px;color:var(--ink-2);font-family:var(--mono);line-height:1.6; }
+.db2-plog span { color:var(--ink-3); }
+.db2-plog .warn { color:var(--amber); }
+.db2-plog.none { color:var(--ink-3);font-family:var(--sans); }
 .db2-legend { display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--ink-3);margin-top:10px; }
 .db2-actions { margin-top:26px; }
 .db2-head .sp, .db2-card-h .sp, .db2-row .sp { flex:1; }
