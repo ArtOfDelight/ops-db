@@ -7475,7 +7475,8 @@ function renderBriefResult(data) {
   const P = av.platforms || {};
   const outlets = new Set();
   plats.forEach(pl => Object.entries((P[pl] || {}).outlets || {}).forEach(([o, v]) => { if (v < th) outlets.add(o); }));
-  const VERDICT = { power: ['pw', '⚡ power cut'], partly_power: ['part', '⚡ partly power'], not_power: ['staff', 'not power'] };
+  const VERDICT = { power: ['pw', '⚡ power cut'], partly_power: ['part', '⚡ partly power'], not_power: ['staff', 'not power'],
+                    no_power_on_form: ['part', 'no power-on form'] };
   const fmtM = n => n >= 60 ? `${Math.floor(n / 60)}h ${n % 60}m` : `${n}m`;
   const cell = (pl, o) => {
     const v = ((P[pl] || {}).outlets || {})[o];
@@ -7484,7 +7485,7 @@ function renderBriefResult(data) {
     const c = ((av.checks || {})[pl] || {})[o];
     const tag = c && VERDICT[c.verdict]
       ? `<div class="db2-verdict ${VERDICT[c.verdict][0]}" title="Offline about ${fmtM(c.offline_mins)}; power-off forms ${fmtM(c.power_off_mins)}">${VERDICT[c.verdict][1]}</div>
-         <div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}</div>` : '';
+         <div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}${c.no_power_on ? ` · ${c.no_power_on} without power-on` : ''}</div>` : '';
     return `<td><span class="db2-pct ${cls}">${v}%</span>${tag}</td>`;
   };
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
@@ -7497,6 +7498,7 @@ function renderBriefResult(data) {
     <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–95%</span></div>
     <div class="db2-legend"><span class="db2-verdict pw">⚡ power cut</span> staff filed power-off forms covering the offline time</div>
     <div class="db2-legend"><span class="db2-verdict staff">not power</span> offline without a power cut — check with the outlet</div>
+    <div class="db2-legend"><span class="db2-verdict part">no power-on form</span> staff filed Power Off but never Power On, so the length of the cut is unknown</div>
     <div class="db2-legend">Offline time is estimated from the online % and opening hours. Platform data runs a day or two behind.</div>`;
 
   const card = (icon, title, sub, count, inner, wide) => `
