@@ -7379,17 +7379,9 @@ function renderDailyBriefPage() {
         <button class="ex-btn sm" id="db2Reload" onclick="briefFetch()">↻ Refresh</button>
       </div>
       <div id="briefBody"></div>
-      <div id="briefActionSection" class="db2-actions">
-        <div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>
-        <div style="color:var(--ink-3);font-size:13px;padding:8px 0">Loading actions…</div>
-      </div>
     </div>`;
   if (_briefResult?.metrics) renderBriefResult(_briefResult);
   else document.getElementById('briefBody').innerHTML = '<div class="db2-loading">Loading today\'s numbers…</div>';
-  _renderActionTabs().then(html => {
-    const sec = document.getElementById('briefActionSection');
-    if (sec) sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
-  });
   briefFetch();
 }
 
@@ -7408,14 +7400,7 @@ async function briefFetch() {
     const data = await res.json();
     _briefResult = data;
     _briefSave(data);
-    if (data.actions?.length) _mergeActionsIntoStore(data.actions);
-    if (_currentPage === 'brief') {
-      renderBriefResult(data);
-      _renderActionTabs().then(html => {
-        const sec = document.getElementById('briefActionSection');
-        if (sec) sec.innerHTML = '<div class="inv-section-head" style="margin-bottom:12px">📌 Action List</div>' + html;
-      });
-    }
+    if (_currentPage === 'brief') renderBriefResult(data);
   } catch (e) {
     if (upd) upd.innerHTML = `<span style="color:var(--red)">Couldn't refresh: ${escHtml(e.message)}</span>`;
     if (!_briefResult?.metrics) {
