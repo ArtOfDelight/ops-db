@@ -14442,6 +14442,19 @@ function exRemoveCapex(pid, cid) {
 .tm-st[data-v="In progress"] { color:var(--info); }
 .tm-st[data-v="Blocked"] { color:var(--red); }
 .tm-st[data-v="Done"] { color:var(--green); }
+.tm-auto-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-bottom:6px; }
+.tm-auto-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px; }
+.tm-auto-h { display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:13px; }
+.tm-auto-meta { font-size:11px;color:var(--ink-3);margin-left:auto; }
+.tm-auto-bar { flex-basis:100%;height:4px;background:var(--bg);border-radius:2px;overflow:hidden; }
+.tm-auto-bar i { display:block;height:100%;background:var(--green); }
+.tm-sub { display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--border);font-size:12px;cursor:pointer; }
+.tm-sub input { margin-top:2px; }
+.tm-sub-o { font-weight:600;min-width:110px; }
+.tm-sub-n { color:var(--ink-2);flex:1; }
+.tm-sub-n em { display:block;color:var(--green);font-style:normal;font-size:11px; }
+.tm-sub.done .tm-sub-o, .tm-sub.done .tm-sub-n { color:var(--ink-3);text-decoration:line-through; }
+.tm-sub.done .tm-sub-n em { text-decoration:none; }
 .tm-del { border:0; background:none; cursor:pointer; color:var(--navy-text); font-size:14px; padding-top:6px; }
 .tm-del:hover { color:var(--red); }
 .tm-empty { padding:24px; text-align:center; color:var(--navy-text); font-size:13px; }
@@ -14558,7 +14571,8 @@ async function renderTasksPage() {
 
 function tmVisible() {
   const q = _tm.q.trim().toLowerCase();
-  return _tm.tasks.filter(t =>
+  // Automatic tasks (outlet visits etc.) have their own section and no priority rank
+  return _tm.tasks.filter(t => !t.source_key &&
     (_tm.tab === 'done' ? t.status === 'Done' : t.status !== 'Done' && (_tm.status === 'all' || t.status === _tm.status)) &&
     (!q || [t.name, t.category, t.notes, t.responsible_name].join(' ').toLowerCase().includes(q)))
     // Completed tab: most recently finished first.
@@ -14623,13 +14637,44 @@ function tmRender() {
 
 function tmSet(k, v) { _tm[k] = v; tmRender(); }
 
+// Automatic tasks: one per issue type, outlets as subtasks; Done when all are ticked.
+function tmAutoHtml() {
+  const q = _tm.q.trim().toLowerCase();
+  const auto = _tm.tasks.filter(t => t.source_key && (_tm.tab === 'done' ? t.status === 'Done' : t.status !== 'Done') &&
+    (_tm.view !== 'person' || !_tm.person || _tm.person === (t.responsible_id || t.responsible_name)) &&
+    (!q || [t.name, t.responsible_name, ...(t.subtasks || []).map(x => x.title + ' ' + x.notes)].join(' ').toLowerCase().includes(q)));
+  if (!auto.length) return '';
+  const card = t => {
+    const subs = t.subtasks || [], done = subs.filter(x => x.done).length;
+    return `<div class="tm-auto-card">
+      <div class="tm-auto-h"><b>${tmEsc(t.name)}</b><span class="tm-auto-meta">${tmEsc(t.responsible_name || '')} · ${done}/${subs.length} done</span>
+        <div class="tm-auto-bar"><i style="width:${subs.length ? Math.round(done / subs.length * 100) : 0}%"></i></div></div>
+      ${subs.map(x => `<label class="tm-sub${x.done ? ' done' : ''}">
+        <input type="checkbox" ${x.done ? 'checked' : ''} onchange="tmSubToggle(${x.id}, this.checked, this)">
+        <span class="tm-sub-o">${tmEsc(x.title || x.outlet_code)}</span>
+        <span class="tm-sub-n">${tmEsc(x.notes || '').replace(/\n/g, '<br>')}${x.done ? `<em>done by ${tmEsc(x.done_by)} · ${tmEsc((x.done_at || '').slice(0, 10))}</em>` : ''}</span>
+      </label>`).join('')}
+    </div>`;
+  };
+  return `<div class="tm-group"><div class="tm-group-h">⚙️ Automatic tasks <span>from outlet visits · not part of the priority list</span></div>
+    <div class="tm-auto-grid">${auto.map(card).join('')}</div></div>
+    <div class="tm-group-h" style="margin-top:18px">✍️ Assigned tasks <span>priority order</span></div>`;
+}
+
+async function tmSubToggle(id, done, el) {
+  if (el) el.disabled = true;
+  try { await tmApi('PATCH', `/subtasks/${id}`, { done }); await tmLoad(); tmRender(); }
+  catch (e) { tmSetSave(e.message, true); if (el) { el.disabled = false; el.checked = !done; } }
+}
+
 function tmRenderBody() {
   const el = document.getElementById('tmBody');
   if (!el) return;
   const vis = tmVisible();
+  const autoHtml = tmAutoHtml();
   const addRow = _tm.adding && _tm.tab === 'active' ? tmNewRowHtml() : '';
   if (_tm.view === 'all') {
-    el.innerHTML = tmTableHtml(vis, 'all', addRow);
+    el.innerHTML = autoHtml + tmTableHtml(vis, 'all', addRow);
   } else {
     const byCat = _tm.view === 'category';
     const pick = byCat ? _tm.cat : _tm.person;
@@ -14643,7 +14688,7 @@ function tmRenderBody() {
     // Categories keep their fixed order; people sort by name. Empty bucket last.
     const ord = k => byCat ? _tm.categories.indexOf(k) : 0;
     const sorted = [...groups.entries()].sort((a, b) => (a[0] === '__none') - (b[0] === '__none') || ord(a[0]) - ord(b[0]) || a[1].name.localeCompare(b[1].name));
-    el.innerHTML = (addRow ? tmTableHtml([], 'new', addRow) + '<div style="height:14px"></div>' : '') +
+    el.innerHTML = autoHtml + (addRow ? tmTableHtml([], 'new', addRow) + '<div style="height:14px"></div>' : '') +
       (sorted.length ? sorted.map(([k, g]) => `<div class="tm-group">
           <div class="tm-group-h">${tmEsc(g.name)} <span>${g.tasks.length} task${g.tasks.length === 1 ? '' : 's'}</span></div>
           ${tmTableHtml(g.tasks, (byCat ? 'cat:' : 'p:') + k, '')}</div>`).join('')
