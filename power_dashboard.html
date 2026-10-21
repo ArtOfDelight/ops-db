@@ -674,6 +674,15 @@ div[style*="overflow-x:auto"] table td:first-child {
 }
 div[style*="overflow-x:auto"] table thead th:first-child { z-index: 3; }
 div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: #f5f8ff; }
+/* Product Rankings: pin the # column (fixed width) and the Product column next to it */
+#pr-content table th:first-child, #pr-content table td:first-child { width: 44px; min-width: 44px; max-width: 44px; box-sizing: border-box; box-shadow: none; }
+#pr-content table th:nth-child(2), #pr-content table td:nth-child(2) {
+  position: sticky; left: 44px; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--border-2);
+}
+#pr-content table thead th:nth-child(2) { z-index: 3; background: #f8fafd; }
+#pr-content table thead th:first-child { background: #f8fafd; }
+#pr-content table tbody tr:hover td:nth-child(2) { background: #f5f8ff; }
+#pr-content table tr.pr-detail-row td { position: static; }
 
 .sc-emp-name { font-weight: 700; font-size: 12px; color: var(--ink); }
 .sc-emp-id   { font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 1px; }
