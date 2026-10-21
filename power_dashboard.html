@@ -3413,12 +3413,11 @@ let _prData = [];
 let _prPrevData = [];
 let _prSort = { key: 'online_orders', dir: -1 };
 // Online = these platforms. Orders come from Rista channels; ratings from the
-// platform's own review sheet (Magicpin has no ratings feed).
+// platform's own review sheet. Magicpin is left out of Online entirely.
 const PR_PLATFORMS = [
   { key: 'Swiggy',   label: 'Swiggy',   channels: ['AOD Swiggy', 'FC Swiggy'], rated: true,  note: 'Orders: AOD Swiggy + FC Swiggy · Ratings: Swiggy reviews' },
   { key: 'Zomato',   label: 'Zomato',   channels: ['AOD Zomato'],              rated: true,  note: 'Orders: AOD Zomato · Ratings: Zomato reviews' },
   { key: 'Ownly',    label: 'Ownly',    channels: ['Ownly'],                   rated: true,  note: 'Orders: Ownly · Ratings: Ownly reviews' },
-  { key: 'Magicpin', label: 'Magicpin', channels: ['Magicpin - AOD'],          rated: false, note: 'Orders only — no ratings feed' },
 ];
 let _prPlatforms = new Set(PR_PLATFORMS.map(p => p.key));
 
