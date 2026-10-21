@@ -3293,7 +3293,6 @@ function prSwitchSubTab(tab, skipState) {
             <button class="ptab"        id="grch-zomato"   onclick="grSetChannel('AOD Zomato')"      style="padding:4px 12px;font-size:10px">Zomato</button>
             <button class="ptab"        id="grch-fc"       onclick="grSetChannel('FC Swiggy')"       style="padding:4px 12px;font-size:10px">FC Swiggy</button>
             <button class="ptab"        id="grch-ownly"    onclick="grSetChannel('Ownly')"           style="padding:4px 12px;font-size:10px">Ownly</button>
-            <button class="ptab"        id="grch-magicpin" onclick="grSetChannel('Magicpin - AOD')"  style="padding:4px 12px;font-size:10px">Magicpin</button>
           </div>
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" id="gr-view-tabs">
             <button class="ptab active" id="grv-product"  onclick="grSetView('product')"  style="padding:4px 12px;font-size:10px">📦 By Product</button>
@@ -3963,14 +3962,14 @@ function grShiftWeek(dir) {
 
 function grSetChannel(ch) {
   _grChannel = ch;
-  ['all','online','dinein','swiggy','zomato','fc','ownly','magicpin'].forEach(id => {
+  ['all','online','dinein','swiggy','zomato','fc','ownly'].forEach(id => {
     const btn = document.getElementById('grch-' + id);
     if (btn) btn.classList.remove('active');
   });
   const idMap = {
     'all': 'grch-all', 'online': 'grch-online', 'dinein': 'grch-dinein',
     'AOD Swiggy': 'grch-swiggy', 'AOD Zomato': 'grch-zomato',
-    'FC Swiggy': 'grch-fc', 'Ownly': 'grch-ownly', 'Magicpin - AOD': 'grch-magicpin'
+    'FC Swiggy': 'grch-fc', 'Ownly': 'grch-ownly'
   };
   const activeId = idMap[ch];
   if (activeId) { const b = document.getElementById(activeId); if (b) b.classList.add('active'); }
