@@ -7292,6 +7292,8 @@ function scrollChat() {
 
 let _briefResult = null;
 let _briefViewDate = null; // null = today
+let _briefDays = 1;         // 1 = yesterday · 7 / 28 = last N days ending yesterday
+const _briefByDays = {};    // last result per range, so switching toggles is instant
 
 const BRIEF_SECTIONS = ['Power Status', 'Late Sign-ins', 'KPT / MFR', 'Outlet Ratings', 'Product Rankings', 'Daily Recon', 'Mango Tracker', 'Checklist'];
 
@@ -7367,6 +7369,8 @@ function _renderBriefSidebar(logs) {
 function renderDailyBriefPage() {
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   if (!_briefResult) _briefResult = _briefLoad(_briefTodayKey());
+  if (_briefResult && !_briefByDays[1]) _briefByDays[1] = _briefResult;
+  const dTab = (n, label) => `<button class="ptab ${_briefDays === n ? 'active' : ''}" onclick="briefSetDays(${n})" style="padding:4px 12px;font-size:10px">${label}</button>`;
   document.getElementById('pageBody').innerHTML = `
     <div class="db2">
       <div class="db2-head">
@@ -7375,14 +7379,22 @@ function renderDailyBriefPage() {
           <div class="db2-date">${today}</div>
         </div>
         <span class="sp"></span>
+        <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">${dTab(1, 'Yesterday')}${dTab(7, 'Last 7 days')}${dTab(28, 'Last 28 days')}</div>
         <span class="db2-updated" id="db2Updated"></span>
         <button class="ex-btn sm" id="db2Reload" onclick="briefFetch()">↻ Refresh</button>
       </div>
       <div id="briefBody"></div>
     </div>`;
-  if (_briefResult?.metrics) renderBriefResult(_briefResult);
-  else document.getElementById('briefBody').innerHTML = '<div class="db2-loading">Loading today\'s numbers…</div>';
+  const shown = _briefByDays[_briefDays];
+  if (shown?.metrics) renderBriefResult(shown);
+  else document.getElementById('briefBody').innerHTML = '<div class="db2-loading">Loading the numbers…</div>';
   briefFetch();
+}
+
+function briefSetDays(n) {
+  if (n === _briefDays) return;
+  _briefDays = n;
+  renderDailyBriefPage();
 }
 
 async function briefFetch() {
@@ -7394,16 +7406,17 @@ async function briefFetch() {
     const res = await fetch(`${API}/api/daily-brief`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
-      body: JSON.stringify({ date: today }),
+      body: JSON.stringify({ date: today, days: _briefDays }),
     });
     if (!res.ok) throw new Error(`Server error ${res.status}`);
     const data = await res.json();
-    _briefResult = data;
-    _briefSave(data);
-    if (_currentPage === 'brief') renderBriefResult(data);
+    const days = data.metrics?.days || 1;
+    _briefByDays[days] = data;
+    if (days === 1) { _briefResult = data; _briefSave(data); }
+    if (_currentPage === 'brief' && days === _briefDays) renderBriefResult(data);
   } catch (e) {
     if (upd) upd.innerHTML = `<span style="color:var(--red)">Couldn't refresh: ${escHtml(e.message)}</span>`;
-    if (!_briefResult?.metrics) {
+    if (!_briefByDays[_briefDays]?.metrics) {
       const b = document.getElementById('briefBody');
       if (b) b.innerHTML = `<div class="db2-loading" style="color:var(--red)">Couldn't load the brief: ${escHtml(e.message)}</div>`;
     }
@@ -7449,6 +7462,9 @@ function renderBriefResult(data) {
   const m = data.metrics;
   if (!m) { body.innerHTML = '<div class="db2-loading">Loading today\'s numbers…</div>'; return; }
   const fmtDay = iso => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—';
+  const isRange = (m.days || 1) > 1;
+  const rangeLbl = isRange ? `${fmtDay(m.date_from)} – ${fmtDay(m.date_to)}` : '';
+  const fmtRange = r => (r && r.includes(' to ')) ? r.split(' to ').map(fmtDay).join(' – ') : fmtDay(r);
   const upd = document.getElementById('db2Updated');
   if (upd && m.generated_at) upd.textContent = 'Updated ' + new Date(m.generated_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const err = name => (data.logs || []).find(l => l.section === name && l.status !== 'ok');
@@ -7459,8 +7475,14 @@ function renderBriefResult(data) {
   let scBody;
   if (err('Missed Stock Check')) scBody = errHtml('Missed Stock Check');
   else if (!sc.checked) scBody = '<div class="db2-ok">No outlet had a delivery day</div>';
-  else if (!sc.missing.length) scBody = `<div class="db2-ok">✓ All ${sc.checked} delivery outlets did their stock audit</div>`;
-  else scBody = `<div class="db2-list">${sc.missing.map(o => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(o)}</b><span class="db2-sub">no Rista audit over ₹5,000</span></div>`).join('')}</div>`;
+  else if (!sc.missing.length) scBody = `<div class="db2-ok">✓ All ${sc.checked} delivery ${isRange ? 'days' : 'outlets'} had a stock audit</div>`;
+  else {
+    // one row per outlet with its number of missed audits (most first)
+    const byOutlet = {};
+    sc.missing.forEach(x => { const o = typeof x === 'string' ? x : x.outlet; (byOutlet[o] = byOutlet[o] || []).push(typeof x === 'string' ? '' : x.date); });
+    const rowsSc = Object.entries(byOutlet).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+    scBody = `<div class="db2-list">${rowsSc.map(([o, ds]) => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(o)}</b><span class="db2-sub">${isRange ? ds.filter(Boolean).sort().map(fmtDay).join(', ') : 'no Rista audit over ₹5,000'}</span><span class="sp"></span><span class="db2-tag">${ds.length} missed</span></div>`).join('')}</div>`;
+  }
   const scCount = sc.missing.length;
 
   // 2. missed sign-ins
@@ -7468,7 +7490,13 @@ function renderBriefResult(data) {
   let siBody;
   if (err('Missed Sign-ins')) siBody = errHtml('Missed Sign-ins');
   else if (!ppl.length) siBody = '<div class="db2-ok">✓ Everyone rostered signed in</div>';
-  else siBody = `<div class="db2-list">${ppl.map(p => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(p.name || '')}</b><span class="db2-sub">${escHtml(p.employee_id || '')}</span><span class="sp"></span><span class="db2-tag">${escHtml(p.outlet || '')}</span></div>`).join('')}</div>`;
+  else {
+    // one row per employee with their number of missed sign-ins (most first)
+    const byEmp = {};
+    ppl.forEach(p => { const k = p.employee_id || p.name; (byEmp[k] = byEmp[k] || { p, dates: [], outlets: new Set() }).dates.push(p.date); byEmp[k].outlets.add(p.outlet || ''); });
+    const rowsSi = Object.values(byEmp).sort((a, b) => b.dates.length - a.dates.length || (a.p.name || '').localeCompare(b.p.name || ''));
+    siBody = `<div class="db2-list">${rowsSi.map(e => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(e.p.name || '')}</b><span class="db2-sub">${escHtml(e.p.employee_id || '')} · ${escHtml([...e.outlets].filter(Boolean).join(', '))}${isRange ? ' · ' + e.dates.filter(Boolean).sort().map(fmtDay).join(', ') : ''}</span><span class="sp"></span><span class="db2-tag">${e.dates.length} missed</span></div>`).join('')}</div>`;
+  }
 
   // 3. availability: one row per outlet below threshold on either platform
   const av = m.availability, th = av.threshold || 95, plats = ['Swiggy', 'Zomato'];
@@ -7485,9 +7513,10 @@ function renderBriefResult(data) {
     const c = ((av.checks || {})[pl] || {})[o];
     const tag = c && VERDICT[c.verdict]
       ? `<div class="db2-verdict ${VERDICT[c.verdict][0]}" title="Offline about ${fmtM(c.offline_mins)}; power-off forms ${fmtM(c.power_off_mins)}">${VERDICT[c.verdict][1]}</div>
+         ${isRange && c.low_days != null ? `<div class="db2-sub">${c.low_days} of ${c.days} days below ${th}%</div>` : ''}
          <div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}${c.no_power_on ? ` · ${c.no_power_on} without power-on` : ''}</div>
-         ${(c.power_log || []).length ? `<div class="db2-plog">${c.power_log.map(l => `<div class="${l.no_power_on ? 'warn' : ''}">⚡ ${escHtml(l.off || '')} → ${escHtml(l.no_power_on ? 'no Power On form' : (l.on || ''))}${l.no_power_on ? '' : ` <span>(${fmtM(l.mins || 0)})</span>`}</div>`).join('')}</div>`
-           : '<div class="db2-plog none">No power-off forms that day</div>'}` : '';
+         ${(c.power_log || []).length ? `<div class="db2-plog">${c.power_log.map(l => `<div class="${l.no_power_on ? 'warn' : ''}">⚡ ${isRange && l.date ? fmtDay(l.date) + ' ' : ''}${escHtml(l.off || '')} → ${escHtml(l.no_power_on ? 'no Power On form' : (l.on || ''))}${l.no_power_on ? '' : ` <span>(${fmtM(l.mins || 0)})</span>`}</div>`).join('')}</div>`
+           : `<div class="db2-plog none">No power-off forms ${isRange ? 'on those days' : 'that day'}</div>`}` : '';
     return `<td><span class="db2-pct ${cls}">${v}%</span>${tag}</td>`;
   };
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
@@ -7495,7 +7524,7 @@ function renderBriefResult(data) {
   let avBody;
   if (err('Availability Below 95%')) avBody = errHtml('Availability Below 95%');
   else if (!rows.length) avBody = `<div class="db2-ok">✓ All outlets online ${th}% or more</div>`;
-  else avBody = `<table class="db2-tbl"><thead><tr><th>Outlet</th>${plats.map(pl => `<th>${pl}<div class="db2-sub">${fmtDay((P[pl] || {}).date)}</div></th>`).join('')}</tr></thead>
+  else avBody = `<table class="db2-tbl"><thead><tr><th>Outlet</th>${plats.map(pl => `<th>${pl}<div class="db2-sub">${isRange ? 'avg ' : ''}${fmtRange((P[pl] || {}).date)}</div></th>`).join('')}</tr></thead>
     <tbody>${rows.map(o => `<tr><td><b>${escHtml(o)}</b></td>${plats.map(pl => cell(pl, o)).join('')}</tr>`).join('')}</tbody></table>
     <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–95%</span></div>
     <div class="db2-legend"><span class="db2-verdict pw">⚡ power cut</span> staff filed power-off forms covering the offline time</div>
@@ -7510,8 +7539,8 @@ function renderBriefResult(data) {
       ${inner}
     </div>`;
   body.innerHTML = `<div class="db2-grid">
-    ${card('📦', 'Missed stock check', 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
-    ${card('🕐', 'Missed sign-ins', fmtDay(m.missed_signins.date) + ' · rostered, never signed in', ppl.length, siBody)}
+    ${card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
+    ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)) + ' · rostered, never signed in', ppl.length, siBody)}
     ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online % · checked against staff power-off forms', rows.length, avBody, true)}
   </div>`;
 }
