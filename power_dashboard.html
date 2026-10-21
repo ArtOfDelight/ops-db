@@ -3130,6 +3130,14 @@ function prSwitchSubTab(tab, skipState) {
             <input type="text" id="pr-search" class="pr-search-input" placeholder="Search product…" oninput="prDrawTable()"/>
           </div>
         </div>
+        <!-- Row 2b: which platforms count as Online -->
+        <div class="pr-toolbar-row" id="pr-platform-row" style="gap:8px;align-items:center">
+          <span class="pr-ctrl-label">Online platforms:</span>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            ${PR_PLATFORMS.map(pl => `<button class="ptab ${_prPlatforms.has(pl.key)?'active':''}" id="prpl-${pl.key}" onclick="prTogglePlatform('${pl.key}')" style="padding:4px 12px;font-size:10px" title="${pl.note}">${pl.label}</button>`).join('')}
+          </div>
+          <span id="pr-platform-note" style="font-size:11px;color:var(--ink-3)"></span>
+        </div>
         <!-- Row 3: highlight thresholds -->
         <div class="pr-toolbar-row" style="gap:20px">
           <div class="pr-ctrl-group" style="gap:8px;align-items:center">
@@ -3404,6 +3412,54 @@ async function prLoad() {
 let _prData = [];
 let _prPrevData = [];
 let _prSort = { key: 'online_orders', dir: -1 };
+// Online = these platforms. Orders come from Rista channels; ratings from the
+// platform's own review sheet (Magicpin has no ratings feed).
+const PR_PLATFORMS = [
+  { key: 'Swiggy',   label: 'Swiggy',   channels: ['AOD Swiggy', 'FC Swiggy'], rated: true,  note: 'Orders: AOD Swiggy + FC Swiggy · Ratings: Swiggy reviews' },
+  { key: 'Zomato',   label: 'Zomato',   channels: ['AOD Zomato'],              rated: true,  note: 'Orders: AOD Zomato · Ratings: Zomato reviews' },
+  { key: 'Ownly',    label: 'Ownly',    channels: ['Ownly'],                   rated: true,  note: 'Orders: Ownly · Ratings: Ownly reviews' },
+  { key: 'Magicpin', label: 'Magicpin', channels: ['Magicpin - AOD'],          rated: false, note: 'Orders only — no ratings feed' },
+];
+let _prPlatforms = new Set(PR_PLATFORMS.map(p => p.key));
+
+function prTogglePlatform(key) {
+  if (_prPlatforms.has(key)) { if (_prPlatforms.size > 1) _prPlatforms.delete(key); }
+  else _prPlatforms.add(key);
+  PR_PLATFORMS.forEach(pl => document.getElementById('prpl-' + pl.key)?.classList.toggle('active', _prPlatforms.has(pl.key)));
+  prDrawTable();
+}
+
+function prPlatformNote() {
+  const on = PR_PLATFORMS.filter(pl => _prPlatforms.has(pl.key));
+  const parts = on.map(pl => pl.rated ? `${pl.label} (${pl.channels.join(' + ')})` : `${pl.label} (orders only, no ratings)`);
+  return 'Online = ' + parts.join(' · ') + '. High/Error % = ratings ÷ these orders.';
+}
+
+// Recompute a product's online numbers for the selected platforms.
+// Falls back to the server totals if the response predates per-platform data.
+function prScope(p) {
+  if (!p.platform_ratings || !p.channels) return p;
+  let orders = 0, high = 0, low = 0, igcc = 0;
+  PR_PLATFORMS.forEach(pl => {
+    if (!_prPlatforms.has(pl.key)) return;
+    pl.channels.forEach(ch => { orders += (p.channels[ch] || 0); });
+    const r = p.platform_ratings[pl.key] || {};
+    high += r.high || 0; low += r.low || 0; igcc += r.igcc || 0;
+  });
+  if (_prPlatforms.size === PR_PLATFORMS.length) igcc += (p.platform_ratings.Other || {}).igcc || 0;
+  const denom = orders > 0 ? orders : ((high + low) || 1);
+  const r2 = v => Math.round(v * 100) / 100;
+  const high_pct = r2(high / denom * 100), error_pct = r2((low + igcc) / denom * 100);
+  const d = p.details || { high: [], low: [], igcc: [] };
+  const keep = r => { const s = (r.source || '').toLowerCase();
+    const k = s.includes('swiggy') ? 'Swiggy' : s.includes('zomato') ? 'Zomato' : s.includes('ownly') ? 'Ownly' : null;
+    return k ? _prPlatforms.has(k) : _prPlatforms.size === PR_PLATFORMS.length; };
+  return { ...p, online_orders: orders, rista_orders: orders + (p.dine_in_orders || 0),
+    high_rated: high, low_rated: low, igcc, total_rated: high + low, total_errors: low + igcc,
+    high_pct, error_pct, net_pct: r2(high_pct - error_pct),
+    details: { high: d.high.filter(keep), low: d.low.filter(keep), igcc: d.igcc.filter(keep) } };
+}
+
 let _prExpanded = new Set(); // product names currently expanded to show review/IGCC detail
 
 function prToggleDetail(name) {
@@ -3471,7 +3527,12 @@ function prDrawTable(el) {
   // For min-orders filter, use the primary order col for the current view
   const orderKey = view === 'dinein' ? 'dine_in_orders' : view === 'combined' ? 'rista_orders' : 'online_orders';
 
-  const sorted = [..._prData]
+  const note = document.getElementById('pr-platform-note');
+  if (note) note.textContent = prPlatformNote();
+  const prow = document.getElementById('pr-platform-row');
+  if (prow) prow.style.display = (view === 'online' || view === 'combined') ? '' : 'none';
+
+  const sorted = _prData.map(prScope)
     .filter(p => (p[orderKey] || 0) >= minOrders)
     .filter(p => !catFilter || (p.category || '') === catFilter)
     .filter(p => !searchQ || (p.product || '').toLowerCase().includes(searchQ))
