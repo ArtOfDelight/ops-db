@@ -7381,7 +7381,7 @@ function renderDailyBriefPage() {
         <span class="sp"></span>
         <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">${dTab(1, 'Yesterday')}${dTab(7, 'Last 7 days')}${dTab(28, 'Last 28 days')}</div>
         <span class="db2-updated" id="db2Updated"></span>
-        <button class="ex-btn sm" id="db2Reload" onclick="briefFetch()">↻ Refresh</button>
+        <button class="ex-btn sm" id="db2Reload" onclick="briefFetch(true)">↻ Refresh</button>
       </div>
       <div id="briefBody"></div>
     </div>`;
@@ -7397,7 +7397,7 @@ function briefSetDays(n) {
   renderDailyBriefPage();
 }
 
-async function briefFetch() {
+async function briefFetch(refresh) {  // refresh: rebuild live instead of the stored daily copy
   const btn = document.getElementById('db2Reload');
   const upd = document.getElementById('db2Updated');
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
@@ -7406,7 +7406,7 @@ async function briefFetch() {
     const res = await fetch(`${API}/api/daily-brief`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', Authorization: `Bearer ${_lsToken}` },
-      body: JSON.stringify({ date: today, days: _briefDays }),
+      body: JSON.stringify({ date: today, days: _briefDays, refresh: !!refresh }),
     });
     if (!res.ok) throw new Error(`Server error ${res.status}`);
     const data = await res.json();
