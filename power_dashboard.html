@@ -3468,7 +3468,8 @@ function prScope(p) {
   return { ...p, online_orders: orders,
     order_count: lines, units, sale: r2(sale), cogs: r2(cogs),
     cogs_pct: sale > 0 ? r2(cogs / sale * 100) : null,
-    margin_unit: units > 0 ? r2((sale - cogs) / units) : null, rista_orders: orders + (p.dine_in_orders || 0),
+    margin_unit: units > 0 ? r2((sale - cogs) / units) : null,
+    avg_price: units > 0 ? r2(sale / units) : null, rista_orders: orders + (p.dine_in_orders || 0),
     high_rated: high, low_rated: low, igcc, total_rated: high + low, total_errors: low + igcc,
     high_pct, error_pct, net_pct: r2(high_pct - error_pct),
     details: { high: d.high.filter(keep), low: d.low.filter(keep), igcc: d.igcc.filter(keep) } };
@@ -3584,6 +3585,7 @@ function prDrawTable(el) {
       ${col('High %','high_pct')}
       ${col('Error %','error_pct')}
       ${col('COGS %','cogs_pct')}
+      ${col('Avg Sale / Unit','avg_price')}
       ${col('Margin / Unit','margin_unit')}
       ${col('Units','units')}
       ${col('Total Rated','total_rated')}
@@ -3604,12 +3606,13 @@ function prDrawTable(el) {
         ${tdB(p.order_count ?? '—')}
         ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)}
         ${td(p.cogs_pct==null?'—':p.cogs_pct+'%', p.cogs_pct==null?'':p.cogs_pct<=30?'good':p.cogs_pct<=40?'warn':'bad')}
+        ${td(p.avg_price==null?'—':'₹'+Math.round(p.avg_price))}
         ${td(p.margin_unit==null?'—':'₹'+Math.round(p.margin_unit))}
         ${tdB(p.units ?? p.online_orders ?? '—')}
         ${td(p.total_rated)} ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
         ${td(p.net_pct+'%',netCls)}
       </tr>`;
-      return mainRow + (expanded ? prDetailRowHtml(p, 15) : '');
+      return mainRow + (expanded ? prDetailRowHtml(p, 16) : '');
     };
   } else if (view === 'dinein') {
     thead = `<thead><tr>
