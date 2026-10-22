@@ -16106,7 +16106,10 @@ const oaTh = t => !t ? '—' : [t.pct != null ? `>${t.pct}%` : '', t.min_qty != 
 function oaReportsHtml() {
   const f = _oa.f;
   const opt = (v, l, cur) => `<option value="${pcEsc(v)}"${cur === v ? ' selected' : ''}>${pcEsc(l)}</option>`;
-  const rows = _oa.reports.map(r => {
+  // "No main audit" days are hidden unless asked for (checkbox or status filter)
+  const shown = _oa.reports.filter(r => r.status !== 'no_main_audit' || _oa.showNoAudit || f.status === 'no_main_audit');
+  const hiddenN = _oa.reports.length - shown.length;
+  const rows = shown.map(r => {
     const flagged = (r.items || []).filter(i => i.flagged);
     const counts = {};
     flagged.forEach(i => { if (i.result) counts[i.result] = (counts[i.result] || 0) + 1; });
@@ -16126,7 +16129,8 @@ function oaReportsHtml() {
       <input type="date" class="ex-sel" value="${f.date_from}" onchange="oaSetFilter('date_from',this.value)">
       <span class="pc-muted">to</span>
       <input type="date" class="ex-sel" value="${f.date_to}" onchange="oaSetFilter('date_to',this.value)">
-      <span class="pc-muted">${_oa.reports.length} report${_oa.reports.length === 1 ? '' : 's'}</span>
+      <label class="pc-muted" style="display:flex;align-items:center;gap:5px"><input type="checkbox" ${_oa.showNoAudit ? 'checked' : ''} onchange="_oa.showNoAudit=this.checked;oaRender()"> Show “no main audit”${hiddenN ? ` (${hiddenN})` : ''}</label>
+      <span class="pc-muted">${shown.length} report${shown.length === 1 ? '' : 's'}</span>
     </div>
     <div class="ex-card pc-wrap"><table class="pc-tbl">
       <thead><tr><th>Outlet</th><th>Date</th><th>Rista audit</th><th>Status</th><th>Flagged</th><th>Results</th><th>Flags</th><th></th></tr></thead>
