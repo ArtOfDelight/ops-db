@@ -3448,7 +3448,7 @@ function prPlatformNote() {
   const parts = on.map(pl => pl.rated ? `${pl.label} (${pl.channels.join(' + ')})` : `${pl.label} (orders only, no ratings)`);
   return 'Online = ' + parts.join(' · ') + '. High/Error % = ratings ÷ these orders. '
     + 'COM% = commission + payment fee, without GST, from Swiggy/Zomato statements (Ownly 0%). '
-    + 'Ad% = platform ad spend, split across products by sales. GST Input = 3% of sale cost on Swiggy/Zomato, 2% gain on Ownly (negative = gain). '
+    + 'Ad% = platform ad spend without GST, split across products by sales. GST Input = 3% of sale cost on Swiggy/Zomato, 2% gain on Ownly (negative = gain). '
     + 'Margin = Net Sales − COGS − COM − Ads − GST Input. '
     + '~ = includes estimates for recent days not in a statement yet.';
 }
