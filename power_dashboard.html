@@ -3432,7 +3432,7 @@ let _prSort = { key: 'online_orders', dir: -1 };
 const PR_PLATFORMS = [
   { key: 'Swiggy',   label: 'Swiggy',   channels: ['AOD Swiggy', 'FC Swiggy'], rated: true, gstInput: 0.03,  note: 'Orders: AOD Swiggy + FC Swiggy · Ratings: Swiggy reviews' },
   { key: 'Zomato',   label: 'Zomato',   channels: ['AOD Zomato'],              rated: true, gstInput: 0.03,  note: 'Orders: AOD Zomato · Ratings: Zomato reviews' },
-  { key: 'Ownly',    label: 'Ownly',    channels: ['Ownly'],                   rated: true, gstInput: -0.02,  // Ownly: we gain 2% GST input on every order  note: 'Orders: Ownly · Ratings: Ownly reviews' },
+  { key: 'Ownly',    label: 'Ownly',    channels: ['Ownly'],                   rated: true, gstInput: -0.02, /* Ownly: 2% GST input gain */  note: 'Orders: Ownly · Ratings: Ownly reviews' },
 ];
 let _prPlatforms = new Set(PR_PLATFORMS.map(p => p.key));
 
