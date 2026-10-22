@@ -3145,6 +3145,12 @@ function prSwitchSubTab(tab, skipState) {
           <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
             ${PR_PLATFORMS.map(pl => `<button class="ptab ${_prPlatforms.has(pl.key)?'active':''}" id="prpl-${pl.key}" onclick="prTogglePlatform('${pl.key}')" style="padding:4px 12px;font-size:10px" title="${pl.note}">${pl.label}</button>`).join('')}
           </div>
+          <span class="pr-ctrl-label" style="margin-left:6px">View:</span>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px">
+            <button class="ptab ${_prColGroup==='all'?'active':''}" id="prcg-all" onclick="prSetColGroup('all')" style="padding:4px 12px;font-size:10px">All</button>
+            <button class="ptab ${_prColGroup==='fin'?'active':''}" id="prcg-fin" onclick="prSetColGroup('fin')" style="padding:4px 12px;font-size:10px">💰 Financial</button>
+            <button class="ptab ${_prColGroup==='rating'?'active':''}" id="prcg-rating" onclick="prSetColGroup('rating')" style="padding:4px 12px;font-size:10px">⭐ Ratings</button>
+          </div>
           <span id="pr-platform-note" style="font-size:11px;color:var(--ink-3)"></span>
           <a href="#" onclick="prColReset();return false" style="font-size:11px;white-space:nowrap" title="Columns can be dragged by their header">↺ Reset columns</a>
         </div>
@@ -3496,7 +3502,22 @@ function prColOrder(all) {
   all.forEach(k => { if (!order.includes(k)) order.push(k); });  // new columns go at the end
   return order;
 }
+// Column group switch for the Online view (Orders/Units show in both)
+const PR_COL_GROUPS = {
+  fin: ['cogs_pct','com_pct','ads_pct','margin_pct','sale','cogs','com','ads','margin',
+        'order_count','units','avg_price','cogs_unit','margin_unit'],
+  rating: ['high_pct','error_pct','net_pct','total_rated','high_rated','low_rated','igcc','total_errors',
+           'order_count','units'],
+};
+let _prColGroup = (() => { try { return localStorage.getItem('pr_col_group') || 'all'; } catch (e) { return 'all'; } })();
+function prSetColGroup(g) {
+  _prColGroup = g;
+  try { localStorage.setItem('pr_col_group', g); } catch (e) {}
+  ['all','fin','rating'].forEach(x => document.getElementById('prcg-' + x)?.classList.toggle('active', x === g));
+  prDrawTable();
+}
 let _prDragCol = null;
+let _prAllCols = [];  // full column order, including ones hidden by the view switch
 function prColDragStart(ev, key) {
   _prDragCol = key;
   try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', key); } catch (e) {}
@@ -3505,8 +3526,7 @@ function prColDrop(ev, target) {
   ev.preventDefault(); ev.stopPropagation();
   const from = _prDragCol; _prDragCol = null;
   if (!from || from === target) return;
-  const cur = [...document.querySelectorAll('#pr-content thead th[draggable]')]
-    .map(th => (th.getAttribute('ondragstart').match(/'([^']+)'\)/) || [])[1]).filter(Boolean);
+  const cur = _prAllCols.slice();
   const order = cur.filter(k => k !== from);
   order.splice(order.indexOf(target) + (cur.indexOf(from) < cur.indexOf(target) ? 1 : 0), 0, from);
   try { localStorage.setItem(PR_COL_KEY, JSON.stringify(order)); } catch (e) {}
@@ -3650,7 +3670,8 @@ function prDrawTable(el) {
       igcc:        ['IGCC',            p => td(p.igcc)],
       total_errors:['Errors',          p => td(p.total_errors)],
     };
-    const order = prColOrder(Object.keys(defs));
+    _prAllCols = prColOrder(Object.keys(defs));
+    const order = _prAllCols.filter(k => _prColGroup === 'all' || PR_COL_GROUPS[_prColGroup].includes(k));
     const dragTh = k => col(defs[k][0], k).replace('<th ',
       `<th draggable="true" ondragstart="prColDragStart(event,'${k}')" ondragover="event.preventDefault()" ondrop="prColDrop(event,'${k}')" `);
     thead = `<thead><tr>
@@ -3841,7 +3862,7 @@ function prDrawTable(el) {
     }
   }
 
-  const minW = view === 'dinein' ? '500px' : view === 'kpt' ? '900px' : view === 'combined' ? '1200px' : '2200px';
+  const minW = view === 'dinein' ? '500px' : view === 'kpt' ? '900px' : view === 'combined' ? '1200px' : (_prColGroup === 'all' ? '2200px' : '1300px');
   if (!sorted.length) {
     el.innerHTML = highlightsHtml + '<div class="no-outages" style="padding:40px">No data for this view.</div>';
   } else {
