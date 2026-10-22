@@ -3146,6 +3146,7 @@ function prSwitchSubTab(tab, skipState) {
             ${PR_PLATFORMS.map(pl => `<button class="ptab ${_prPlatforms.has(pl.key)?'active':''}" id="prpl-${pl.key}" onclick="prTogglePlatform('${pl.key}')" style="padding:4px 12px;font-size:10px" title="${pl.note}">${pl.label}</button>`).join('')}
           </div>
           <span id="pr-platform-note" style="font-size:11px;color:var(--ink-3)"></span>
+          <a href="#" onclick="prColReset();return false" style="font-size:11px;white-space:nowrap" title="Columns can be dragged by their header">↺ Reset columns</a>
         </div>
         <!-- Row 3: highlight thresholds -->
         <div class="pr-toolbar-row" style="gap:20px">
@@ -3486,6 +3487,36 @@ function prScope(p) {
     details: { high: d.high.filter(keep), low: d.low.filter(keep), igcc: d.igcc.filter(keep) } };
 }
 
+// Online view column order (drag a header onto another to move it); saved per browser.
+const PR_COL_KEY = 'pr_online_col_order';
+function prColOrder(all) {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(PR_COL_KEY) || '[]'); } catch (e) {}
+  const order = saved.filter(k => all.includes(k));
+  all.forEach(k => { if (!order.includes(k)) order.push(k); });  // new columns go at the end
+  return order;
+}
+let _prDragCol = null;
+function prColDragStart(ev, key) {
+  _prDragCol = key;
+  try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', key); } catch (e) {}
+}
+function prColDrop(ev, target) {
+  ev.preventDefault(); ev.stopPropagation();
+  const from = _prDragCol; _prDragCol = null;
+  if (!from || from === target) return;
+  const cur = [...document.querySelectorAll('#pr-content thead th[draggable]')]
+    .map(th => (th.getAttribute('ondragstart').match(/'([^']+)'\)/) || [])[1]).filter(Boolean);
+  const order = cur.filter(k => k !== from);
+  order.splice(order.indexOf(target) + (cur.indexOf(from) < cur.indexOf(target) ? 1 : 0), 0, from);
+  try { localStorage.setItem(PR_COL_KEY, JSON.stringify(order)); } catch (e) {}
+  prDrawTable();
+}
+function prColReset() {
+  try { localStorage.removeItem(PR_COL_KEY); } catch (e) {}
+  prDrawTable();
+}
+
 let _prExpanded = new Set(); // product names currently expanded to show review/IGCC detail
 
 function prToggleDetail(name) {
@@ -3593,55 +3624,49 @@ function prDrawTable(el) {
   const rupees = (v, est) => v == null ? '—' : (est > 0 ? '~' : '') + '₹' + Math.round(v).toLocaleString('en-IN');
 
   if (view === 'online') {
+    // Draggable columns: defs keyed by id, order saved per browser.
+    const pctCls = (v, g, w) => v == null ? '' : v >= g ? 'good' : v >= w ? 'warn' : 'bad';
+    const defs = {
+      high_pct:    ['High %',          p => td(p.high_pct+'%', p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad')],
+      error_pct:   ['Error %',         p => td(p.error_pct+'%', p.error_pct < 1 ? 'good' : p.error_pct < 2 ? 'warn' : 'bad')],
+      net_pct:     ['Net %',           p => td(p.net_pct+'%', p.net_pct >= 10 ? 'good' : p.net_pct >= 0 ? '' : 'bad')],
+      cogs_pct:    ['COGS %',          p => td(p.cogs_pct==null?'—':p.cogs_pct+'%', p.cogs_pct==null?'':p.cogs_pct<=30?'good':p.cogs_pct<=40?'warn':'bad')],
+      com_pct:     ['COM %',           p => tdE(pctE(p.com_pct, p.est_pct), '', estTip)],
+      ads_pct:     ['Ad %',            p => tdE(pctE(p.ads_pct, p.est_pct), '', estTip)],
+      margin_pct:  ['Margin %',        p => tdE(pctE(p.margin_pct, p.est_pct), pctCls(p.margin_pct, 30, 15), estTip)],
+      sale:        ['Net ₹',           p => tdB(rupees(p.sale))],
+      cogs:        ['COGS ₹',          p => td(rupees(p.cogs))],
+      com:         ['COM ₹',           p => tdE(rupees(p.com, p.est_pct), '', estTip)],
+      ads:         ['Ad Spend ₹',      p => tdE(rupees(p.ads, p.est_pct), '', estTip)],
+      margin:      ['Margin ₹',        p => tdE(rupees(p.margin, p.est_pct), p.margin<0?'bad':'', estTip)],
+      order_count: ['Orders',          p => td(p.order_count ?? '—')],
+      units:       ['Units',           p => td(p.units ?? p.online_orders ?? '—')],
+      avg_price:   ['Avg Sale / Unit', p => td(p.avg_price==null?'—':'₹'+Math.round(p.avg_price))],
+      cogs_unit:   ['COGS / Unit',     p => td(p.cogs_unit==null?'—':'₹'+Math.round(p.cogs_unit))],
+      margin_unit: ['Margin / Unit',   p => td(p.margin_unit==null?'—':'₹'+Math.round(p.margin_unit))],
+      total_rated: ['Total Rated',     p => td(p.total_rated)],
+      high_rated:  ['High ⭐',         p => td(p.high_rated)],
+      low_rated:   ['Low 👎',          p => td(p.low_rated)],
+      igcc:        ['IGCC',            p => td(p.igcc)],
+      total_errors:['Errors',          p => td(p.total_errors)],
+    };
+    const order = prColOrder(Object.keys(defs));
+    const dragTh = k => col(defs[k][0], k).replace('<th ',
+      `<th draggable="true" ondragstart="prColDragStart(event,'${k}')" ondragover="event.preventDefault()" ondrop="prColDrop(event,'${k}')" `);
     thead = `<thead><tr>
       <th style="${thL};color:var(--ink-3)">#</th>
       ${col('Product','product','left')}
       ${col('Category','category','left')}
-      ${col('High %','high_pct')}
-      ${col('Error %','error_pct')}
-      ${col('Net %','net_pct')}
-      ${col('COGS %','cogs_pct')}
-      ${col('COM %','com_pct')}
-      ${col('Ad %','ads_pct')}
-      ${col('Margin %','margin_pct')}
-      ${col('Net ₹','sale')}
-      ${col('COGS ₹','cogs')}
-      ${col('COM ₹','com')}
-      ${col('Ad Spend ₹','ads')}
-      ${col('Margin ₹','margin')}
-      ${col('Orders','order_count')}
-      ${col('Units','units')}
-      ${col('Avg Sale / Unit','avg_price')}
-      ${col('COGS / Unit','cogs_unit')}
-      ${col('Margin / Unit','margin_unit')}
-      ${col('Total Rated','total_rated')}
-      ${col('High ⭐','high_rated')}
-      ${col('Low 👎','low_rated')}
-      ${col('IGCC','igcc')}
-      ${col('Errors','total_errors')}
+      ${order.map(dragTh).join('')}
     </tr></thead>`;
     rowsFn = (p, i) => {
-      const netCls  = p.net_pct  >= 10 ? 'good' : p.net_pct  >= 0 ? '' : 'bad';
-      const errCls  = p.error_pct < 1  ? 'good' : p.error_pct < 2 ? 'warn' : 'bad';
-      const highCls = p.high_pct >= 20 ? 'good' : p.high_pct >= 10 ? 'warn' : 'bad';
       const expanded = _prExpanded.has(p.product);
       const nameAttr = p.product.replace(/'/g,"\\'");
       const mainRow = `<tr style="cursor:pointer" onclick="prToggleDetail('${nameAttr}')" title="Click for review/IGCC detail">
         ${tdL(i+1)} ${tdL((expanded?'▾ ':'▸ ')+p.product,true)} ${tdL(p.category||'—')}
-        ${td(p.high_pct+'%',highCls)} ${td(p.error_pct+'%',errCls)} ${td(p.net_pct+'%',netCls)}
-        ${td(p.cogs_pct==null?'—':p.cogs_pct+'%', p.cogs_pct==null?'':p.cogs_pct<=30?'good':p.cogs_pct<=40?'warn':'bad')}
-        ${tdE(pctE(p.com_pct, p.est_pct), '', estTip)}
-        ${tdE(pctE(p.ads_pct, p.est_pct), '', estTip)}
-        ${tdE(pctE(p.margin_pct, p.est_pct), p.margin_pct==null?'':p.margin_pct>=30?'good':p.margin_pct>=15?'warn':'bad', estTip)}
-        ${tdB(rupees(p.sale))} ${td(rupees(p.cogs))}
-        ${tdE(rupees(p.com, p.est_pct), '', estTip)} ${tdE(rupees(p.ads, p.est_pct), '', estTip)} ${tdE(rupees(p.margin, p.est_pct), p.margin<0?'bad':'', estTip)}
-        ${td(p.order_count ?? '—')} ${td(p.units ?? p.online_orders ?? '—')}
-        ${td(p.avg_price==null?'—':'₹'+Math.round(p.avg_price))}
-        ${td(p.cogs_unit==null?'—':'₹'+Math.round(p.cogs_unit))}
-        ${td(p.margin_unit==null?'—':'₹'+Math.round(p.margin_unit))}
-        ${td(p.total_rated)} ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
+        ${order.map(k => defs[k][1](p)).join('')}
       </tr>`;
-      return mainRow + (expanded ? prDetailRowHtml(p, 25) : '');
+      return mainRow + (expanded ? prDetailRowHtml(p, order.length + 3) : '');
     };
   } else if (view === 'dinein') {
     thead = `<thead><tr>
