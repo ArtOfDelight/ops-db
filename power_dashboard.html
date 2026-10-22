@@ -3430,9 +3430,9 @@ let _prSort = { key: 'online_orders', dir: -1 };
 // Online = these platforms. Orders come from Rista channels; ratings from the
 // platform's own review sheet. Magicpin is left out of Online entirely.
 const PR_PLATFORMS = [
-  { key: 'Swiggy',   label: 'Swiggy',   channels: ['AOD Swiggy', 'FC Swiggy'], rated: true,  note: 'Orders: AOD Swiggy + FC Swiggy · Ratings: Swiggy reviews' },
-  { key: 'Zomato',   label: 'Zomato',   channels: ['AOD Zomato'],              rated: true,  note: 'Orders: AOD Zomato · Ratings: Zomato reviews' },
-  { key: 'Ownly',    label: 'Ownly',    channels: ['Ownly'],                   rated: true,  note: 'Orders: Ownly · Ratings: Ownly reviews' },
+  { key: 'Swiggy',   label: 'Swiggy',   channels: ['AOD Swiggy', 'FC Swiggy'], rated: true, gstInput: 0.03,  note: 'Orders: AOD Swiggy + FC Swiggy · Ratings: Swiggy reviews' },
+  { key: 'Zomato',   label: 'Zomato',   channels: ['AOD Zomato'],              rated: true, gstInput: 0.03,  note: 'Orders: AOD Zomato · Ratings: Zomato reviews' },
+  { key: 'Ownly',    label: 'Ownly',    channels: ['Ownly'],                   rated: true, gstInput: 0.02,  note: 'Orders: Ownly · Ratings: Ownly reviews' },
 ];
 let _prPlatforms = new Set(PR_PLATFORMS.map(p => p.key));
 
@@ -3447,8 +3447,9 @@ function prPlatformNote() {
   const on = PR_PLATFORMS.filter(pl => _prPlatforms.has(pl.key));
   const parts = on.map(pl => pl.rated ? `${pl.label} (${pl.channels.join(' + ')})` : `${pl.label} (orders only, no ratings)`);
   return 'Online = ' + parts.join(' · ') + '. High/Error % = ratings ÷ these orders. '
-    + 'COM% = commission + payment fee + GST from Swiggy/Zomato statements (Ownly 0%). '
-    + 'Ad% = platform ad spend, split across products by sales. Margin = Net Sales − COGS − COM − Ads. '
+    + 'COM% = commission + payment fee, without GST, from Swiggy/Zomato statements (Ownly 0%). '
+    + 'Ad% = platform ad spend, split across products by sales. GST Input = 3% of sale (Swiggy/Zomato), 2% (Ownly). '
+    + 'Margin = Net Sales − COGS − COM − Ads − GST Input. '
     + '~ = includes estimates for recent days not in a statement yet.';
 }
 
@@ -3456,7 +3457,7 @@ function prPlatformNote() {
 // Falls back to the server totals if the response predates per-platform data.
 function prScope(p) {
   if (!p.platform_ratings || !p.channels) return p;
-  let orders = 0, high = 0, low = 0, igcc = 0, lines = 0, units = 0, sale = 0, cogs = 0, com = 0, ads = 0, est = 0;
+  let orders = 0, high = 0, low = 0, igcc = 0, lines = 0, units = 0, sale = 0, cogs = 0, com = 0, ads = 0, est = 0, gsti = 0;
   const cm = p.channel_money || {};
   PR_PLATFORMS.forEach(pl => {
     if (!_prPlatforms.has(pl.key)) return;
@@ -3464,7 +3465,8 @@ function prScope(p) {
       orders += (p.channels[ch] || 0);
       const m = cm[ch];
       if (m) { lines += m.orders; units += m.units; sale += m.sale; cogs += m.cogs;
-               com += m.com || 0; ads += m.ads || 0; est += m.est_sale || 0; }
+               com += m.com || 0; ads += m.ads || 0; est += m.est_sale || 0;
+               gsti += m.sale * (pl.gstInput || 0); }
     });
     const r = p.platform_ratings[pl.key] || {};
     high += r.high || 0; low += r.low || 0; igcc += r.igcc || 0;
@@ -3480,12 +3482,13 @@ function prScope(p) {
   return { ...p, online_orders: orders,
     order_count: lines, units, sale: r2(sale), cogs: r2(cogs),
     cogs_pct: sale > 0 ? r2(cogs / sale * 100) : null,
-    com: r2(com), ads: r2(ads), margin: r2(sale - cogs - com - ads),
+    com: r2(com), ads: r2(ads), gst_input: r2(gsti), margin: r2(sale - cogs - com - ads - gsti),
+    gst_input_pct: sale > 0 ? r2(gsti / sale * 100) : null,
     com_pct: sale > 0 ? r2(com / sale * 100) : null,
     ads_pct: sale > 0 ? r2(ads / sale * 100) : null,
-    margin_pct: sale > 0 ? r2((sale - cogs - com - ads) / sale * 100) : null,
+    margin_pct: sale > 0 ? r2((sale - cogs - com - ads - gsti) / sale * 100) : null,
     est_pct: sale > 0 ? r2(est / sale * 100) : 0,
-    margin_unit: units > 0 ? r2((sale - cogs - com - ads) / units) : null,
+    margin_unit: units > 0 ? r2((sale - cogs - com - ads - gsti) / units) : null,
     avg_price: units > 0 ? r2(sale / units) : null,
     cogs_unit: units > 0 ? r2(cogs / units) : null, rista_orders: orders + (p.dine_in_orders || 0),
     high_rated: high, low_rated: low, igcc, total_rated: high + low, total_errors: low + igcc,
@@ -3504,7 +3507,7 @@ function prColOrder(all) {
 }
 // Column group switch for the Online view (Orders/Units show in both)
 const PR_COL_GROUPS = {
-  fin: ['cogs_pct','com_pct','ads_pct','margin_pct','sale','cogs','com','ads','margin',
+  fin: ['cogs_pct','com_pct','ads_pct','gst_input_pct','margin_pct','sale','cogs','com','ads','gst_input','margin',
         'order_count','units','avg_price','cogs_unit','margin_unit'],
   rating: ['high_pct','error_pct','net_pct','total_rated','high_rated','low_rated','igcc','total_errors',
            'order_count','units'],
@@ -3653,11 +3656,13 @@ function prDrawTable(el) {
       cogs_pct:    ['COGS %',          p => td(p.cogs_pct==null?'—':p.cogs_pct+'%', p.cogs_pct==null?'':p.cogs_pct<=30?'good':p.cogs_pct<=40?'warn':'bad')],
       com_pct:     ['COM %',           p => tdE(pctE(p.com_pct, p.est_pct), '', estTip)],
       ads_pct:     ['Ad %',            p => tdE(pctE(p.ads_pct, p.est_pct), '', estTip)],
+      gst_input_pct:['GST Input %',    p => td(p.gst_input_pct==null?'—':p.gst_input_pct+'%')],
       margin_pct:  ['Margin %',        p => tdE(pctE(p.margin_pct, p.est_pct), pctCls(p.margin_pct, 30, 15), estTip)],
       sale:        ['Net Sales ₹',           p => tdB(rupees(p.sale))],
       cogs:        ['COGS ₹',          p => td(rupees(p.cogs))],
       com:         ['COM ₹',           p => tdE(rupees(p.com, p.est_pct), '', estTip)],
       ads:         ['Ad Spend ₹',      p => tdE(rupees(p.ads, p.est_pct), '', estTip)],
+      gst_input:   ['GST Input ₹',     p => td(rupees(p.gst_input))],
       margin:      ['Margin ₹',        p => tdE(rupees(p.margin, p.est_pct), p.margin<0?'bad':'', estTip)],
       order_count: ['Orders',          p => td(p.order_count ?? '—')],
       units:       ['Units',           p => td(p.units ?? p.online_orders ?? '—')],
