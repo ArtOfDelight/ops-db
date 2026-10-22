@@ -3641,7 +3641,7 @@ function prDrawTable(el) {
       margin:      ['Margin ₹',        p => tdE(rupees(p.margin, p.est_pct), p.margin<0?'bad':'', estTip)],
       order_count: ['Orders',          p => td(p.order_count ?? '—')],
       units:       ['Units',           p => td(p.units ?? p.online_orders ?? '—')],
-      avg_price:   ['Avg Sale / Unit', p => td(p.avg_price==null?'—':'₹'+Math.round(p.avg_price))],
+      avg_price:   ['Avg SP / Unit', p => td(p.avg_price==null?'—':'₹'+Math.round(p.avg_price))],
       cogs_unit:   ['COGS / Unit',     p => td(p.cogs_unit==null?'—':'₹'+Math.round(p.cogs_unit))],
       margin_unit: ['Margin / Unit',   p => td(p.margin_unit==null?'—':'₹'+Math.round(p.margin_unit))],
       total_rated: ['Total Rated',     p => td(p.total_rated)],
