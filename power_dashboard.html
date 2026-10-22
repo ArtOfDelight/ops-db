@@ -3606,6 +3606,7 @@ function prDrawTable(el) {
       ${col('Margin %','margin_pct')}
       ${col('Net ₹','sale')}
       ${col('COGS ₹','cogs')}
+      ${col('COM ₹','com')}
       ${col('Ad Spend ₹','ads')}
       ${col('Margin ₹','margin')}
       ${col('Orders','order_count')}
@@ -3633,14 +3634,14 @@ function prDrawTable(el) {
         ${tdE(pctE(p.ads_pct, p.est_pct), '', estTip)}
         ${tdE(pctE(p.margin_pct, p.est_pct), p.margin_pct==null?'':p.margin_pct>=30?'good':p.margin_pct>=15?'warn':'bad', estTip)}
         ${tdB(rupees(p.sale))} ${td(rupees(p.cogs))}
-        ${tdE(rupees(p.ads, p.est_pct), '', estTip)} ${tdE(rupees(p.margin, p.est_pct), p.margin<0?'bad':'', estTip)}
+        ${tdE(rupees(p.com, p.est_pct), '', estTip)} ${tdE(rupees(p.ads, p.est_pct), '', estTip)} ${tdE(rupees(p.margin, p.est_pct), p.margin<0?'bad':'', estTip)}
         ${td(p.order_count ?? '—')} ${td(p.units ?? p.online_orders ?? '—')}
         ${td(p.avg_price==null?'—':'₹'+Math.round(p.avg_price))}
         ${td(p.cogs_unit==null?'—':'₹'+Math.round(p.cogs_unit))}
         ${td(p.margin_unit==null?'—':'₹'+Math.round(p.margin_unit))}
         ${td(p.total_rated)} ${td(p.high_rated)} ${td(p.low_rated)} ${td(p.igcc)} ${td(p.total_errors)}
       </tr>`;
-      return mainRow + (expanded ? prDetailRowHtml(p, 24) : '');
+      return mainRow + (expanded ? prDetailRowHtml(p, 25) : '');
     };
   } else if (view === 'dinein') {
     thead = `<thead><tr>
