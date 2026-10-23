@@ -16291,11 +16291,11 @@ function oaThresholdsHtml() {
       <button class="ex-btn sm" onclick="oaSyncCatalog(this)" title="Checks the last 7 days of Rista audits at every outlet and adds only items not in the list yet">↻ Sync new items from Rista</button>
     </div>
     <div class="ex-card pc-wrap">
-      <div class="pc-muted" style="margin-bottom:10px">An item goes for recount when it is off by at least the <b>min qty</b> (in its own unit) and, if set, by more than the <b>%</b>.
+      <div class="pc-muted" style="margin-bottom:10px">An item goes for recount when it is off by at least the <b>min variance</b> (in its own unit) and, if set, by more than the <b>%</b>.
         Category values cover items in the category's unit; an item's own values beat the category. Blank = inherit; nothing set anywhere = any difference (1 for counted items). Save each category to store it with its items.</div>
       <table class="pc-tbl oa-th">
         <colgroup><col><col style="width:80px"><col style="width:84px"><col style="width:120px"><col style="width:100px"><col style="width:130px"><col style="width:70px"></colgroup>
-        <thead><tr><th>Category / item</th><th>Unit</th><th class="oa-c">Don't flag</th><th>Min qty</th><th>Over %</th><th>Last change</th><th></th></tr></thead>
+        <thead><tr><th>Category / item</th><th>Unit</th><th class="oa-c">Don't flag</th><th>Min variance</th><th>Over %</th><th>Last change</th><th></th></tr></thead>
         <tbody>${rows || '<tr><td colspan="7" class="pc-muted">No items yet — tap “Sync new items from Rista”.</td></tr>'}</tbody>
       </table></div>`;
 }
