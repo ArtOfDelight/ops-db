@@ -15992,11 +15992,20 @@ function pcOverviewHtml() {
     return `<tr>
       <td><b>${pcEsc(o.name)}</b><div class="pc-muted">${pcEsc(o.code)}</div></td>
       <td>${o.outlet_type === 'dine_in' ? 'Dine-in' : 'Cloud kitchen'}<div class="pc-muted">${pcEsc(o.frequency_label)}</div></td>
-      <td>${visits}</td></tr>`;
+      <td>${visits}</td>
+      <td>${pcNextVisit(o.next_visit)}</td></tr>`;
   }).join('');
   return pcMonthBar() + kpis + `<div class="ex-card pc-wrap"><table class="pc-tbl">
-    <thead><tr><th>Outlet</th><th>Type</th><th>Visits (date · distance · posting delay)</th></tr></thead>
-    <tbody>${rows || '<tr><td colspan="3" class="pc-muted">No outlets</td></tr>'}</tbody></table></div>`;
+    <thead><tr><th>Outlet</th><th>Type</th><th>Visits (date · distance · posting delay)</th><th>Next visit (est.)</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="4" class="pc-muted">No outlets</td></tr>'}</tbody></table></div>`;
+}
+
+function pcNextVisit(nv) {
+  if (!nv) return '<span class="pc-muted">Not scheduled</span>';
+  const today = new Date().toLocaleDateString('en-CA');   // local YYYY-MM-DD
+  const note = nv.status === 'overdue' ? '<div style="color:var(--red)">Overdue</div>'
+    : nv.window_start <= today ? '<div class="pc-muted">Due now</div>' : '';
+  return `${pcDate(nv.window_start)} – ${pcDate(nv.window_end)}${note}`;
 }
 
 /* ── uploads tables ── */
