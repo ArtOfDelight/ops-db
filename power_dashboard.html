@@ -15492,7 +15492,7 @@ let _rf = { data: null, show: 'all', busy: false };
 // exchanged for an accounting session too. Only people listed in the
 // accounting app's users get one; everyone else sees a notice on this tab.
 const ACCT_API = 'https://aod-accounting-api-v2.onrender.com/api';
-const _cf = { rows: null, period: 'yesterday' };
+const _cf = { rows: null, period: 'yesterday', cat: 'all' };
 
 async function acctLogin(idToken) {
   try {
@@ -15546,13 +15546,18 @@ async function renderCashfreePage(refresh = false) {
 
 function cfDraw() {
   const body = document.getElementById('pageBody'), { from, to } = cfRange(_cf.period);
-  const rows = _cf.rows.filter(t => t.transferDate >= from && t.transferDate <= to);
+  const inPeriod = _cf.rows.filter(t => t.transferDate >= from && t.transferDate <= to);
+  const rows = inPeriod.filter(t => _cf.cat === 'all' || (t.source || 'other') === _cf.cat);
   const inr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
   const sum = list => list.reduce((s, t) => s + (+t.amount || 0), 0);
-  const bySrc = ['salary', 'advance', 'reimbursement'].map(k => {
-    const r = rows.filter(t => t.source === k);
-    return `<span style="margin-right:14px">${k[0].toUpperCase() + k.slice(1)}: <b>${inr(sum(r))}</b> (${r.length})</span>`;
-  }).join('');
+  // Categories come from the data, so any new source the backend adds shows up too.
+  const cats = [...new Set(_cf.rows.map(t => t.source || 'other'))].sort();
+  const cap = k => k[0].toUpperCase() + k.slice(1);
+  const catBtn = (k, label) => {
+    const r = k === 'all' ? inPeriod : inPeriod.filter(t => (t.source || 'other') === k), on = _cf.cat === k;
+    return `<button onclick="_cf.cat='${k}';cfDraw()" style="padding:6px 12px;border-radius:999px;border:1px solid #d1d5db;background:${on?'#111827':'var(--surface)'};color:${on?'#fff':'inherit'};font-size:12px;font-weight:600">${label} · ${inr(sum(r))} (${r.length})</button>`;
+  };
+  const bySrc = `<div style="display:flex;gap:6px;flex-wrap:wrap">${catBtn('all', 'All')}${cats.map(k => catBtn(k, cap(k))).join('')}</div>`;
   const tab = (k, label) => `<button onclick="_cf.period='${k}';cfDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_cf.period===k?'#111827':'var(--surface)'};color:${_cf.period===k?'#fff':'inherit'};font-weight:600">${label}</button>`;
   const th = 'padding:8px;text-align:left';
   body.innerHTML = `
@@ -15562,7 +15567,7 @@ function cfDraw() {
       <span style="color:#6b7280">${from === to ? from : from + ' → ' + to}</span>
       <button onclick="renderCashfreePage(true)" class="btn-refresh" style="margin-left:auto">↻ Refresh from Cashfree</button>
     </div>
-    <div style="font-size:13px;margin-bottom:10px">${rows.length} transfers · total <b>${inr(sum(rows))}</b><div style="color:#6b7280;margin-top:4px">${bySrc}</div></div>
+    <div style="font-size:13px;margin-bottom:10px">${rows.length} transfers · total <b>${inr(sum(rows))}</b><div style="margin-top:8px">${bySrc}</div></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb">
         <th style="${th}">Date</th><th style="${th}">Employee</th><th style="${th}">Type</th><th style="${th}">Reason</th>
