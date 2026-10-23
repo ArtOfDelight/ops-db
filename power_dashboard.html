@@ -16084,7 +16084,8 @@ function pcNextVisit(nv) {
   const today = new Date().toLocaleDateString('en-CA');   // local YYYY-MM-DD
   const note = nv.status === 'overdue' ? '<div style="color:var(--red)">Overdue</div>'
     : nv.window_start <= today ? '<div class="pc-muted">Due now</div>' : '';
-  return `${pcDate(nv.window_start)} – ${pcDate(nv.window_end)}${note}`;
+  const basis = nv.last_visit ? `<div class="pc-muted">last visit ${pcDate(nv.last_visit)}</div>` : '';
+  return `${pcDate(nv.window_start)} – ${pcDate(nv.window_end)}${note}${basis}`;
 }
 
 /* ── uploads tables ── */
