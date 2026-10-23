@@ -15500,9 +15500,13 @@ async function acctLogin(idToken) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_token: idToken }),
     });
-    if (r.ok) localStorage.setItem('acctToken', (await r.json()).token);
-    else localStorage.removeItem('acctToken');
-  } catch { /* accounting down -- ops login still works */ }
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { localStorage.setItem('acctToken', d.token); localStorage.removeItem('acctErr'); }
+    else { localStorage.removeItem('acctToken'); localStorage.setItem('acctErr', d.detail || `Accounting sign-in refused (${r.status})`); }
+  } catch {
+    // ops login still works; a CORS block lands here too
+    localStorage.setItem('acctErr', 'Could not reach the accounting backend (it may not allow this dashboard's address yet — FRONTEND_URL on Render).');
+  }
 }
 
 function cfRange(period) {
@@ -15519,8 +15523,10 @@ async function renderCashfreePage(refresh = false) {
   const body = document.getElementById('pageBody');
   const token = localStorage.getItem('acctToken');
   if (!token) {
-    body.innerHTML = `<div style="padding:20px;color:#6b7280">Not connected to the accounting app. Log out and sign in again with your phone —
-      your number must also have access in the Accounting dashboard.</div>`;
+    const err = localStorage.getItem('acctErr');
+    body.innerHTML = `<div style="padding:20px;color:#6b7280">Not connected to the accounting app.
+      ${err ? `<div style="color:#b91c1c;margin-top:6px">Last attempt: ${sfEsc(err)}</div>`
+            : 'Log out and sign in again with your phone — your number must also have access in the Accounting dashboard.'}</div>`;
     return;
   }
   body.innerHTML = '<div class="loader-box"><div class="loader"></div> Fetching Cashfree payouts from accounting…</div>';
