@@ -15546,6 +15546,38 @@ async function cfVerifyOTP() {
   }
 }
 
+// Google sign-in for accounting: same client ID as the accounting dashboard;
+// its backend only lets in @zaanrestaurants.com accounts with access.
+const ACCT_GOOGLE_CLIENT_ID = '814508960061-746f12f9kcd4vr4cenitq3gv3cavfk7f.apps.googleusercontent.com';
+let _gsiLoad = null;
+function cfGoogleButton() {
+  _gsiLoad = _gsiLoad || new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+    sc.onload = res; sc.onerror = () => { _gsiLoad = null; rej(); };
+    document.head.appendChild(sc);
+  });
+  _gsiLoad.then(() => {
+    const el = document.getElementById('cf-google');
+    if (!el) return;
+    google.accounts.id.initialize({ client_id: ACCT_GOOGLE_CLIENT_ID, callback: cfGoogleSignedIn });
+    google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', text: 'signin_with' });
+  }).catch(() => cfMsg('Could not load Google sign-in'));
+}
+async function cfGoogleSignedIn(resp) {
+  cfMsg('Verifying…', true);
+  try {
+    const r = await fetch(`${ACCT_API}/auth/google`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: resp.credential }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { cfMsg(d.detail || `Accounting sign-in refused (${r.status})`); return; }
+    localStorage.setItem('acctToken', d.token); localStorage.removeItem('acctErr');
+    renderCashfreePage();
+  } catch { cfMsg('Could not reach the accounting backend'); }
+}
+
 function cfRange(period) {
   const t = new Date();
   const ago = n => { const d = new Date(t); d.setDate(d.getDate() - n); return d; };
@@ -15569,9 +15601,12 @@ async function renderCashfreePage(refresh = false) {
           <button onclick="cfSendOTP()" class="btn-refresh" style="margin-top:8px">Send OTP</button></div>
         <div id="cf-step2" style="display:none"><input id="cf-otp" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit OTP" autocomplete="one-time-code" style="padding:8px;border:1px solid #d1d5db;border-radius:8px;width:100%;box-sizing:border-box" onkeydown="if(event.key==='Enter')cfVerifyOTP()"/>
           <button onclick="cfVerifyOTP()" class="btn-refresh" style="margin-top:8px">Verify &amp; connect</button></div>
+        <div style="margin:14px 0 8px;color:#9ca3af;font-size:12px">or</div>
+        <div id="cf-google"></div>
         <div id="cf-msg" style="margin-top:8px;font-size:13px;color:#6b7280"></div>
         <div id="cf-recaptcha"></div>
       </div>`;
+    cfGoogleButton();
     return;
   }
   body.innerHTML = '<div class="loader-box"><div class="loader"></div> Fetching Cashfree payouts from accounting…</div>';
