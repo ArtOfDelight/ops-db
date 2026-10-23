@@ -1214,6 +1214,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     <button class="sb-item" id="sbitem-accounting" onclick="navTo('accounting')">
       <span class="sb-icon">📒</span> Accounting
     </button>
+    <button class="sb-item" id="sbitem-cashfree" onclick="navTo('cashfree')">
+      <span class="sb-icon">💸</span> Cashfree Payouts
+    </button>
     <button class="sb-item" id="sbitem-production" onclick="navTo('production')">
       <span class="sb-icon">🏭</span> Supply Chain
     </button>
@@ -1287,9 +1290,6 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       </button>
       <button class="sb-item" id="sbitem-referrals" onclick="navTo('referrals')">
         <span class="sb-icon">🤝</span> Referrals
-      </button>
-      <button class="sb-item" id="sbitem-cashfree" onclick="navTo('cashfree')">
-        <span class="sb-icon">💸</span> Cashfree Payouts
       </button>
     </div>
   </div>
@@ -1400,7 +1400,7 @@ function navTo(page) {
     if (btn) btn.classList.toggle('active', id === page);
   });
   const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', cashfree:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
