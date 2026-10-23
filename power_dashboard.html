@@ -15505,7 +15505,7 @@ async function acctLogin(idToken) {
     else { localStorage.removeItem('acctToken'); localStorage.setItem('acctErr', d.detail || `Accounting sign-in refused (${r.status})`); }
   } catch {
     // ops login still works; a CORS block lands here too
-    localStorage.setItem('acctErr', 'Could not reach the accounting backend (it may not allow this dashboard's address yet — FRONTEND_URL on Render).');
+    localStorage.setItem('acctErr', 'Could not reach the accounting backend (it may not allow this dashboard’s address yet — FRONTEND_URL on Render).');
   }
 }
 
