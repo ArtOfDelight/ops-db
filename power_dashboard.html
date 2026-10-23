@@ -15627,47 +15627,103 @@ async function renderCashfreePage(refresh = false) {
   if (_currentPage === 'cashfree') cfDraw();
 }
 
+// Column sort + per-column filters. The table body redraws on its own
+// (cfRows) so typing in a filter box keeps its focus.
+const _cfF = { sort: 'date', dir: -1, ben: '', desc: '', utr: '', status: '', min: '', max: '' };
+const _cfCols = [
+  { k: 'date', label: 'Date', val: t => t.initiated_at },
+  { k: 'beneficiary', label: 'Beneficiary', val: t => t.beneficiary.toLowerCase() },
+  { k: 'head', label: 'Head', val: t => t.head.toLowerCase() },
+  { k: 'remarks', label: 'Description', val: t => t.remarks.toLowerCase() },
+  { k: 'amount', label: 'Amount', val: t => +t.amount || 0, right: true },
+  { k: 'status', label: 'Status', val: t => t.status },
+  { k: 'utr', label: 'UTR', val: t => t.utr },
+];
+const cfInr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+// Totals count money that actually went out; failed / reversed rows still list.
+const cfSum = list => list.reduce((s, t) => s + (t.status === 'SUCCESS' ? +t.amount || 0 : 0), 0);
+
+function cfInPeriod() {
+  const { from, to } = cfRange(_cf.period);
+  return _cf.rows.filter(t => t.date >= from && t.date <= to);
+}
+
 function cfDraw() {
   const body = document.getElementById('pageBody'), { from, to } = cfRange(_cf.period);
-  const inPeriod = _cf.rows.filter(t => t.date >= from && t.date <= to);
-  const rows = inPeriod.filter(t => _cf.cat === 'all' || t.head === _cf.cat);
-  const inr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-  // Totals count money that actually went out; failed / reversed rows still list.
-  const sum = list => list.reduce((s, t) => s + (t.status === 'SUCCESS' ? +t.amount || 0 : 0), 0);
+  const inPeriod = cfInPeriod();
   // ~40 heads, so a dropdown (biggest first) rather than a row of buttons.
   const heads = Object.entries(inPeriod.reduce((m, t) => { (m[t.head] = m[t.head] || []).push(t); return m; }, {}))
-    .sort((a, b) => sum(b[1]) - sum(a[1]));
+    .sort((a, b) => cfSum(b[1]) - cfSum(a[1]));
   if (_cf.cat !== 'all' && !heads.some(([h]) => h === _cf.cat)) heads.push([_cf.cat, []]);
-  const opt = (v, label, list) => `<option value="${sfEsc(v)}" ${_cf.cat === v ? 'selected' : ''}>${sfEsc(label)} · ${inr(sum(list))} (${list.length})</option>`;
-  const bySrc = `<select onchange="_cf.cat=this.value;cfDraw()" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;max-width:100%;font-size:13px">
-    ${opt('all', 'All heads', inPeriod)}${heads.map(([h, list]) => opt(h, h, list)).join('')}</select>`;
+  const opt = (v, label, list) => `<option value="${sfEsc(v)}" ${_cf.cat === v ? 'selected' : ''}>${sfEsc(label)} · ${cfInr(cfSum(list))} (${list.length})</option>`;
+  const statuses = [...new Set(_cf.rows.map(t => t.status).filter(Boolean))].sort();
   const tab = (k, label) => `<button onclick="_cf.period='${k}';cfDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_cf.period===k?'#111827':'var(--surface)'};color:${_cf.period===k?'#fff':'inherit'};font-weight:600">${label}</button>`;
-  const th = 'padding:8px;text-align:left';
+  const inp = 'padding:5px 7px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-weight:400';
+  const text = (k, ph) => `<input value="${sfEsc(_cfF[k])}" placeholder="${ph}" oninput="_cfF.${k}=this.value;cfRows()" style="${inp}"/>`;
+  const filters = {
+    date: '',
+    beneficiary: text('ben', 'Search…'),
+    head: `<select onchange="_cf.cat=this.value;cfDraw()" style="${inp}">${opt('all', 'All heads', inPeriod)}${heads.map(([h, list]) => opt(h, h, list)).join('')}</select>`,
+    remarks: text('desc', 'Search…'),
+    amount: `<div style="display:flex;gap:4px"><input value="${sfEsc(_cfF.min)}" placeholder="Min" inputmode="decimal" oninput="_cfF.min=this.value;cfRows()" style="${inp};min-width:60px"/><input value="${sfEsc(_cfF.max)}" placeholder="Max" inputmode="decimal" oninput="_cfF.max=this.value;cfRows()" style="${inp};min-width:60px"/></div>`,
+    status: `<select onchange="_cfF.status=this.value;cfRows()" style="${inp}"><option value="">All</option>${statuses.map(s => `<option ${_cfF.status === s ? 'selected' : ''}>${sfEsc(s)}</option>`).join('')}</select>`,
+    utr: text('utr', 'Search…'),
+  };
+  const th = 'padding:8px;text-align:left;vertical-align:bottom';
   body.innerHTML = `
-  <div style="padding:16px;max-width:1150px">
+  <div style="padding:16px;max-width:1250px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('month','Last month')}${tab('all','All time')}
       <span style="color:#6b7280">${_cf.period === 'all' ? '' : from === to ? from : from + ' → ' + to}</span>
-      <button onclick="renderCashfreePage(true)" class="btn-refresh" style="margin-left:auto">↻ Refresh from sheet</button>
+      <button onclick="cfClearFilters()" class="btn-refresh" style="margin-left:auto">Clear filters</button>
+      <button onclick="renderCashfreePage(true)" class="btn-refresh">↻ Refresh from sheet</button>
     </div>
-    <div style="font-size:13px;margin-bottom:10px">${rows.length} transfers · paid out <b>${inr(sum(rows))}</b>
-      <span style="color:#6b7280">· sheet has transfers up to ${sfEsc(_cf.rows[0]?.date || '—')}</span>
-      <div style="margin-top:8px">${bySrc}</div></div>
+    <div id="cf-summary" style="font-size:13px;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb">
-        <th style="${th}">Date</th><th style="${th}">Beneficiary</th><th style="${th}">Head</th><th style="${th}">Description</th>
-        <th style="${th};text-align:right">Amount</th><th style="${th}">Status</th><th style="${th}">UTR</th></tr></thead>
-      <tbody>${rows.length ? rows.map(t => `<tr style="border-top:1px solid #f3f4f6">
-        <td style="padding:8px;white-space:nowrap">${sfEsc(t.date)}</td>
-        <td style="padding:8px"><b>${sfEsc(t.beneficiary)}</b> <span style="color:#6b7280">${sfEsc(t.beneficiary_id)}</span></td>
-        <td style="padding:8px">${sfEsc(t.head)}</td>
-        <td style="padding:8px">${sfEsc(t.remarks)}</td>
-        <td style="padding:8px;text-align:right;white-space:nowrap;font-weight:600">${inr(t.amount)}</td>
-        <td style="padding:8px;${t.status === 'SUCCESS' ? '' : 'color:#b91c1c'}">${sfEsc(t.status)}</td>
-        <td style="padding:8px;color:#6b7280;font-size:12px">${sfEsc(t.utr)}</td>
-      </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;color:#6b7280">No transfers in this period.</td></tr>'}</tbody>
+      <thead><tr id="cf-head" style="color:#6b7280"></tr>
+        <tr style="border-bottom:1px solid #e5e7eb">${_cfCols.map(c => `<th style="padding:0 8px 8px;min-width:${c.k === 'amount' ? 140 : c.k === 'date' ? 0 : 110}px">${filters[c.k]}</th>`).join('')}</tr></thead>
+      <tbody id="cf-body"></tbody>
     </table></div>
   </div>`;
+  cfRows();
+}
+
+function cfSortBy(k) {
+  _cfF.dir = _cfF.sort === k ? -_cfF.dir : (k === 'date' || k === 'amount' ? -1 : 1);
+  _cfF.sort = k;
+  cfRows();
+}
+
+function cfClearFilters() {
+  Object.assign(_cfF, { ben: '', desc: '', utr: '', status: '', min: '', max: '' });
+  _cf.cat = 'all';
+  cfDraw();
+}
+
+function cfRows() {
+  const tbody = document.getElementById('cf-body');
+  if (!tbody) return;
+  const has = (v, q) => !q || v.toLowerCase().includes(q.trim().toLowerCase());
+  const min = parseFloat(_cfF.min), max = parseFloat(_cfF.max);
+  const col = _cfCols.find(c => c.k === _cfF.sort);
+  const rows = cfInPeriod().filter(t =>
+    (_cf.cat === 'all' || t.head === _cf.cat)
+    && has(t.beneficiary + ' ' + t.beneficiary_id, _cfF.ben) && has(t.remarks, _cfF.desc) && has(t.utr, _cfF.utr)
+    && (!_cfF.status || t.status === _cfF.status)
+    && (isNaN(min) || t.amount >= min) && (isNaN(max) || t.amount <= max))
+    .sort((a, b) => { const x = col.val(a), y = col.val(b); return (x < y ? -1 : x > y ? 1 : 0) * _cfF.dir; });
+  document.getElementById('cf-head').innerHTML = _cfCols.map(c => `<th onclick="cfSortBy('${c.k}')" style="padding:8px;text-align:${c.right ? 'right' : 'left'};cursor:pointer;white-space:nowrap;user-select:none">${c.label} <span style="opacity:${_cfF.sort === c.k ? 1 : .3}">${_cfF.sort === c.k ? (_cfF.dir < 0 ? '▼' : '▲') : '↕'}</span></th>`).join('');
+  document.getElementById('cf-summary').innerHTML = `${rows.length} transfers · paid out <b>${cfInr(cfSum(rows))}</b>
+    <span style="color:#6b7280">· sheet has transfers up to ${sfEsc(_cf.rows[0]?.date || '—')} · click a column name to sort</span>`;
+  tbody.innerHTML = rows.length ? rows.map(t => `<tr style="border-top:1px solid #f3f4f6">
+      <td style="padding:8px;white-space:nowrap">${sfEsc(t.date)}</td>
+      <td style="padding:8px"><b>${sfEsc(t.beneficiary)}</b> <span style="color:#6b7280">${sfEsc(t.beneficiary_id)}</span></td>
+      <td style="padding:8px">${sfEsc(t.head)}</td>
+      <td style="padding:8px">${sfEsc(t.remarks)}</td>
+      <td style="padding:8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(t.amount)}</td>
+      <td style="padding:8px;${t.status === 'SUCCESS' ? '' : 'color:#b91c1c'}">${sfEsc(t.status)}</td>
+      <td style="padding:8px;color:#6b7280;font-size:12px">${sfEsc(t.utr)}</td>
+    </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;color:#6b7280">No transfers match.</td></tr>';
 }
 
 async function renderReferralsPage() {
