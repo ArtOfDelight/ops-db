@@ -10992,7 +10992,7 @@ async function renderIncPayoutPage() {
         </div>
         <div style="display:flex;gap:8px">
           <button onclick="renderIncPayoutPage()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--ink);font-weight:600">↻ Refresh</button>
-          <button id="inc-pay-all-btn" onclick="_incPayAll()" style="padding:7px 20px;font-size:12px;border-radius:8px;border:none;background:#111827;color:#fff;cursor:pointer;font-weight:700" title="Sends everyone payable to Ayaaz/Ajay for approval — paid when either approves">Send all for approval</button>
+          <button id="inc-pay-all-btn" onclick="_incPayAll()" style="padding:7px 20px;font-size:12px;border-radius:8px;border:none;background:#111827;color:#fff;cursor:pointer;font-weight:700" title="Pay everyone payable (or send for approval when approvals are on)">${INC_APPROVAL_REQUIRED ? 'Send all for approval' : 'Pay All'}</button>
           <button id="inc-zoho-btn" onclick="_incPushZoho()" style="padding:7px 16px;font-size:12px;border-radius:8px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;cursor:pointer;font-weight:700" title="Push salary journal entry to Zoho Books">📒 Push to Zoho</button>
           <button onclick="_incResetWeek()" style="padding:7px 14px;font-size:12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;color:var(--red);font-weight:600" title="Clear paid records to start a new week">Reset Week</button>
         </div>
@@ -11212,6 +11212,11 @@ async function _incWithdraw(id) {
   renderIncPayoutPage();
 }
 
+// Incentive payouts: true = Pay sends to Ayaaz/Ajay for approval; false = Pay
+// transfers straight away (paused 2026-10-23 -- keep in step with the
+// backend's INCENTIVE_APPROVAL_REQUIRED env var).
+const INC_APPROVAL_REQUIRED = false;
+
 async function _incSendForApproval(empIds) {
   const r = await fetch(`${API}/api/admin/payout-approvals/incentives`, {
     method: 'POST',
@@ -11226,7 +11231,52 @@ async function _incSendForApproval(empIds) {
   renderIncPayoutPage();
 }
 
+async function _incPayOne(idx) {
+  const e   = _incPayoutData[idx];
+  const btn = document.getElementById('paybtn-' + idx);
+  const cell= document.getElementById('paycell-' + idx);
+  const row = document.getElementById('inc-row-' + idx);
+  if (!e || !btn) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch(`${API}/api/admin/incentives/pay-employee`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emp_id: e.emp_id, amount: e.total })
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ ${d.detail || 'Failed'}</span>`;
+      return;
+    }
+    const ok = d.status === 'SUCCESS' || d.status === 'PENDING' || d.status === 'PROCESSING';
+    row.style.background = ok ? '#f0fdf4' : '#fff7f7';
+    if (d.status === 'SUCCESS') {
+      cell.innerHTML = `<span style="font-size:11px;color:#166534;font-weight:700">✓ SUCCESS</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${d.txn_id || ''}</div>`;
+    } else if (d.status === 'PENDING' || d.status === 'PROCESSING') {
+      cell.innerHTML = `<span style="font-size:11px;color:#92400e;font-weight:600">⏳ ${d.status}…</span><div style="font-size:9px;color:var(--ink-3);font-family:var(--mono);margin-top:2px">${d.txn_id || ''}</div>`;
+      if (e && e.emp_id) _incPollStatus(idx, e.emp_id);
+    } else {
+      cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ ${d.status}</span>`;
+    }
+  } catch(err) {
+    cell.innerHTML = `<span style="font-size:11px;color:var(--red);font-weight:600">✕ Network error</span>`;
+  }
+}
+
+async function _incPayDirect(idx) {
+  const e   = _incPayoutData[idx];
+  if (!e) return;
+  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const proxyLine = e.proxy_bank_account_name ? `\n⚠️ Account belongs to: ${e.proxy_bank_account_name}` : '';
+  const rail = _incProvider === 'cashfree' ? 'Cashfree' : 'Bulkpe';
+  const confirmed = confirm(`Pay ${e.name} (${e.emp_id})\nAmount: ${fmt(e.total)}\nAccount: ••••${e.bank_account.slice(-4)}\nIFSC: ${e.ifsc}${proxyLine}\n\nThis will initiate a real bank transfer via ${rail}. Confirm?`);
+  if (!confirmed) return;
+  await _incPayOne(idx);
+}
+
 async function _incPay(idx) {
+  if (!INC_APPROVAL_REQUIRED) return _incPayDirect(idx);
   const e   = _incPayoutData[idx];
   if (!e) return;
   const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -11250,7 +11300,36 @@ async function _incResetWeek() {
   } catch(e) { alert('Network error: ' + e); }
 }
 
+async function _incPayAllDirect() {
+  // Same balance_to_pay fallback as _renderIncPayoutTable's balOf -- a
+  // partially-paid employee (e.total > 0, e.paid false) must be filtered and
+  // summed by what's actually left, not the full sheet amount, or "Pay All"
+  // would try to resend what was already paid.
+  const balOf = e => e.balance_to_pay != null ? e.balance_to_pay : (e.paid ? 0 : e.total);
+  const payable = _incPayoutData
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => e.has_bank && balOf(e) > 0);
+
+  if (!payable.length) { alert('No payable employees (need bank account + balance > 0).'); return; }
+
+  const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const totalAmt = payable.reduce((s, { e }) => s + balOf(e), 0);
+  const lines = payable.map(({ e }) => `${e.name} (${e.emp_id}) — ${fmt(balOf(e))}`).join('\n');
+  const confirmed = confirm(`Pay ALL ${payable.length} employees?\n\nTotal: ${fmt(totalAmt)}\n\n${lines}\n\nThis will initiate ${payable.length} real bank transfers via ${_incProvider === 'cashfree' ? 'Cashfree' : 'Bulkpe'}. Confirm?`);
+  if (!confirmed) return;
+
+  const allBtn = document.getElementById('inc-pay-all-btn');
+  if (allBtn) { allBtn.disabled = true; allBtn.textContent = 'Paying…'; }
+
+  for (const { i } of payable) {
+    await _incPayOne(i);
+  }
+
+  if (allBtn) { allBtn.disabled = false; allBtn.textContent = 'Pay All'; }
+}
+
 async function _incPayAll() {
+  if (!INC_APPROVAL_REQUIRED) return _incPayAllDirect();
   // Same balance_to_pay fallback as _renderIncPayoutTable's balOf.
   const balOf = e => e.balance_to_pay != null ? e.balance_to_pay : (e.paid ? 0 : e.total);
   const payable = _incPayoutData.filter(e => e.has_bank && balOf(e) > 0 && !_incAwaiting.has(e.emp_id));
