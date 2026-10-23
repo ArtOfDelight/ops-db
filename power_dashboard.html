@@ -2482,6 +2482,7 @@ function metCell(val, unit, isKpt) {
 let _scWindow = 7;                        // 7 | 28 | 'custom'
 let _scCustom = { start: '', end: '' };   // ISO yyyy-mm-dd, used when _scWindow === 'custom'
 let _scType = 'cloud';
+let _scSolo = false;  // true = only orders/ratings/IGCC tagged to one employee
 
 function scFmtISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -2529,6 +2530,10 @@ function renderScorecardPage() {
             <button class="ptab active" id="sctype-cloud"  onclick="scSetType('cloud')"  style="padding:4px 12px;font-size:10px">☁ Cloud</button>
             <button class="ptab"        id="sctype-dinein" onclick="scSetType('dinein')" style="padding:4px 12px;font-size:10px">🍽 Dine-In</button>
           </div>
+          <div class="panel-tabs" style="margin:0;padding:3px;gap:1px" title="Solo = only orders, ratings and IGCCs where this person was the only one on shift">
+            <button class="ptab ${_scSolo ? '' : 'active'}" id="scsolo-all"  onclick="scSetSolo(false)" style="padding:4px 12px;font-size:10px">All</button>
+            <button class="ptab ${_scSolo ? 'active' : ''}" id="scsolo-solo" onclick="scSetSolo(true)"  style="padding:4px 12px;font-size:10px">👤 Solo</button>
+          </div>
           <span class="as-of-label" id="scDateLabel"></span>
           <button class="ls-logout-btn" onclick="lsLogout();renderScorecardPage()">Logout</button>
         </div>
@@ -2574,6 +2579,15 @@ function scApplyCustom() {
   scLoadData();
 }
 
+function scSetSolo(solo) {
+  _scSolo = solo;
+  document.getElementById('scsolo-all')?.classList.toggle('active', !solo);
+  document.getElementById('scsolo-solo')?.classList.toggle('active', solo);
+  const el = document.getElementById('sc-content');
+  if (el) el.innerHTML = '<div class="loader-box"><div class="loader"></div> Loading…</div>';
+  scLoadData();
+}
+
 function scSetType(type) {
   _scType = type;
   ['cloud','dinein'].forEach(t => {
@@ -2590,7 +2604,7 @@ async function scLoadData() {
   const fmt = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
   const labelEl = document.getElementById('scDateLabel');
   if (labelEl) labelEl.textContent = _scWindow === 1 ? fmt(end) : `${fmt(start)} – ${fmt(end)}`;
-  const url = `${API}/api/admin/employee-scorecard?week_start=${scFmtISO(start)}&week_end=${scFmtISO(end)}`;
+  const url = `${API}/api/admin/employee-scorecard?week_start=${scFmtISO(start)}&week_end=${scFmtISO(end)}${_scSolo ? '&solo_only=true' : ''}`;
   const el = document.getElementById('sc-content');
   try {
     const r = await fetch(url, { headers: { 'Authorization': `Bearer ${_lsToken}` } });
