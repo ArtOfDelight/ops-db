@@ -1288,6 +1288,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-referrals" onclick="navTo('referrals')">
         <span class="sb-icon">🤝</span> Referrals
       </button>
+      <button class="sb-item" id="sbitem-cashfree" onclick="navTo('cashfree')">
+        <span class="sb-icon">💸</span> Cashfree Payouts
+      </button>
     </div>
   </div>
 
@@ -1392,12 +1395,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','accounting','production','access','pestcontrol','orderaudit','catalogue'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','catalogue'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
   const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', cashfree:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1437,6 +1440,7 @@ function navTo(page) {
   if (page === 'salaryflags') renderSalaryFlagsPage();
   if (page === 'salaries')    renderSalariesPage();
   if (page === 'referrals')   renderReferralsPage();
+  if (page === 'cashfree')    renderCashfreePage();
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
   if (page === 'comments')    renderCommentsPage();
@@ -2267,6 +2271,7 @@ async function lsVerifyOTP() {
     if (!r.ok) { lsSetErr(d.detail || 'Login failed'); return; }
     _lsToken = d.token;
     localStorage.setItem('opsdbToken', _lsToken);
+    await acctLogin(idToken);
     try { await _fb.mod.signOut(_fb.auth); } catch {}
     opsdbApplyAccess(d);
     navTo(opsdbFirstPage());
@@ -2277,6 +2282,7 @@ async function lsVerifyOTP() {
 
 function lsLogout() {
   localStorage.removeItem('opsdbToken');
+  localStorage.removeItem('acctToken');
   _lsToken = null;
   OPSDB_ME = null;
   opsdbShowLogin();
@@ -15481,6 +15487,93 @@ async function sfSend(decisions) {
 /* ── REFERRAL PAYMENTS ── referrer gets ₹2000 once the referred person has
    worked 30 days (roster days with a sign-in). Backend: /api/admin/referrals */
 let _rf = { data: null, show: 'all', busy: false };
+/* ── CASHFREE PAYOUTS (read-only, from the accounting backend) ── */
+// Same Firebase project as the accounting app, so the login OTP's ID token is
+// exchanged for an accounting session too. Only people listed in the
+// accounting app's users get one; everyone else sees a notice on this tab.
+const ACCT_API = 'https://aod-accounting-api-v2.onrender.com/api';
+const _cf = { rows: null, period: 'yesterday' };
+
+async function acctLogin(idToken) {
+  try {
+    const r = await fetch(`${ACCT_API}/auth/phone`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    if (r.ok) localStorage.setItem('acctToken', (await r.json()).token);
+    else localStorage.removeItem('acctToken');
+  } catch { /* accounting down -- ops login still works */ }
+}
+
+function cfRange(period) {
+  const t = new Date();
+  const ago = n => { const d = new Date(t); d.setDate(d.getDate() - n); return d; };
+  if (period === 'yesterday') return { from: lsFmtISO(ago(1)), to: lsFmtISO(ago(1)) };
+  if (period === '7d')        return { from: lsFmtISO(ago(7)), to: lsFmtISO(ago(1)) };
+  // last month = previous calendar month
+  return { from: lsFmtISO(new Date(t.getFullYear(), t.getMonth() - 1, 1)),
+           to:   lsFmtISO(new Date(t.getFullYear(), t.getMonth(), 0)) };
+}
+
+async function renderCashfreePage(refresh = false) {
+  const body = document.getElementById('pageBody');
+  const token = localStorage.getItem('acctToken');
+  if (!token) {
+    body.innerHTML = `<div style="padding:20px;color:#6b7280">Not connected to the accounting app. Log out and sign in again with your phone —
+      your number must also have access in the Accounting dashboard.</div>`;
+    return;
+  }
+  body.innerHTML = '<div class="loader-box"><div class="loader"></div> Fetching Cashfree payouts from accounting…</div>';
+  try {
+    const r = await fetch(`${ACCT_API}/cashfree-history${refresh ? '?refresh=true' : ''}`, { headers: { 'X-App-Token': token } });
+    if (r.status === 401) { localStorage.removeItem('acctToken'); return renderCashfreePage(); }
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Accounting API error ${r.status}`);
+    const emps = await r.json();
+    _cf.rows = emps.flatMap(e => (e.transactions || []).map(t => ({ ...t, emp: e.full_name || e.short_name, emp_id: e.employee_id })))
+      .sort((a, b) => (b.transferDate || '').localeCompare(a.transferDate || ''));
+  } catch (e) {
+    if (_currentPage === 'cashfree') body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`;
+    return;
+  }
+  if (_currentPage === 'cashfree') cfDraw();
+}
+
+function cfDraw() {
+  const body = document.getElementById('pageBody'), { from, to } = cfRange(_cf.period);
+  const rows = _cf.rows.filter(t => t.transferDate >= from && t.transferDate <= to);
+  const inr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const sum = list => list.reduce((s, t) => s + (+t.amount || 0), 0);
+  const bySrc = ['salary', 'advance', 'reimbursement'].map(k => {
+    const r = rows.filter(t => t.source === k);
+    return `<span style="margin-right:14px">${k[0].toUpperCase() + k.slice(1)}: <b>${inr(sum(r))}</b> (${r.length})</span>`;
+  }).join('');
+  const tab = (k, label) => `<button onclick="_cf.period='${k}';cfDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_cf.period===k?'#111827':'var(--surface)'};color:${_cf.period===k?'#fff':'inherit'};font-weight:600">${label}</button>`;
+  const th = 'padding:8px;text-align:left';
+  body.innerHTML = `
+  <div style="padding:16px;max-width:1150px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('month','Last month')}
+      <span style="color:#6b7280">${from === to ? from : from + ' → ' + to}</span>
+      <button onclick="renderCashfreePage(true)" class="btn-refresh" style="margin-left:auto">↻ Refresh from Cashfree</button>
+    </div>
+    <div style="font-size:13px;margin-bottom:10px">${rows.length} transfers · total <b>${inr(sum(rows))}</b><div style="color:#6b7280;margin-top:4px">${bySrc}</div></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb">
+        <th style="${th}">Date</th><th style="${th}">Employee</th><th style="${th}">Type</th><th style="${th}">Reason</th>
+        <th style="${th};text-align:right">Amount</th><th style="${th}">Status</th><th style="${th}">Reference</th></tr></thead>
+      <tbody>${rows.length ? rows.map(t => `<tr style="border-top:1px solid #f3f4f6">
+        <td style="padding:8px;white-space:nowrap">${sfEsc(t.transferDate || '—')}</td>
+        <td style="padding:8px"><b>${sfEsc(t.emp)}</b> <span style="color:#6b7280">${sfEsc(t.emp_id)}</span></td>
+        <td style="padding:8px">${sfEsc(t.source || '')}</td>
+        <td style="padding:8px">${sfEsc(t.reason || '')}</td>
+        <td style="padding:8px;text-align:right;white-space:nowrap;font-weight:600">${inr(t.amount)}</td>
+        <td style="padding:8px">${sfEsc(String(t.status || ''))}${t.marked_paid === false ? ' <span style="color:#b45309">· not marked paid</span>' : ''}</td>
+        <td style="padding:8px;color:#6b7280;font-size:12px">${sfEsc(t.reference_id || t.transaction_id || '')}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;color:#6b7280">No transfers in this period.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
 async function renderReferralsPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = '<div style="padding:20px">Loading referrals…</div>';
