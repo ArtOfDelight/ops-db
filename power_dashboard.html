@@ -15632,7 +15632,7 @@ function cfDraw() {
   const sum = list => list.reduce((s, t) => s + (+t.amount || 0), 0);
   // Categories come from the data, so any new source the backend adds shows up too.
   const cats = [...new Set(_cf.rows.map(t => t.source || 'other'))].sort();
-  const cap = k => k[0].toUpperCase() + k.slice(1);
+  const cap = k => ({ staffroom: 'Staff Room' })[k] || k[0].toUpperCase() + k.slice(1);
   const catBtn = (k, label) => {
     const r = k === 'all' ? inPeriod : inPeriod.filter(t => (t.source || 'other') === k), on = _cf.cat === k;
     return `<button onclick="_cf.cat='${k}';cfDraw()" style="padding:6px 12px;border-radius:999px;border:1px solid #d1d5db;background:${on?'#111827':'var(--surface)'};color:${on?'#fff':'inherit'};font-size:12px;font-weight:600">${label} · ${inr(sum(r))} (${r.length})</button>`;
