@@ -7753,7 +7753,7 @@ function renderBriefResult(data) {
   body.innerHTML = `<div class="db2-grid">
     ${card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)) + ' · rostered, never signed in', ppl.length, siBody)}
-    ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online % · checked against staff power-off forms', rows.length, avBody, true)}
+    ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online % · checked against staff power-off forms', outlets.size, avBody, true)}
   </div>`;
 }
 
