@@ -2627,6 +2627,76 @@ function scSortBy(key) {
   if (el && window._scLastRows) scRenderTable(window._scLastRows, el);
 }
 
+// Row drill-down: high / low / IGCC orders behind the numbers (same window + Solo filter)
+const _scExpanded = new Set();
+const _scDetail = {};   // `${eid}|${start}|${end}|${solo}` → detail payload, or 'loading' / 'error'
+function scDetailKey(eid) {
+  const { start, end } = scDateRange(_scWindow);
+  return `${eid}|${scFmtISO(start)}|${scFmtISO(end)}|${_scSolo ? 1 : 0}`;
+}
+function scRedraw() {
+  const el = document.getElementById('sc-content');
+  if (el && window._scLastRows) scRenderTable(window._scLastRows, el);
+}
+async function scToggleDetail(eid) {
+  if (_scExpanded.has(eid)) { _scExpanded.delete(eid); scRedraw(); return; }
+  _scExpanded.add(eid);
+  const key = scDetailKey(eid);
+  if (_scDetail[key] && _scDetail[key] !== 'error') { scRedraw(); return; }
+  _scDetail[key] = 'loading';
+  scRedraw();
+  const { start, end } = scDateRange(_scWindow);
+  try {
+    const r = await fetch(`${API}/api/admin/employee-scorecard/detail?employee_id=${encodeURIComponent(eid)}&week_start=${scFmtISO(start)}&week_end=${scFmtISO(end)}${_scSolo ? '&solo_only=true' : ''}`,
+      { headers: { 'Authorization': `Bearer ${_lsToken}` } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    _scDetail[key] = await r.json();
+  } catch (err) {
+    console.warn('scorecard detail', err);
+    _scDetail[key] = 'error';
+  }
+  scRedraw();
+}
+function scDetailRowHtml(eid, colspan) {
+  const d = _scDetail[scDetailKey(eid)];
+  const wrap = inner => `<tr class="pr-detail-row"><td colspan="${colspan}" style="padding:0;border-bottom:1px solid var(--border-2);background:var(--bg);text-align:left">${inner}</td></tr>`;
+  if (!d || d === 'loading') return wrap('<div class="loader-box" style="padding:16px 20px"><div class="loader"></div> Loading…</div>');
+  if (d === 'error') return wrap('<div style="padding:14px 20px;font-size:11px;color:var(--red)">Could not load details — click the row again to retry.</div>');
+  const list = (arr, emptyMsg) => {
+    if (!arr.length) return `<div style="color:var(--ink-3);font-size:11px;padding:6px 0">${emptyMsg}</div>`;
+    return arr.map(r => `<div style="padding:7px 9px;border-bottom:1px solid var(--border);font-size:11px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <span style="font-weight:700;color:var(--ink)">${escHtml(r.source||'')}${r.rating!=null?' · ⭐'+r.rating:''}${r.outlet?' · '+escHtml(r.outlet):''}</span>
+          <span style="color:var(--ink-3);font-family:var(--mono)">${escHtml(r.date||'')}</span>
+        </div>
+        ${r.order_id ? `<div style="color:var(--ink-3);margin-top:2px;font-family:var(--mono)">#${escHtml(r.order_id)}</div>` : ''}
+        ${r.items ? `<div style="color:var(--ink-2);margin-top:2px">${escHtml(r.items)}</div>` : ''}
+        ${r.complaint_type ? `<div style="color:var(--ink-3);margin-top:2px">${escHtml(r.complaint_type)}</div>` : ''}
+        ${r.comment ? `<div style="margin-top:4px;color:var(--ink)">"${escHtml(r.comment)}"</div>` : ''}
+        ${r.with ? `<div style="color:var(--ink-3);margin-top:2px;font-size:10px">With: ${escHtml(r.with)}</div>` : ''}
+      </div>`).join('');
+  };
+  const col = (color, title, arr, empty, last) => `<div style="flex:1;min-width:220px;${last ? '' : 'border-right:1px solid var(--border);padding-right:14px;margin-right:14px'}">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:6px">${title} (${arr.length})</div>
+      <div style="max-height:260px;overflow-y:auto">${list(arr, empty)}</div>
+    </div>`;
+  const days = d.orders_by_day || [];
+  const dayTotal = days.reduce((a, x) => a + (x.orders || 0), 0);
+  const fmtDay = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  const orders = `<div style="flex:0 0 170px;border-right:1px solid var(--border);padding-right:14px;margin-right:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);margin-bottom:6px">📦 ${d.solo_only ? 'Solo ' : ''}Orders (${dayTotal})</div>
+      <div style="max-height:260px;overflow-y:auto">${days.length ? days.map(x => `<div style="display:flex;justify-content:space-between;padding:5px 2px;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono)">
+          <span style="color:var(--ink-3)">${fmtDay(x.date)} · ${escHtml(x.outlet||'')}</span><span style="font-weight:700">${x.orders}</span></div>`).join('')
+        : '<div style="color:var(--ink-3);font-size:11px;padding:6px 0">No Rista orders</div>'}</div>
+    </div>`;
+  return wrap(`<div style="display:flex;gap:0;padding:14px 20px;flex-wrap:wrap" onclick="event.stopPropagation()">
+      ${orders}
+      ${col('var(--green)', '⭐ High Rated', d.high, 'No high-rated orders')}
+      ${col('var(--red)', '👎 Low Rated', d.low, 'No low-rated orders')}
+      ${col('#e65100', '🚫 IGCC', d.igcc, 'No IGCC complaints', true)}
+    </div>`);
+}
+
 function scBuildTable(rows, offset) {
   if (!rows.length) return '<div class="no-outages" style="padding:24px">No staff in this group this week.</div>';
   const th = (key, label, cls) => {
@@ -2656,9 +2726,10 @@ function scBuildTable(rows, offset) {
     const errPctCls = errPct === null ? '' : errPct <= 2 ? 'good' : errPct <= 5 ? 'warn' : 'bad';
     const netScore = (hrPct !== null && errPct !== null) ? (parseFloat(hrPct) - parseFloat(errPct)).toFixed(1) : null;
     const netCls = netScore === null ? '' : netScore >= 65 ? 'good' : netScore >= 45 ? 'warn' : 'bad';
-    return `<tr style="animation:fadeUp .18s ease both;animation-delay:${(i+offset)*18}ms">
+    const open = _scExpanded.has(e.employee_id);
+    return `<tr style="cursor:pointer;animation:fadeUp .18s ease both;animation-delay:${(i+offset)*18}ms${open ? ';background:var(--surface-2,#f5f6fa)' : ''}" onclick="scToggleDetail('${e.employee_id}')" title="Click for orders, ratings & IGCC">
       <td class="left">
-        <div class="sc-emp-name">${e.name}</div>
+        <div class="sc-emp-name">${open ? '▾' : '▸'} ${e.name}</div>
         <div class="sc-emp-id">${e.employee_id}</div>
       </td>
       <td><span class="sc-num">${e.total_orders ?? '—'}</span></td>
@@ -2674,7 +2745,7 @@ function scBuildTable(rows, offset) {
         <div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.checklist_submitted ?? '—'}/${e.checklist_scheduled ?? '—'}</div>
       </td>
       <td><span class="sc-num ${e.late_count > 0 ? 'sc-pct bad' : ''}">${e.late_count ?? 0}</span></td>
-    </tr>`;
+    </tr>` + (open ? scDetailRowHtml(e.employee_id, 11) : '');
   }).join('');
   return `<table class="sc-table">${thead}<tbody>${trs}</tbody></table>`;
 }
