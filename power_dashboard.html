@@ -2729,8 +2729,13 @@ function scBuildTable(rows, offset) {
     const open = _scExpanded.has(e.employee_id);
     return `<tr style="cursor:pointer;animation:fadeUp .18s ease both;animation-delay:${(i+offset)*18}ms${open ? ';background:var(--surface-2,#f5f6fa)' : ''}" onclick="scToggleDetail('${e.employee_id}')" title="Click for orders, ratings & IGCC">
       <td class="left">
-        <div class="sc-emp-name">${open ? '▾' : '▸'} ${e.name}</div>
-        <div class="sc-emp-id">${e.employee_id}</div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <span aria-hidden="true" style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;border:1px solid ${open ? 'var(--blue)' : 'var(--border-2)'};background:${open ? 'var(--blue)' : 'var(--surface)'};color:${open ? '#fff' : 'var(--ink-2)'};font-size:10px;line-height:1;transition:transform .15s;transform:rotate(${open ? 180 : 0}deg)">▼</span>
+          <div>
+            <div class="sc-emp-name">${e.name}</div>
+            <div class="sc-emp-id">${e.employee_id}</div>
+          </div>
+        </div>
       </td>
       <td><span class="sc-num">${e.total_orders ?? '—'}</span></td>
       <td><span class="sc-num" style="color:var(--green)">${e.high_rated ?? '—'}</span></td>
