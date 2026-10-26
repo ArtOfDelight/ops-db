@@ -7702,41 +7702,47 @@ function renderBriefResult(data) {
     const days = c && isRange && c.low_days != null ? `<div class="db2-sub">${c.low_days} of ${c.days} days below ${th}%</div>` : '';
     return `<td><span class="db2-pct ${cls}">${v}%</span>${tag}${days}</td>`;
   };
-  // One day's opening hours as a bar: offline blocks coloured by cause, power cuts as a strip below
-  const tlBar = t => {
-    const open = new Date(t.open), close = new Date(t.close), span = (close - open) / 60000;
-    const om = open.getHours() * 60 + open.getMinutes();
-    const pos = hm => { const [h, m] = hm.split(':').map(Number); return Math.min(span, (h * 60 + m - om + 1440) % 1440); };
-    const seg = (b, cls, tip) => { const l = pos(b.start), r = Math.max(l + 1, pos(b.end));
-      return `<i class="${cls}" style="left:${l / span * 100}%;width:${(r - l) / span * 100}%" title="${escHtml(tip)}"></i>`; };
-    const hhmm = d => d.toTimeString().slice(0, 5);
-    return `<div class="db2-tl">
-      <div class="db2-tl-bar">${(t.slot_closed || []).map(b => seg(b, 'slot', `${b.start}–${b.end} slot closed (scheduled)`)).join('')}${t.offline.map(b => seg(b, KIND[b.kind][0], `${b.start}–${b.end} offline · ${KIND[b.kind][1]}`)).join('')}</div>
-      <div class="db2-tl-pw">${t.power.map(b => seg(b, b.no_power_on ? 'unc' : 'pw', `${b.start}–${b.end} power off${b.no_power_on ? ' (no Power On form)' : ''}`)).join('')}</div>
-      <div class="db2-tl-ax"><span>${hhmm(open)}</span><span>${hhmm(close)}</span></div></div>`;
-  };
-  const detail = (pl, o) => {
-    const c = ((av.checks || {})[pl] || {})[o];
-    if (!c) return '';
-    const tls = c.timelines || [];
-    if (!tls.length)  // monitor keeps 7 days and doesn't cover every outlet: fall back to totals
-      return `<div class="db2-dt"><div class="db2-dt-h">${pl}</div><div class="db2-sub">offline ~${fmtM(c.offline_mins)} · power-off forms ${fmtM(c.power_off_mins)}${c.no_power_on ? ` · ${c.no_power_on} without power-on` : ''} · no live-monitor data</div></div>`;
-    return `<div class="db2-dt"><div class="db2-dt-h">${pl}</div>${tls.map(t => `
-      ${isRange ? `<div class="db2-sub">${fmtDay(t.date)}</div>` : ''}${tlBar(t)}
-      <div class="db2-ev">${t.offline.length ? t.offline.map(b => `<div><span class="db2-k ${KIND[b.kind][0]}"></span><b>${b.start}–${b.end}</b> <span class="db2-sub">${fmtM(b.mins)}</span> ${KIND[b.kind][1]}</div>`).join('')
-        : '<div class="db2-sub">No offline time seen by the live monitor</div>'}
-      ${t.power.filter(b => b.no_power_on).map(b => `<div class="warn">⚡ Power Off ${b.start}, no Power On form</div>`).join('')}</div>`).join('')}</div>`;
-  };
+  // Flat table: one row per offline period, outlet + platform shown once per group
+  const toMin = hm => { const [h, m] = hm.split(':').map(Number); return h * 60 + m; };
+  const overlaps = (a, b) => { const off = t => (t - 300 + 1440) % 1440;  // trading day starts 05:00
+    return off(toMin(a.start)) < off(toMin(b.end)) && off(toMin(b.start)) < off(toMin(a.end)); };
+  const avRows = [];
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
-  const rows = [...outlets].sort((a, b) => worst(a) - worst(b));
+  [...outlets].sort((a, b) => worst(a) - worst(b)).forEach(o => plats.forEach(pl => {
+    const v = ((P[pl] || {}).outlets || {})[o];
+    if (v == null || v >= th) return;
+    const c = ((av.checks || {})[pl] || {})[o] || {};
+    const pct = `<span class="db2-pct ${v < 90 ? 'red' : 'amber'}">${v}%</span>`;
+    const tls = c.timelines || [];
+    const items = [];
+    tls.forEach(t => {
+      t.offline.forEach(b => {
+        const pw = t.power.filter(p => overlaps(p, b));
+        items.push({ date: t.date, when: `${b.start}–${b.end}`, mins: b.mins, kind: b.kind,
+          power: pw.length ? pw.map(p => p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`).join(', ') : '—' });
+      });
+      t.power.filter(p => !t.offline.some(b => overlaps(p, b))).forEach(p =>
+        items.push({ date: t.date, when: '—', mins: null, kind: null, power: p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`, note: 'power off, platform stayed online' }));
+    });
+    if (!items.length)  // no live-monitor data (older than 7 days or outlet not monitored): totals only
+      items.push({ when: `~${fmtM(c.offline_mins || 0)} total`, mins: null, kind: null,
+        power: c.power_off_mins ? `${fmtM(c.power_off_mins)} total` : '—', verdict: c.verdict, note: tls.length ? '' : 'no live-monitor data' });
+    items.forEach((it, i) => avRows.push(`<tr class="${i === 0 ? 'db2-grp' : ''}">
+      ${i === 0 ? `<td rowspan="${items.length}"><b>${escHtml(o)}</b></td><td rowspan="${items.length}">${pl}</td><td rowspan="${items.length}">${pct}</td>` : ''}
+      ${isRange ? `<td>${it.date ? fmtDay(it.date) : ''}</td>` : ''}
+      <td class="mono">${it.when}</td><td class="mono">${it.mins != null ? fmtM(it.mins) : ''}</td>
+      <td class="mono">${escHtml(it.power)}</td>
+      <td>${it.kind ? `<span class="db2-k ${KIND[it.kind][0]}"></span>${KIND[it.kind][1]}`
+          : it.verdict && VERDICT[it.verdict] ? `<span class="db2-verdict ${VERDICT[it.verdict][0]}">${VERDICT[it.verdict][1]}</span>` : ''}
+          ${it.note ? `<span class="db2-sub">${it.note}</span>` : ''}</td></tr>`));
+  }));
   let avBody;
   if (err('Availability Below 95%')) avBody = errHtml('Availability Below 95%');
-  else if (!rows.length) avBody = `<div class="db2-ok">✓ All outlets online ${th}% or more</div>`;
-  else avBody = `<table class="db2-tbl db2-av"><thead><tr><th>Outlet</th>${plats.map(pl => `<th>${pl}${isRange ? '<div class="db2-sub">avg</div>' : ''}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(o => `<tr class="db2-av-h"><td><b>${escHtml(o)}</b></td>${plats.map(pl => cell(pl, o)).join('')}</tr>
-      <tr class="db2-av-d"><td colspan="${plats.length + 1}"><div class="db2-dts">${plats.map(pl => detail(pl, o)).join('')}</div></td></tr>`).join('')}</tbody></table>
-    <div class="db2-legend"><span class="db2-k pw"></span>power cut (matches a power-off form) <span class="db2-k out"></span>switched off by outlet <span class="db2-k bad"></span>unexplained <span class="db2-k unc"></span>power-off, no power-on <span class="db2-k slot"></span>scheduled slot closed</div>
-    <div class="db2-legend">Online % is from Swiggy/Zomato. Offline blocks are from the 2-minute live monitor (last 7 days), each matched against power-off forms by time; the thin strip under each bar is the power-off forms.</div>`;
+  else if (!avRows.length) avBody = `<div class="db2-ok">✓ All outlets online ${th}% or more</div>`;
+  else avBody = `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off form</th><th>Cause</th></tr></thead>
+    <tbody>${avRows.join('')}</tbody></table></div>
+    <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–95%</span></div>
+    <div class="db2-legend">Online % is from Swiggy/Zomato. Offline periods come from the 2-minute live monitor (last 7 days) and are matched to power-off forms by time.</div>`;
 
   const card = (icon, title, sub, count, inner, wide) => `
     <div class="db2-card ${count ? 'bad' : 'good'}${wide ? ' wide' : ''}">
@@ -16472,6 +16478,11 @@ async function ctDelete(id, cid) {
 .db2-ev { font-size:12px;line-height:1.7;color:var(--ink-2); }
 .db2-ev .warn { color:var(--amber); }
 .db2-legend .db2-k { margin-left:6px; }
+.db2-scroll { overflow-x:auto; }
+.db2-av td { vertical-align:top;white-space:nowrap; }
+.db2-av td.mono { font-family:var(--mono);font-size:12px; }
+.db2-av tr.db2-grp td { border-top:1px solid var(--border-2); }
+.db2-av td .db2-sub { margin-left:6px;display:inline; }
 .db2-legend { display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--ink-3);margin-top:10px; }
 .db2-actions { margin-top:26px; }
 .db2-head .sp, .db2-card-h .sp, .db2-row .sp { flex:1; }
