@@ -8025,7 +8025,7 @@ function renderReviewsPage() {
           <div class="section-icon blue">📝</div>
           <div>
             <div class="section-title">Reviews & Comments</div>
-            <div class="section-sub">Every free-text customer review or complaint comment — Swiggy, Zomato, IGCC. Staff filter narrows to whoever's shift actually overlapped the order's timestamp when we have one; falls back to "on shift that day" only when no order time is available. Still a shift match, not a confirmed culprit.</div>
+            <div class="section-sub">Every Swiggy/Zomato review (with or without a comment) plus every complaint comment — Swiggy, Zomato, IGCC. Staff filter narrows to whoever's shift actually overlapped the order's timestamp when we have one; falls back to "on shift that day" only when no order time is available. Still a shift match, not a confirmed culprit.</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -8178,7 +8178,7 @@ async function rvLoad() {
     const d = await r.json();
     _rvAll = d.reviews || [];
     rvPopulateStaffFilter(d.staff || []);
-    if (statusEl) statusEl.textContent = `${_rvAll.length} comments · ${start} to ${end}`;
+    if (statusEl) statusEl.textContent = `${_rvAll.length} reviews (${_rvAll.filter(x => x.text).length} with comments) · ${start} to ${end}`;
     rvSetSentiment('all');
   } catch {
     if (statusEl) statusEl.textContent = 'Failed to load.';
@@ -8233,7 +8233,7 @@ function rvRenderTable() {
     const sourceBadge = r.also_sources && r.also_sources.length ? `${r.source} +${r.also_sources.length}` : r.source;
     return `<tr>
       <td class="left" style="font-size:12px;line-height:1.4;max-width:520px">
-        <span class="rv-info" data-tip="${tip}" style="cursor:default;position:relative;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${(r.text || '').replace(/</g,'&lt;')}
+        <span class="rv-info" data-tip="${tip}" style="cursor:default;position:relative;color:var(--ink-3);font-size:10px;font-weight:700;border:1px solid var(--ink-3);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;vertical-align:middle">i</span>${r.text ? r.text.replace(/</g,'&lt;') : '<span style="color:var(--ink-3);font-style:italic">(rating only, no comment)</span>'}
       </td>
       <td style="white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ink-3)">${r.date}${r.time ? ' <span style=\"opacity:.7\">' + r.time + '</span>' : ''}</td>
       <td><span style="background:${bg};color:${fg};padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap" title="${r.also_sources && r.also_sources.length ? 'Also logged as: ' + r.also_sources.join(', ') : ''}">${sourceBadge}</span></td>
