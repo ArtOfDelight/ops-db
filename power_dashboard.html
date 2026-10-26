@@ -2617,20 +2617,34 @@ async function scLoadData() {
   }
 }
 
+let _scSort = { key: null, dir: 'desc' };   // key null = default order (High − Low, best first)
+function scSortBy(key) {
+  // 1st click on a column → ascending, 2nd → descending, 3rd → back to default
+  if (_scSort.key !== key) _scSort = { key, dir: 'asc' };
+  else if (_scSort.dir === 'asc') _scSort = { key, dir: 'desc' };
+  else _scSort = { key: null, dir: 'desc' };
+  const el = document.getElementById('sc-content');
+  if (el && window._scLastRows) scRenderTable(window._scLastRows, el);
+}
+
 function scBuildTable(rows, offset) {
   if (!rows.length) return '<div class="no-outages" style="padding:24px">No staff in this group this week.</div>';
+  const th = (key, label, cls) => {
+    const arrow = _scSort.key === key ? (_scSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    return `<th${cls ? ` class="${cls}"` : ''} style="cursor:pointer;user-select:none" onclick="scSortBy('${key}')">${label}${arrow}</th>`;
+  };
   const thead = `<thead><tr>
-    <th class="left">Employee</th>
-    <th>Orders</th>
-    <th>High Rated</th>
-    <th>High Rated %</th>
-    <th>Low Rated</th>
-    <th>IGCC</th>
-    <th>Errors</th>
-    <th>Error %</th>
-    <th>High − Low</th>
-    <th>Checklist</th>
-    <th>Late</th>
+    ${th('name', 'Employee', 'left')}
+    ${th('total_orders', 'Orders')}
+    ${th('high_rated', 'High Rated')}
+    ${th('high_pct', 'High Rated %')}
+    ${th('low_rated', 'Low Rated')}
+    ${th('igcc', 'IGCC')}
+    ${th('errors', 'Errors')}
+    ${th('err_pct', 'Error %')}
+    ${th('net', 'High − Low')}
+    ${th('checklist_pct', 'Checklist')}
+    ${th('late_count', 'Late')}
   </tr></thead>`;
   const trs = rows.map((e, i) => {
     const errCls = e.errors > 10 ? 'bad' : e.errors > 4 ? 'warn' : 'good';
@@ -2681,7 +2695,17 @@ function scRenderTable(rows, el) {
     if (!t) return -Infinity;
     return ((e.high_rated || 0) - (e.errors || 0)) / t * 100;
   };
-  const sorted = [...rows].sort((a, b) => netOf(b) - netOf(a));
+  const pctOf = (e, f) => { const t = e.total_orders || 0; return t ? (e[f] || 0) / t * 100 : -Infinity; };
+  const val = e => (!_scSort.key || _scSort.key === 'net') ? netOf(e)
+    : _scSort.key === 'high_pct' ? pctOf(e, 'high_rated')
+    : _scSort.key === 'err_pct' ? pctOf(e, 'errors')
+    : _scSort.key === 'name' ? String(e.name || '').toLowerCase()
+    : (e[_scSort.key] ?? -Infinity);
+  const sign = _scSort.dir === 'asc' ? 1 : -1;
+  const sorted = [...rows].sort((a, b) => {
+    const x = val(a), y = val(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * sign;
+  });
   const cloud  = sorted.filter(e => e.outlet_type === 'cloud');
   const dinein = sorted.filter(e => e.outlet_type === 'dine_in');
   let html = '';
