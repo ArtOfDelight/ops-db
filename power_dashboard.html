@@ -15764,7 +15764,7 @@ function rmRender(body) {
 /* ── Projects ──
    A project is a name, its people, and its own list of tasks (each with any
    number of people). Kept apart from the priority list above. */
-let _pj = { list: [], open: {}, adding: false, addingTask: null };
+let _pj = { list: [], open: {}, doneOpen: {}, adding: false, addingTask: null };
 async function pjApi(method, path, body) {
   const r = await fetch(`${API}/api/admin/projects${path}`, {
     method,
@@ -15870,12 +15870,17 @@ function pjRender(body) {
   const doneCount = _tm.tasks.filter(t => t.status === 'Done').length;
   const card = p => {
     const tasks = p.tasks || [], done = tasks.filter(t => t.status === 'Done').length, open = !!_pj.open[p.id];
-    const rows = tasks.map(t => `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}">
+    const row = t => `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}">
         <td><textarea rows="1" data-f="name" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" onchange="pjEditTask(${t.id}, {name: this.value})">${tmEsc(t.name)}</textarea></td>
         <td style="padding-top:7px">${pjPeopleHtml(t.assignees, `pjAssignees(${t.id})`)}</td>
         <td>${tmStatusSelect(t.status, `onchange="pjEditTask(${t.id}, {status: this.value})"`)}</td>
         <td><textarea rows="1" oninput="tmFit(this)" onchange="pjEditTask(${t.id}, {notes: this.value})">${tmEsc(t.notes)}</textarea></td>
-        <td><button class="tm-del" title="Delete" onclick="pjDeleteTask(${t.id}, this)">✕</button></td></tr>`).join('');
+        <td><button class="tm-del" title="Delete" onclick="pjDeleteTask(${t.id}, this)">✕</button></td></tr>`;
+    // Done tasks always sit at the bottom, in their own section that starts collapsed.
+    const doneOpen = !!_pj.doneOpen[p.id];
+    const rows = tasks.filter(t => t.status !== 'Done').map(row).join('') + (done ? `<tr><td colspan="5" class="tm-meta"
+        style="cursor:pointer;user-select:none;background:var(--bg);font-weight:600" onclick="_pj.doneOpen[${p.id}]=!_pj.doneOpen[${p.id}]; tmRender()">
+        ${doneOpen ? '▾' : '▸'} Done (${done})</td></tr>` + (doneOpen ? tasks.filter(t => t.status === 'Done').map(row).join('') : '') : '');
     const addRow = _pj.addingTask === p.id ? `<tr class="tm-new">
         <td><textarea id="pjT-name" rows="1" placeholder="Task name" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();pjCreateTask(${p.id})}"></textarea></td>
         <td style="padding-top:7px">${pjPeopleHtml(_pj.newAssignees, 'pjNewAssignees')}</td>
