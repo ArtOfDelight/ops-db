@@ -9807,6 +9807,30 @@ async function renderOutletsPage() {
   }
 }
 
+// Who is on paid leave now / starting soon, with outlet + role, for
+// the Paid Leaves tab; reads _otLeaves (set by the caller).
+function _otLeaveTable(staging, leaveSpans) {
+  const outletOf = {};
+  ((staging && staging.outlets) || []).forEach(o => {
+    if (o.manager) outletOf[o.manager.employee_id] = `${o.code} manager`;
+    o.staff.forEach(s => { if (!outletOf[s.employee_id]) outletOf[s.employee_id] = o.code; });
+  });
+  const allSpans = Object.values(leaveSpans).flat().sort((a, b) => a.start.localeCompare(b.start));
+  const muted = 'color:var(--ink-3)';
+  const leaveRow = sp => `<tr><td style="padding:6px 10px;font-weight:600">${sp.name || _otEmpLabel(sp.employee_id)} <span style="font-size:11px;${muted}">${sp.employee_id}</span></td>
+    <td style="padding:6px 10px">${outletOf[sp.employee_id] || '—'}</td>
+    <td style="padding:6px 10px">${_otLeaveText(sp)}</td>
+    <td style="padding:6px 10px;${muted}">${sp.current ? `${sp.daysLeft}d left` : `starts in ${Math.round((new Date(sp.start) - new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))) / 86400000)}d`}</td></tr>`;
+  const cur = allSpans.filter(s => s.current), upc = allSpans.filter(s => !s.current);
+  return {
+    title: `🌴 On paid leave (${cur.length})${upc.length ? ` · upcoming (${upc.length})` : ''}`,
+    body: allSpans.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px">
+        ${cur.map(leaveRow).join('') || `<tr><td style="padding:6px 10px;${muted}">Nobody on leave today.</td></tr>`}
+        ${upc.length ? `<tr><td colspan="4" style="padding:10px 10px 4px;font-size:11px;font-weight:700;text-transform:uppercase;${muted}">Upcoming</td></tr>${upc.map(leaveRow).join('')}` : ''}
+      </table>` : `<div style="padding:6px 10px;${muted}">No approved leave today or upcoming.</div>`,
+  };
+}
+
 function _otEmpLabel(id) {
   const e = _otAllEmployees.find(x => x.employee_id === id);
   return e ? `${e.short_name || e.full_name || id} (${id})` : id;
@@ -9873,28 +9897,7 @@ function _otRenderHost(staging) {
     ? `<div class="ot-staff-list">${staging.unassigned.map(s => `<span class="ot-chip" style="padding-right:10px">${s.short_name || s.full_name} (${s.employee_id})${_otLeaveBadge(s.employee_id, leaveSpans)}</span>`).join('')}</div>`
     : `<div class="ot-empty">Everyone is assigned to an outlet.</div>`;
 
-  // Summary: who is on leave now / starting soon, with outlet + role
-  const outletOf = {};
-  staging.outlets.forEach(o => {
-    if (o.manager) outletOf[o.manager.employee_id] = `${o.code} manager`;
-    o.staff.forEach(s => { if (!outletOf[s.employee_id]) outletOf[s.employee_id] = o.code; });
-  });
-  const allSpans = Object.values(leaveSpans).flat().sort((a, b) => a.start.localeCompare(b.start));
-  const leaveRow = sp => `<tr><td style="padding:6px 10px;font-weight:600">${sp.name || _otEmpLabel(sp.employee_id)} <span class="ot-code">${sp.employee_id}</span></td>
-    <td style="padding:6px 10px">${outletOf[sp.employee_id] || '—'}</td>
-    <td style="padding:6px 10px">${_otLeaveText(sp)}</td>
-    <td style="padding:6px 10px;color:var(--ink-3)">${sp.current ? `${sp.daysLeft}d left` : `starts in ${Math.round((new Date(sp.start) - new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))) / 86400000)}d`}</td></tr>`;
-  const cur = allSpans.filter(s => s.current), upc = allSpans.filter(s => !s.current);
-  const leaveCard = `
-    <div class="ot-card">
-      <div class="ot-card-hdr"><span class="ot-name">🌴 On paid leave (${cur.length})${upc.length ? ` · upcoming (${upc.length})` : ''}</span></div>
-      <div class="ot-card-body" style="padding:6px 4px">${allSpans.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px">
-        ${cur.map(leaveRow).join('') || '<tr><td class="ot-empty" style="padding:6px 10px">Nobody on leave today.</td></tr>'}
-        ${upc.length ? `<tr><td colspan="4" class="ot-label" style="padding:10px 10px 4px">Upcoming</td></tr>${upc.map(leaveRow).join('')}` : ''}
-      </table>` : '<div class="ot-empty" style="padding:6px 10px">No approved leave today or upcoming.</div>'}</div>
-    </div>`;
-
-  host.innerHTML = allAccessNote + leaveCard + cards + `
+  host.innerHTML = allAccessNote + cards + `
     <div class="ot-card ot-unassigned">
       <div class="ot-card-hdr"><span class="ot-name">Unassigned</span></div>
       <div class="ot-card-body">${unassignedChips}</div>
@@ -9959,6 +9962,11 @@ async function renderPaidLeavesPage() {
 .pl-hdr { font-size:13px; color:var(--ink-2); margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .pl-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--sh); margin-bottom:14px; overflow:hidden; }
 .pl-card-hdr { padding:10px 14px; background:var(--navy-2); border-bottom:1px solid var(--border); font-weight:700; font-size:14px; color:var(--ink); }
+summary.pl-card-hdr { cursor:pointer; list-style:none; }
+summary.pl-card-hdr::-webkit-details-marker { display:none; }
+summary.pl-card-hdr::before { content:"▶"; font-size:10px; margin-right:8px; color:var(--ink-3); display:inline-block; transition:transform .15s; }
+details[open] > summary.pl-card-hdr::before { transform:rotate(90deg); }
+details.pl-card:not([open]) > summary.pl-card-hdr { border-bottom:none; }
 .pl-table { width:100%; border-collapse:collapse; font-size:13px; }
 .pl-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); padding:8px 12px; border-bottom:1px solid var(--border); }
 .pl-table td { padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
@@ -9997,13 +10005,18 @@ async function _plLoad() {
   if (!host) return;
   try {
     const H = { headers: { Authorization: `Bearer ${_lsToken}` } };
-    const [lr, ur] = await Promise.all([
+    const [lr, ur, sr] = await Promise.all([
       fetch(`${API}/api/admin/paid-leaves`, H),
       fetch(`${API}/api/admin/paid-leaves/usage?year=${_plYear}`, H),
+      fetch(`${API}/api/admin/outlet-staffing`, H).catch(() => null),
     ]);
     if (lr.status === 401 || ur.status === 401) { lsLogout(); return; }
     if (!lr.ok || !ur.ok) { host.textContent = 'Unable to load paid leaves.'; return; }
     const leaves = await lr.json(), usage = await ur.json();
+    let staging = null;
+    try { if (sr && sr.ok) staging = await sr.json(); } catch (_) {}
+    _otLeaves = leaves;
+    const lt = _otLeaveTable(staging, _otLeaveSpans());
     const pending = leaves.filter(l => l.status === 'Pending').sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
 
     const pendRows = pending.map(l => {
@@ -10030,15 +10043,22 @@ async function _plLoad() {
         <td>${u.leaves.map(x => `<span class="pl-tag ${x.leave_type === 'UPL' ? 'upl' : 'pl'}">${x.start_date === x.end_date ? _plFmt(x.start_date) : _plFmt(x.start_date) + ' – ' + _plFmt(x.end_date)} · ${x.days}d ${x.leave_type}</span>`).join('')}</td>
       </tr>`).join('');
 
+    // keep sections open across reloads (e.g. after Approve/Reject)
+    const wasOpen = [...host.querySelectorAll('details.pl-card')].map(d => d.open);
     host.innerHTML = `
       <div class="pl-card">
-        <div class="pl-card-hdr">⏳ Pending approvals (${pending.length})</div>
-        ${pending.length ? `<table class="pl-table"><tr><th>Employee</th><th>Dates</th><th>PL balance</th><th>On approval</th><th></th></tr>${pendRows}</table>` : '<div class="pl-empty">No pending leave requests.</div>'}
+        <div class="pl-card-hdr">${lt.title}</div>
+        ${lt.body}
       </div>
-      <div class="pl-card">
-        <div class="pl-card-hdr">📊 Used in FY ${usage.pl_year} (${_plFmt(usage.from)} – ${_plFmt(usage.to)}) · ${usage.employees.length} staff</div>
+      <details class="pl-card">
+        <summary class="pl-card-hdr">⏳ Pending approvals (${pending.length})</summary>
+        ${pending.length ? `<table class="pl-table"><tr><th>Employee</th><th>Dates</th><th>PL balance</th><th>On approval</th><th></th></tr>${pendRows}</table>` : '<div class="pl-empty">No pending leave requests.</div>'}
+      </details>
+      <details class="pl-card">
+        <summary class="pl-card-hdr">📊 Used in FY ${usage.pl_year} (${_plFmt(usage.from)} – ${_plFmt(usage.to)}) · ${usage.employees.length} staff</summary>
         ${usage.employees.length ? `<table class="pl-table"><tr><th>Employee</th><th>PL used</th><th>PL left</th><th>UPL</th><th>Leaves</th></tr>${useRows}</table>` : '<div class="pl-empty">Nobody has taken leave this year.</div>'}
-      </div>`;
+      </details>`;
+    host.querySelectorAll('details.pl-card').forEach((d, i) => { if (wasOpen[i]) d.open = true; });
   } catch (e) {
     host.textContent = 'Network error loading paid leaves.';
   }
@@ -13860,7 +13880,15 @@ async function renderBroadcastPage() {
           <label class="bcast-label">SEND AT (IST, optional)</label>
           <input id="bcastSendAt" class="bcast-input" type="datetime-local" onchange="bcastSendAtChanged()">
         </div>
-        <div class="bcast-hint">Leave empty to send now. Time is India time, whatever your computer's clock says. Outlet targeting uses the roster of the day it goes out.</div>
+        <div class="bcast-field">
+          <label class="bcast-label">REPEAT</label>
+          <select id="bcastRepeat" class="bcast-input" onchange="bcastSendAtChanged()">
+            <option value="">Don't repeat</option>
+            <option value="daily">Every day at this time</option>
+            <option value="weekly">Every week, same day and time</option>
+          </select>
+        </div>
+        <div class="bcast-hint">Leave empty to send now. Repeating needs a start time and keeps going until you cancel it below. Time is India time, whatever your computer's clock says. Outlet targeting uses the roster of the day it goes out.</div>
       </div>
 
       <div class="bcast-actions">
@@ -13906,7 +13934,7 @@ async function bcastLoadScheduled() {
       <div class="dc-comment-card">
         <div class="dc-comment-meta">
           <span class="dc-comment-page">${escHtml(b.title)}</span>
-          <span class="dc-comment-time">⏰ ${escHtml(bcastFmtIst(b.send_at || ''))}</span>
+          <span class="dc-comment-time">⏰ ${b.repeat ? 'Next: ' : ''}${escHtml(bcastFmtIst(b.send_at || ''))}${b.repeat ? ' · 🔁 ' + (b.repeat === 'daily' ? 'Daily' : 'Weekly') : ''}</span>
         </div>
         <div class="dc-comment-text">${escHtml(b.body)}</div>
         <div class="bcast-meta-line">To: ${b.departments && b.departments.length ? escHtml(b.departments.join(', ')) : 'All departments'} · ${b.outlets && b.outlets.length ? escHtml(b.outlets.join(', ')) : 'All outlets'}</div>
@@ -13921,7 +13949,7 @@ async function bcastLoadScheduled() {
 }
 
 async function bcastCancelScheduled(id) {
-  if (!confirm('Cancel this scheduled broadcast? It will not be sent.')) return;
+  if (!confirm('Cancel this scheduled broadcast? It (and any future repeats) will not be sent.')) return;
   try {
     const r = await fetch(`${API}/api/admin/broadcasts/${encodeURIComponent(id)}/schedule`, {
       method: 'DELETE', headers: { Authorization: `Bearer ${_lsToken}` },
@@ -14072,8 +14100,10 @@ async function bcastSend() {
   if (!outletAll && !outlets.length) { status.textContent = 'Pick at least one outlet, or check "All outlets".'; status.style.color = 'var(--red)'; return; }
   const targetLabel = [dept.length ? dept.join(', ') : 'All departments', outlets.length ? outlets.join(', ') : 'All outlets'].join(' · ');
   const sendAt = document.getElementById('bcastSendAt').value;
+  const repeat = document.getElementById('bcastRepeat').value;
+  if (repeat && !sendAt) { status.textContent = 'Pick a start time (IST) for a repeating broadcast.'; status.style.color = 'var(--red)'; return; }
   if (sendAt && new Date(sendAt + ':00+05:30') <= new Date()) { status.textContent = 'That IST time has already passed.'; status.style.color = 'var(--red)'; return; }
-  if (!confirm(`${sendAt ? 'Schedule' : 'Send'} this broadcast to: ${targetLabel}${sendAt ? '\nat ' + bcastFmtIst(sendAt) : ''}\n\n"${title}"`)) return;
+  if (!confirm(`${sendAt ? 'Schedule' : 'Send'} this broadcast to: ${targetLabel}${sendAt ? '\nat ' + bcastFmtIst(sendAt) : ''}${repeat ? ', repeating ' + repeat : ''}\n\n"${title}"`)) return;
 
   const btn = document.getElementById('bcastSendBtn');
   btn.disabled = true;
@@ -14088,12 +14118,14 @@ async function bcastSend() {
         departments: dept.length ? dept : undefined,
         outlets: outlets.length ? outlets : undefined,
         send_at: sendAt || undefined,
+        repeat: repeat || undefined,
       }),
     });
     const d = await r.json();
     if (!r.ok || !d.success) throw new Error(d.detail || 'Failed');
     status.textContent = d.scheduled ? `Scheduled for ${bcastFmtIst(sendAt)}.` : `Sent to ${d.sent} device(s), ${d.recipients} recipient(s).`; status.style.color = 'var(--green)';
     document.getElementById('bcastSendAt').value = '';
+    document.getElementById('bcastRepeat').value = '';
     bcastSendAtChanged();
     bcastLoadScheduled();
     document.getElementById('bcastTitle').value = '';
