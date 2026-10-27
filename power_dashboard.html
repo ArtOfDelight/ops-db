@@ -13854,10 +13854,22 @@ async function renderBroadcastPage() {
         <div id="bcastImagePreview" class="bcast-img-preview"></div>
       </div>
 
+      <div class="bcast-card">
+        ${bcastSectionHeader(4, 'When', '— IST')}
+        <div class="bcast-field">
+          <label class="bcast-label">SEND AT (IST, optional)</label>
+          <input id="bcastSendAt" class="bcast-input" type="datetime-local" onchange="bcastSendAtChanged()">
+        </div>
+        <div class="bcast-hint">Leave empty to send now. Time is India time, whatever your computer's clock says. Outlet targeting uses the roster of the day it goes out.</div>
+      </div>
+
       <div class="bcast-actions">
         <button id="bcastSendBtn" class="bcast-send-btn" onclick="bcastSend()">Send Broadcast</button>
         <span id="bcastStatus" class="bcast-status"></span>
       </div>
+
+      <div class="bcast-history-title">Scheduled</div>
+      <div id="bcastScheduled" class="cmp-empty"><div class="cmp-empty-t">Loading…</div></div>
 
       <div class="bcast-history-title">Last broadcast sent</div>
       <div id="bcastHistory" class="cmp-empty"><div class="cmp-empty-t">Loading…</div></div>
@@ -13866,6 +13878,57 @@ async function renderBroadcastPage() {
   bcastLoadDepartments();
   bcastLoadOutlets();
   bcastLoadHistory();
+  bcastLoadScheduled();
+}
+
+function bcastSendAtChanged() {
+  const v = document.getElementById('bcastSendAt').value;
+  document.getElementById('bcastSendBtn').textContent = v ? 'Schedule Broadcast' : 'Send Broadcast';
+}
+
+function bcastFmtIst(v) {
+  // v = "YYYY-MM-DDTHH:MM" in IST
+  const [d, t] = v.slice(0, 16).split('T');
+  const [y, m, dd] = d.split('-');
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1];
+  return `${dd} ${mon} ${y}, ${t} IST`;
+}
+
+async function bcastLoadScheduled() {
+  const el = document.getElementById('bcastScheduled');
+  if (!el) return;
+  try {
+    const r = await fetch(`${API}/api/admin/broadcasts/scheduled`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await r.json();
+    const list = d.broadcasts || [];
+    if (!list.length) { el.innerHTML = '<div class="cmp-empty-t">Nothing scheduled</div>'; return; }
+    el.innerHTML = list.map(b => `
+      <div class="dc-comment-card">
+        <div class="dc-comment-meta">
+          <span class="dc-comment-page">${escHtml(b.title)}</span>
+          <span class="dc-comment-time">⏰ ${escHtml(bcastFmtIst(b.send_at || ''))}</span>
+        </div>
+        <div class="dc-comment-text">${escHtml(b.body)}</div>
+        <div class="bcast-meta-line">To: ${b.departments && b.departments.length ? escHtml(b.departments.join(', ')) : 'All departments'} · ${b.outlets && b.outlets.length ? escHtml(b.outlets.join(', ')) : 'All outlets'}</div>
+        <div class="dc-comment-footer">
+          <span class="dc-comment-author">By ${escHtml(b.created_by || '')}</span>
+          <button class="dc-resolve-btn" onclick="bcastCancelScheduled('${escHtml(b.id)}')">✕ Cancel</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="cmp-empty-t">Failed to load scheduled broadcasts</div>';
+  }
+}
+
+async function bcastCancelScheduled(id) {
+  if (!confirm('Cancel this scheduled broadcast? It will not be sent.')) return;
+  try {
+    const r = await fetch(`${API}/api/admin/broadcasts/${encodeURIComponent(id)}/schedule`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${_lsToken}` },
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Failed');
+  } catch (e) { alert('Cancel failed: ' + e.message); }
+  bcastLoadScheduled();
 }
 
 /* Reusable "all / search / scrollable checklist" picker — scales to any
@@ -14008,7 +14071,9 @@ async function bcastSend() {
   if (!deptAll && !dept.length) { status.textContent = 'Pick at least one department, or check "All departments".'; status.style.color = 'var(--red)'; return; }
   if (!outletAll && !outlets.length) { status.textContent = 'Pick at least one outlet, or check "All outlets".'; status.style.color = 'var(--red)'; return; }
   const targetLabel = [dept.length ? dept.join(', ') : 'All departments', outlets.length ? outlets.join(', ') : 'All outlets'].join(' · ');
-  if (!confirm(`Send this broadcast to: ${targetLabel}\n\n"${title}"`)) return;
+  const sendAt = document.getElementById('bcastSendAt').value;
+  if (sendAt && new Date(sendAt + ':00+05:30') <= new Date()) { status.textContent = 'That IST time has already passed.'; status.style.color = 'var(--red)'; return; }
+  if (!confirm(`${sendAt ? 'Schedule' : 'Send'} this broadcast to: ${targetLabel}${sendAt ? '\nat ' + bcastFmtIst(sendAt) : ''}\n\n"${title}"`)) return;
 
   const btn = document.getElementById('bcastSendBtn');
   btn.disabled = true;
@@ -14022,11 +14087,15 @@ async function bcastSend() {
         images: _bcastUploadedImages.length ? _bcastUploadedImages : undefined,
         departments: dept.length ? dept : undefined,
         outlets: outlets.length ? outlets : undefined,
+        send_at: sendAt || undefined,
       }),
     });
     const d = await r.json();
     if (!r.ok || !d.success) throw new Error(d.detail || 'Failed');
-    status.textContent = `Sent to ${d.sent} device(s), ${d.recipients} recipient(s).`; status.style.color = 'var(--green)';
+    status.textContent = d.scheduled ? `Scheduled for ${bcastFmtIst(sendAt)}.` : `Sent to ${d.sent} device(s), ${d.recipients} recipient(s).`; status.style.color = 'var(--green)';
+    document.getElementById('bcastSendAt').value = '';
+    bcastSendAtChanged();
+    bcastLoadScheduled();
     document.getElementById('bcastTitle').value = '';
     document.getElementById('bcastSubtitle').value = '';
     document.getElementById('bcastBody').value = '';
