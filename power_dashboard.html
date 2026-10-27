@@ -1331,6 +1331,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-outlets" onclick="navTo('outlets')">
         <span class="sb-icon">🏬</span> Outlets & Managers
       </button>
+      <button class="sb-item" id="sbitem-paidleaves" onclick="navTo('paidleaves')">
+        <span class="sb-icon">🌴</span> Paid Leaves
+      </button>
       <button class="sb-item" id="sbitem-complaints" onclick="navTo('complaints')">
         <span class="sb-icon">🚫</span> Denied IGCCs
       </button>
@@ -1395,12 +1398,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','catalogue'].forEach(id => {
+  ['brief','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','catalogue'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
+  const titles = { ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1424,6 +1427,7 @@ function navTo(page) {
   if (page === 'payouts')    renderPayoutsPage();
   if (page === 'roster')     renderRosterPage();
   if (page === 'outlets')    renderOutletsPage();
+  if (page === 'paidleaves') renderPaidLeavesPage();
   if (page === 'complaints') renderComplaintsPage();
   if (page === 'reviews')    renderReviewsPage();
   if (page === 'mango')      renderMangoPage();
@@ -9938,6 +9942,121 @@ async function _otRemoveStaff(employeeId) {
     body: JSON.stringify({ outlet: null }),
   });
   _otRefresh();
+}
+
+// ── Paid Leaves: pending approvals + per-employee usage for the PL year (1 Apr – 31 Mar) ──
+let _plYear = null;
+
+async function renderPaidLeavesPage() {
+  const pageBody = document.getElementById('pageBody');
+  if (!_lsToken) { renderSigninLogin(pageBody); return; }
+  const bodyEl = document.querySelector('.body');
+  bodyEl.style.padding = '';
+  bodyEl.style.overflow = '';
+  pageBody.innerHTML = `
+<style>
+.pl-wrap { padding:16px; max-width:1100px; }
+.pl-hdr { font-size:13px; color:var(--ink-2); margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pl-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--sh); margin-bottom:14px; overflow:hidden; }
+.pl-card-hdr { padding:10px 14px; background:var(--navy-2); border-bottom:1px solid var(--border); font-weight:700; font-size:14px; color:var(--ink); }
+.pl-table { width:100%; border-collapse:collapse; font-size:13px; }
+.pl-table th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); padding:8px 12px; border-bottom:1px solid var(--border); }
+.pl-table td { padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+.pl-table tr:last-child td { border-bottom:none; }
+.pl-sub { font-size:11px; color:var(--ink-3); }
+.pl-btn { border:1px solid var(--border-2); border-radius:6px; padding:4px 10px; font-size:12px; background:var(--surface); cursor:pointer; margin-right:4px; }
+.pl-btn.ok { color:#15803d; border-color:#15803d; }
+.pl-btn.no { color:var(--red); border-color:var(--red); }
+.pl-btn:disabled { opacity:.5; cursor:default; }
+.pl-tag { display:inline-block; border-radius:10px; padding:1px 7px; font-size:11px; font-weight:600; margin:1px 3px 1px 0; }
+.pl-tag.pl { background:#dcfce7; color:#15803d; }
+.pl-tag.upl { background:#fee2e2; color:#b91c1c; }
+.pl-bar { height:6px; background:var(--border); border-radius:3px; width:120px; overflow:hidden; margin-top:4px; }
+.pl-bar > div { height:100%; background:#16a34a; }
+.pl-empty { padding:12px 14px; font-size:12px; color:var(--ink-3); font-style:italic; }
+</style>
+<div class="pl-wrap">
+  <div class="pl-hdr">15 PL per year, counted 1 April – 31 March. Days past the quota become UPL on approval. Staff can request leave only after 6 months of service.
+    <select id="plYearSel" class="pl-btn" onchange="_plYear=+this.value; _plLoad()"></select></div>
+  <div id="plHost">Loading…</div>
+</div>`;
+  const now = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00');
+  const curFy = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  if (_plYear === null) _plYear = curFy;
+  document.getElementById('plYearSel').innerHTML = [curFy, curFy - 1, curFy - 2]
+    .map(y => `<option value="${y}" ${y === _plYear ? 'selected' : ''}>FY ${y}-${String(y + 1).slice(2)}</option>`).join('');
+  _plLoad();
+}
+
+function _plFmt(iso) {
+  return iso ? new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+}
+
+async function _plLoad() {
+  const host = document.getElementById('plHost');
+  if (!host) return;
+  try {
+    const H = { headers: { Authorization: `Bearer ${_lsToken}` } };
+    const [lr, ur] = await Promise.all([
+      fetch(`${API}/api/admin/paid-leaves`, H),
+      fetch(`${API}/api/admin/paid-leaves/usage?year=${_plYear}`, H),
+    ]);
+    if (lr.status === 401 || ur.status === 401) { lsLogout(); return; }
+    if (!lr.ok || !ur.ok) { host.textContent = 'Unable to load paid leaves.'; return; }
+    const leaves = await lr.json(), usage = await ur.json();
+    const pending = leaves.filter(l => l.status === 'Pending').sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
+
+    const pendRows = pending.map(l => {
+      const range = l.start_date === l.end_date ? _plFmt(l.start_date) : `${_plFmt(l.start_date)} – ${_plFmt(l.end_date)}`;
+      const days = Number(l.leave_days) || 1, bal = Number(l.pl_balance) || 0;
+      const fit = Math.min(days, bal);
+      const outcome = fit >= days ? `<span class="pl-tag pl">${days}d PL</span>`
+        : fit > 0 ? `<span class="pl-tag pl">${fit}d PL</span><span class="pl-tag upl">${days - fit}d UPL</span>`
+        : `<span class="pl-tag upl">${days}d UPL</span>`;
+      return `<tr id="plrow-${l.leave_id}">
+        <td><b>${escHtml(l.employee_name || '')}</b> <span class="pl-sub">${escHtml(l.employee_id)}</span></td>
+        <td>${range}<div class="pl-sub">${days} day${days > 1 ? 's' : ''} · submitted ${_plFmt(l.submitted_on)}</div></td>
+        <td>${l.pl_used || 0} used · ${bal} left <span class="pl-sub">(FY ${escHtml(l.pl_year || '')})</span></td>
+        <td>${outcome}</td>
+        <td style="white-space:nowrap"><button class="pl-btn ok" onclick="_plDecide('${l.leave_id}','approve',this)">✓ Approve</button><button class="pl-btn no" onclick="_plDecide('${l.leave_id}','reject',this)">✕ Reject</button></td>
+      </tr>`;
+    }).join('');
+
+    const useRows = usage.employees.map(u => `<tr>
+        <td><b>${escHtml(u.employee_name || '')}</b> <span class="pl-sub">${escHtml(u.employee_id)}</span></td>
+        <td>${u.pl_used} / ${usage.quota}<div class="pl-bar"><div style="width:${Math.min(100, u.pl_used / usage.quota * 100)}%"></div></div></td>
+        <td>${u.pl_balance}</td>
+        <td>${u.upl_used || '—'}</td>
+        <td>${u.leaves.map(x => `<span class="pl-tag ${x.leave_type === 'UPL' ? 'upl' : 'pl'}">${x.start_date === x.end_date ? _plFmt(x.start_date) : _plFmt(x.start_date) + ' – ' + _plFmt(x.end_date)} · ${x.days}d ${x.leave_type}</span>`).join('')}</td>
+      </tr>`).join('');
+
+    host.innerHTML = `
+      <div class="pl-card">
+        <div class="pl-card-hdr">⏳ Pending approvals (${pending.length})</div>
+        ${pending.length ? `<table class="pl-table"><tr><th>Employee</th><th>Dates</th><th>PL balance</th><th>On approval</th><th></th></tr>${pendRows}</table>` : '<div class="pl-empty">No pending leave requests.</div>'}
+      </div>
+      <div class="pl-card">
+        <div class="pl-card-hdr">📊 Used in FY ${usage.pl_year} (${_plFmt(usage.from)} – ${_plFmt(usage.to)}) · ${usage.employees.length} staff</div>
+        ${usage.employees.length ? `<table class="pl-table"><tr><th>Employee</th><th>PL used</th><th>PL left</th><th>UPL</th><th>Leaves</th></tr>${useRows}</table>` : '<div class="pl-empty">Nobody has taken leave this year.</div>'}
+      </div>`;
+  } catch (e) {
+    host.textContent = 'Network error loading paid leaves.';
+  }
+}
+
+async function _plDecide(leaveId, action, btn) {
+  btn.parentElement.querySelectorAll('button').forEach(b => b.disabled = true);
+  try {
+    const r = await fetch(`${API}/api/admin/paid-leaves/${leaveId}/${action}`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${_lsToken}` },
+    });
+    if (!r.ok) throw new Error(await r.text());
+  } catch (e) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.disabled = false);
+    btn.parentElement.insertAdjacentHTML('beforeend', `<div class="pl-sub" style="color:var(--red)">Failed — try again</div>`);
+    return;
+  }
+  _plLoad();
 }
 
 function renderChecklistStatusPage() {
