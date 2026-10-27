@@ -7760,19 +7760,13 @@ function renderBriefResult(data) {
   let scBody;
   if (err('Missed Stock Check')) scBody = errHtml('Missed Stock Check');
   else if (!sc.checked) scBody = '<div class="db2-ok">No outlet had a delivery day</div>';
+  else if (!sc.missing.length) scBody = `<div class="db2-ok">✓ All ${(sc.done || []).length || sc.checked} delivery ${isRange ? 'days' : 'outlets'} did their stock audit</div>`;
   else {
-    // every delivery outlet, Done or Missed (missed first); in a range, counts per outlet
+    // only the outlets that missed (most first)
     const byOutlet = {};
-    const add = (x, k) => { const o = typeof x === 'string' ? x : x.outlet; (byOutlet[o] = byOutlet[o] || { done: [], missed: [] })[k].push(typeof x === 'string' ? '' : x.date); };
-    sc.missing.forEach(x => add(x, 'missed'));
-    (sc.done || []).forEach(x => add(x, 'done'));
-    const rowsSc = Object.entries(byOutlet).sort((a, b) => b[1].missed.length - a[1].missed.length || a[0].localeCompare(b[0]));
-    scBody = `<div class="db2-list">${rowsSc.map(([o, r]) => {
-      const bad = r.missed.length > 0;
-      const sub = bad ? (isRange ? 'missed ' + r.missed.filter(Boolean).sort().map(fmtDay).join(', ') : 'no Rista audit over ₹5,000') : '';
-      const tag = isRange ? `${r.done.length} done${bad ? ` · ${r.missed.length} missed` : ''}` : (bad ? 'Missed' : 'Done ✓');
-      return `<div class="db2-row"><span class="db2-dot ${bad ? 'red' : 'green'}"></span><b>${escHtml(o)}</b><span class="db2-sub">${sub}</span><span class="sp"></span><span class="db2-tag">${tag}</span></div>`;
-    }).join('')}</div>`;
+    sc.missing.forEach(x => { const o = typeof x === 'string' ? x : x.outlet; (byOutlet[o] = byOutlet[o] || []).push(typeof x === 'string' ? '' : x.date); });
+    const rowsSc = Object.entries(byOutlet).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+    scBody = `<div class="db2-list">${rowsSc.map(([o, ds]) => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(o)}</b><span class="db2-sub">${isRange ? ds.filter(Boolean).sort().map(fmtDay).join(', ') : 'no Rista audit over ₹5,000'}</span><span class="sp"></span><span class="db2-tag">${isRange ? ds.length + ' missed' : 'Not submitted'}</span></div>`).join('')}</div>`;
   }
   const scCount = sc.missing.length;
 
@@ -7813,6 +7807,7 @@ function renderBriefResult(data) {
   const overlaps = (a, b) => { const off = t => (t - 300 + 1440) % 1440;  // trading day starts 05:00
     return off(toMin(a.start)) < off(toMin(b.end)) && off(toMin(b.start)) < off(toMin(a.end)); };
   const pDur = p => (toMin(p.end) - toMin(p.start) + 1440) % 1440;
+  const NO_FORM = 'No power-off form submitted';
   const avRows = [];
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
   [...outlets].sort((a, b) => worst(a) - worst(b)).forEach(o => plats.forEach(pl => {
@@ -7826,7 +7821,7 @@ function renderBriefResult(data) {
       t.offline.forEach(b => {
         const pw = t.power.filter(p => overlaps(p, b));
         items.push({ date: t.date, when: `${b.start}–${b.end}`, mins: b.mins, kind: b.kind,
-          power: pw.length ? pw.map(p => p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`).join(', ') : '—',
+          power: pw.length ? pw.map(p => p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`).join(', ') : NO_FORM,
           pmins: pw.some(p => p.no_power_on) ? null : pw.reduce((n, p) => n + pDur(p), 0) });
       });
       t.power.filter(p => !t.offline.some(b => overlaps(p, b))).forEach(p =>
@@ -7835,11 +7830,11 @@ function renderBriefResult(data) {
     });
     if (!items.length)  // no live-monitor data (older than 7 days or outlet not monitored): totals only
       items.push({ when: `~${fmtM(c.offline_mins || 0)} total`, mins: null, kind: null,
-        power: c.power_off_mins ? 'forms (total)' : '—', tmins: c.offline_mins || 0, pmins: c.power_off_mins || 0,
+        power: c.power_off_mins ? 'forms (total)' : NO_FORM, tmins: c.offline_mins || 0, pmins: c.power_off_mins || 0,
         verdict: c.verdict, note: tls.length ? '' : 'no live-monitor data' });
     // Offline periods that match the same power cut share one Power off / Delta cell
     items.forEach((it, i) => { it.span = 0; const prev = items[i - 1];
-      if (prev && it.power !== '—' && it.power === prev.power && it.date === prev.date) { (prev.lead || prev).span++; it.lead = prev.lead || prev; }
+      if (prev && it.power !== NO_FORM && it.power === prev.power && it.date === prev.date) { (prev.lead || prev).span++; it.lead = prev.lead || prev; }
       else it.span = 1; });
     items.forEach((it, i) => avRows.push(`<tr class="${i === 0 ? 'db2-grp' : ''}">
       ${i === 0 ? `<td rowspan="${items.length}"><b>${escHtml(o)}</b></td><td rowspan="${items.length}">${pl}</td><td rowspan="${items.length}">${pct}</td>` : ''}
@@ -9704,6 +9699,54 @@ async function renderOpsReviewStatusPage() {
 }
 
 let _otAllEmployees = [];
+let _otLeaves = [];
+
+// Approved PL/UPL records ending today or later, merged per employee into continuous spans
+// (long leaves are stored as a PL record + a UPL record back to back).
+function _otLeaveSpans() {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const byEmp = {};
+  _otLeaves.filter(l => l.status === 'Approved' && l.start_date && (l.end_date || l.start_date) >= today)
+    .forEach(l => (byEmp[l.employee_id] = byEmp[l.employee_id] || []).push(l));
+  const dayAfter = iso => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
+  const out = {};
+  Object.entries(byEmp).forEach(([eid, ls]) => {
+    ls.sort((a, b) => a.start_date.localeCompare(b.start_date));
+    const spans = [];
+    ls.forEach(l => {
+      const end = l.end_date || l.start_date, type = l.leave_type || 'PL', days = Number(l.leave_days) || 1;
+      const last = spans[spans.length - 1];
+      if (last && l.start_date <= dayAfter(last.end)) {
+        if (end > last.end) last.end = end;
+        last.parts.push(`${days}d ${type}`);
+      } else spans.push({ employee_id: eid, name: l.employee_name, start: l.start_date, end, parts: [`${days}d ${type}`] });
+    });
+    spans.forEach(sp => {
+      sp.days = Math.round((new Date(sp.end) - new Date(sp.start)) / 86400000) + 1;
+      sp.current = sp.start <= today;
+      sp.daysLeft = Math.round((new Date(sp.end) - new Date(today)) / 86400000) + 1;
+    });
+    out[eid] = spans;
+  });
+  return out;
+}
+
+function _otFmtDate(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function _otLeaveText(sp) {
+  const range = sp.start === sp.end ? _otFmtDate(sp.start) : `${_otFmtDate(sp.start)} – ${_otFmtDate(sp.end)}`;
+  const split = sp.parts.length > 1 ? ` · ${sp.parts.join(' + ')}` : (sp.parts[0].endsWith('UPL') ? ' · UPL' : '');
+  return `${range} (${sp.days}d${split})`;
+}
+
+function _otLeaveBadge(eid, spans) {
+  const sp = (spans[eid] || [])[0];
+  if (!sp) return '';
+  const bg = sp.current ? '#dcfce7' : '#e0f2fe', fg = sp.current ? '#15803d' : '#0369a1';
+  return `<span title="${sp.current ? 'On leave' : 'Upcoming leave'}: ${_otLeaveText(sp)}" style="background:${bg};color:${fg};border-radius:10px;padding:1px 7px;font-size:11px;font-weight:600">🌴 ${sp.current ? 'On leave' : 'From'} ${sp.current ? 'till ' + _otFmtDate(sp.end) : _otFmtDate(sp.start)}</span>`;
+}
 
 async function renderOutletsPage() {
   const pageBody = document.getElementById('pageBody');
@@ -9742,15 +9785,18 @@ async function renderOutletsPage() {
 
   const host = document.getElementById('otHost');
   try {
-    const [stagingRes, empRes] = await Promise.all([
+    const [stagingRes, empRes, leaveRes] = await Promise.all([
       fetch(`${API}/api/admin/outlet-staffing`, { headers: { Authorization: `Bearer ${_lsToken}` } }),
       fetch(`${API}/api/admin/employees?status_filter=Active`, { headers: { Authorization: `Bearer ${_lsToken}` } }),
+      fetch(`${API}/api/admin/paid-leaves`, { headers: { Authorization: `Bearer ${_lsToken}` } }).catch(() => null),
     ]);
     if (stagingRes.status === 401 || empRes.status === 401) { lsLogout(); return; }
     const staging = await stagingRes.json();
     const empData = await empRes.json();
     if (!stagingRes.ok) { host.textContent = 'Unable to load outlet staffing.'; return; }
     _otAllEmployees = (empData.employees || empData || []).filter(e => e.employee_id);
+    _otLeaves = [];
+    try { if (leaveRes && leaveRes.ok) _otLeaves = (await leaveRes.json()) || []; } catch (_) {}
     _otRenderHost(staging);
   } catch (e) {
     host.textContent = 'Network error loading outlet staffing.';
@@ -9773,6 +9819,7 @@ function _otRenderHost(staging) {
     unassigned: staging.unassigned.filter(s => !_OT_POOL_IDS.has(s.employee_id)) };
   const poolChips = `<div class="ot-staff-list">${_OT_POOL_CANDIDATES.map(([id, nm]) => `<span class="ot-chip" style="background:#fff3e0;padding-right:10px">${nm} (${id})</span>`).join('')}</div>`;
   const assignedIds = new Set(staging.outlets.flatMap(o => o.staff.map(s => s.employee_id)));
+  const leaveSpans = _otLeaveSpans();
   const pickable = _otAllEmployees.filter(e => !_OT_POOL_IDS.has(e.employee_id)).sort((a, b) => (a.short_name || a.full_name || '').localeCompare(b.short_name || b.full_name || ''));
 
   const cards = staging.outlets.map(o => {
@@ -9780,7 +9827,7 @@ function _otRenderHost(staging) {
       pickable.map(e => `<option value="${e.employee_id}" ${o.manager && o.manager.employee_id === e.employee_id ? 'selected' : ''}>${e.short_name || e.full_name} (${e.employee_id})</option>`)
     ).join('');
     const staffChips = o.staff.length
-      ? `<div class="ot-staff-list">${o.staff.map(s => `<span class="ot-chip">${s.short_name || s.full_name} (${s.employee_id})<button onclick="_otRemoveStaff('${s.employee_id}')" title="Remove from ${o.code}">✕</button></span>`).join('')}</div>`
+      ? `<div class="ot-staff-list">${o.staff.map(s => `<span class="ot-chip">${s.short_name || s.full_name} (${s.employee_id})${_otLeaveBadge(s.employee_id, leaveSpans)}<button onclick="_otRemoveStaff('${s.employee_id}')" title="Remove from ${o.code}">✕</button></span>`).join('')}</div>`
       : `<div class="ot-empty">No staff assigned yet.</div>`;
     const addOpts = ['<option value="">+ add staff…</option>'].concat(
       pickable.filter(e => !(o.staff.some(s => s.employee_id === e.employee_id))).map(e => `<option value="${e.employee_id}">${e.short_name || e.full_name} (${e.employee_id})</option>`)
@@ -9792,6 +9839,7 @@ function _otRenderHost(staging) {
         <div class="ot-row">
           <span class="ot-label">Manager</span>
           <select class="ot-select" onchange="_otSetManager('${o.code}', this.value)">${managerOpts}</select>
+          ${o.manager ? _otLeaveBadge(o.manager.employee_id, leaveSpans) : ''}
         </div>
         <div class="ot-row">
           <span class="ot-label">Staff</span>
@@ -9818,10 +9866,31 @@ function _otRenderHost(staging) {
     : '';
 
   const unassignedChips = staging.unassigned.length
-    ? `<div class="ot-staff-list">${staging.unassigned.map(s => `<span class="ot-chip">${s.short_name || s.full_name} (${s.employee_id})</span>`).join('')}</div>`
+    ? `<div class="ot-staff-list">${staging.unassigned.map(s => `<span class="ot-chip" style="padding-right:10px">${s.short_name || s.full_name} (${s.employee_id})${_otLeaveBadge(s.employee_id, leaveSpans)}</span>`).join('')}</div>`
     : `<div class="ot-empty">Everyone is assigned to an outlet.</div>`;
 
-  host.innerHTML = allAccessNote + cards + `
+  // Summary: who is on leave now / starting soon, with outlet + role
+  const outletOf = {};
+  staging.outlets.forEach(o => {
+    if (o.manager) outletOf[o.manager.employee_id] = `${o.code} manager`;
+    o.staff.forEach(s => { if (!outletOf[s.employee_id]) outletOf[s.employee_id] = o.code; });
+  });
+  const allSpans = Object.values(leaveSpans).flat().sort((a, b) => a.start.localeCompare(b.start));
+  const leaveRow = sp => `<tr><td style="padding:6px 10px;font-weight:600">${sp.name || _otEmpLabel(sp.employee_id)} <span class="ot-code">${sp.employee_id}</span></td>
+    <td style="padding:6px 10px">${outletOf[sp.employee_id] || '—'}</td>
+    <td style="padding:6px 10px">${_otLeaveText(sp)}</td>
+    <td style="padding:6px 10px;color:var(--ink-3)">${sp.current ? `${sp.daysLeft}d left` : `starts in ${Math.round((new Date(sp.start) - new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))) / 86400000)}d`}</td></tr>`;
+  const cur = allSpans.filter(s => s.current), upc = allSpans.filter(s => !s.current);
+  const leaveCard = `
+    <div class="ot-card">
+      <div class="ot-card-hdr"><span class="ot-name">🌴 On paid leave (${cur.length})${upc.length ? ` · upcoming (${upc.length})` : ''}</span></div>
+      <div class="ot-card-body" style="padding:6px 4px">${allSpans.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px">
+        ${cur.map(leaveRow).join('') || '<tr><td class="ot-empty" style="padding:6px 10px">Nobody on leave today.</td></tr>'}
+        ${upc.length ? `<tr><td colspan="4" class="ot-label" style="padding:10px 10px 4px">Upcoming</td></tr>${upc.map(leaveRow).join('')}` : ''}
+      </table>` : '<div class="ot-empty" style="padding:6px 10px">No approved leave today or upcoming.</div>'}</div>
+    </div>`;
+
+  host.innerHTML = allAccessNote + leaveCard + cards + `
     <div class="ot-card ot-unassigned">
       <div class="ot-card-hdr"><span class="ot-name">Unassigned</span></div>
       <div class="ot-card-body">${unassignedChips}</div>
