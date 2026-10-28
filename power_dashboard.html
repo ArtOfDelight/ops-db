@@ -15318,7 +15318,22 @@ function exRemoveCapex(pid, cid) {
 </style>
 <script>
 let _tm = { cat: '', categories: ['Operations','Supply Chain','Finance','Marketing','Production'], tasks: [], allEmployees: [], adminIds: null, statuses: ['Not started','In progress','Blocked','Done'], employees: [], loaded: false,
-            tab: 'active', view: 'all', person: '', status: 'all', q: '', adding: false, saveText: '', saveErr: false, dragId: null };
+            tab: 'active', view: 'all', person: '', status: 'all', q: '', adding: false, saveText: '', saveErr: false, dragId: null,
+            board: 'main' };
+/* Boards: 'main' = the normal admin list (AOD app), 'store_ops' = Store Ops tasks
+   worked in the AOD Ops app. Store Ops tasks can only go to Jimmy, Sanu, Nishat. */
+const TM_STORE_OPS_IDS = ['AOD021', 'AOD091', 'AOD005'];
+function tmBoardBar() {
+  const b = (k, l) => `<button class="${_tm.board === k ? 'on' : ''}" onclick="tmSetBoard('${k}')">${l}</button>`;
+  return `<div class="tm-seg" style="margin-bottom:10px">${b('main', '📋 Task Manager')}${b('store_ops', '🏪 Store Ops Task Manager')}</div>`;
+}
+function tmSetBoard(b) {
+  if (_tm.board === b) return;
+  _tm.board = b; _tm.tab = 'active'; _tm.person = ''; _tm.adding = false; _rm.form = null;
+  _tm.loaded = false; _tm.tasks = [];
+  renderTasksPage();
+}
+function rmList() { return _rm.list.filter(r => (r.board || 'main') === _tm.board); }
 
 async function tmApi(method, path, body) {
   const r = await fetch(`${API}/api/admin/tasks${path}`, {
@@ -15341,7 +15356,7 @@ function tmSetSave(text, isErr) {
 
 /* Tasks and the admin list load in parallel; the last copy is cached in
    localStorage so the page draws instantly and refreshes underneath. */
-const TM_CACHE = 'tmCache';
+const tmCacheKey = () => _tm.board === 'main' ? 'tmCache' : 'tmCache_' + _tm.board;
 function tmApply(d, emps) {
   _tm.tasks = d.tasks || [];
   if (d.statuses) _tm.statuses = d.statuses;
@@ -15349,7 +15364,8 @@ function tmApply(d, emps) {
   if (emps) _tm.allEmployees = emps;
   if (d.admin_ids) _tm.adminIds = d.admin_ids;
   // Only admins can be made responsible for a task.
-  _tm.employees = (_tm.allEmployees || []).filter(e => !_tm.adminIds || _tm.adminIds.includes(e.id));
+  _tm.employees = (_tm.allEmployees || []).filter(e => _tm.board === 'store_ops'
+    ? TM_STORE_OPS_IDS.includes(e.id) : (!_tm.adminIds || _tm.adminIds.includes(e.id)));
 }
 async function tmFetchEmployees() {
   try {
@@ -15363,13 +15379,15 @@ async function tmFetchEmployees() {
 async function tmLoad() {
   pjLoad().then(() => { if (_currentPage === 'tasks' && _tm.tab === 'projects' && !document.activeElement?.closest?.('#pageBody')) tmRender(); });
   rmLoad().then(() => { if (_currentPage === 'tasks' && !document.activeElement?.closest?.('#pageBody')) tmRender(); });
-  const [d, emps] = await Promise.all([tmApi('GET', ''), tmFetchEmployees()]);
+  const board = _tm.board;
+  const [d, emps] = await Promise.all([tmApi('GET', `?board=${board}`), tmFetchEmployees()]);
+  if (board !== _tm.board) return;   // switched boards while loading
   tmApply(d, emps || _tm.allEmployees);
   _tm.loaded = true;
-  try { localStorage.setItem(TM_CACHE, JSON.stringify({ d, emps: _tm.allEmployees })); } catch (e) {}
+  try { localStorage.setItem(tmCacheKey(), JSON.stringify({ d, emps: _tm.allEmployees })); } catch (e) {}
 }
 function tmLoadCache() {
-  try { const c = JSON.parse(localStorage.getItem(TM_CACHE) || 'null'); if (c) { tmApply(c.d, c.emps); return true; } } catch (e) {}
+  try { const c = JSON.parse(localStorage.getItem(tmCacheKey()) || 'null'); if (c) { tmApply(c.d, c.emps); return true; } } catch (e) {}
   return false;
 }
 
@@ -15387,9 +15405,11 @@ async function tmPollTick() {
   if (document.hidden || _tm.adding || _tm.dragId || document.activeElement?.closest?.('#tmBody')) return;
   const before = JSON.stringify(_tm.tasks);
   let d;
-  try { d = await tmApi('GET', ''); } catch (e) { return; }
+  const board = _tm.board;
+  try { d = await tmApi('GET', `?board=${board}`); } catch (e) { return; }
+  if (board !== _tm.board) return;
   tmApply(d, _tm.allEmployees);
-  try { localStorage.setItem(TM_CACHE, JSON.stringify({ d, emps: _tm.allEmployees })); } catch (e) {}
+  try { localStorage.setItem(tmCacheKey(), JSON.stringify({ d, emps: _tm.allEmployees })); } catch (e) {}
   if (_currentPage === 'tasks' && JSON.stringify(_tm.tasks) !== before
       && !_tm.adding && !_tm.dragId && !document.activeElement?.closest?.('#tmBody')) tmRender();
 }
@@ -15449,11 +15469,11 @@ function tmRender() {
     .map(([v, l]) => `<option value="${tmEsc(v)}"${_tm.status === v ? ' selected' : ''}>${tmEsc(l)}</option>`).join('');
   if (_tm.tab === 'reminders') { rmRender(body); return; }
   if (_tm.tab === 'projects') { pjRender(body); return; }
-  const bar = `<div class="tm-tabs">
+  const bar = `${tmBoardBar()}<div class="tm-tabs">
     <button class="${_tm.tab === 'active' ? 'on' : ''}" onclick="tmSet('tab','active')">Active <span>${_tm.tasks.length - doneCount}</span></button>
     <button class="${_tm.tab === 'done' ? 'on' : ''}" onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
-    <button class="${_tm.tab === 'reminders' ? 'on' : ''}" onclick="tmSet('tab','reminders')">⏰ Reminders <span>${_rm.list.filter(r => r.active).length}</span></button>
-    <button onclick="tmSet('tab','projects')">📁 Projects <span>${_pj.list.length}</span></button>
+    <button class="${_tm.tab === 'reminders' ? 'on' : ''}" onclick="tmSet('tab','reminders')">⏰ Reminders <span>${rmList().filter(r => r.active).length}</span></button>
+    ${_tm.board === 'main' ? `<button onclick="tmSet('tab','projects')">📁 Projects <span>${_pj.list.length}</span></button>` : ''}
   </div>
   <div class="tm-bar">
     <div class="tm-seg">
@@ -15614,7 +15634,7 @@ async function tmCreate() {
     const d = await tmApi('POST', '', {
       name, category: v('tmN-category').trim(), notes: v('tmN-notes'),
       responsible_id: rid, responsible_name: emp ? emp.name : '',
-      status: v('tmN-status'),
+      status: v('tmN-status'), board: _tm.board,
     });
     _tm.tasks.push(d.task);
     _tm.adding = false;
@@ -15724,7 +15744,8 @@ function rmPayload(f) {
            nth: f.kind === 'monthly_weekday' ? f.nth : null,
            weekday: ['weekly', 'monthly_weekday'].includes(f.kind) ? f.weekday : null,
            at_time: f.at_time || '09:00', start_date: once ? null : f.start_date || null,
-           end_date: once ? null : f.end_date || null, active: f.active !== false };
+           end_date: once ? null : f.end_date || null, active: f.active !== false,
+           board: f.board || _tm.board };
 }
 async function rmSave() {
   const f = _rm.form, p = rmPayload(f);
@@ -15758,7 +15779,7 @@ async function rmDelete(id, btn) {
 }
 function rmRender(body) {
   const doneCount = _tm.tasks.filter(t => t.status === 'Done').length;
-  const rows = [..._rm.list].sort((a, b) => (b.active - a.active) || String(a.next_on || '9').localeCompare(String(b.next_on || '9')))
+  const rows = [...rmList()].sort((a, b) => (b.active - a.active) || String(a.next_on || '9').localeCompare(String(b.next_on || '9')))
     .map(r => `<tr class="tm-row${r.active ? '' : ' rm-off'}">
       <td style="padding-top:8px"><input type="checkbox" style="width:auto" title="On / paused" ${r.active ? 'checked' : ''} onchange="rmToggle(${r.id}, this.checked)"></td>
       <td style="padding-top:9px"><b>${tmEsc(r.title)}</b>${r.notes ? `<div class="tm-meta" style="white-space:pre-wrap;padding-top:2px">${tmEsc(r.notes)}</div>` : ''}</td>
@@ -15770,11 +15791,11 @@ function rmRender(body) {
       <td style="white-space:nowrap"><button class="tm-btn ghost" onclick="rmEditOpen(${r.id})">Edit</button>
         <button class="tm-del" title="Delete" onclick="rmDelete(${r.id}, this)">✕</button></td>
     </tr>`).join('');
-  body.innerHTML = `<div class="tm-tabs">
+  body.innerHTML = `${tmBoardBar()}<div class="tm-tabs">
     <button onclick="tmSet('tab','active')">Active <span>${_tm.tasks.length - doneCount}</span></button>
     <button onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
-    <button class="on">⏰ Reminders <span>${_rm.list.filter(r => r.active).length}</span></button>
-    <button onclick="tmSet('tab','projects')">📁 Projects <span>${_pj.list.length}</span></button>
+    <button class="on">⏰ Reminders <span>${rmList().filter(r => r.active).length}</span></button>
+    ${_tm.board === 'main' ? `<button onclick="tmSet('tab','projects')">📁 Projects <span>${_pj.list.length}</span></button>` : ''}
   </div>
   <div class="tm-bar">
     <span class="tm-meta">When a reminder is due it goes to the top of that person's tasks and pings their phone.</span>
@@ -15933,10 +15954,10 @@ function pjRender(body) {
       </table></div></div>` : ''}
     </div>`;
   };
-  body.innerHTML = `<div class="tm-tabs">
+  body.innerHTML = `${tmBoardBar()}<div class="tm-tabs">
     <button onclick="tmSet('tab','active')">Active <span>${_tm.tasks.length - doneCount}</span></button>
     <button onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
-    <button onclick="tmSet('tab','reminders')">⏰ Reminders <span>${_rm.list.filter(r => r.active).length}</span></button>
+    <button onclick="tmSet('tab','reminders')">⏰ Reminders <span>${rmList().filter(r => r.active).length}</span></button>
     <button class="on">📁 Projects <span>${_pj.list.length}</span></button>
   </div>
   <div class="tm-bar">
