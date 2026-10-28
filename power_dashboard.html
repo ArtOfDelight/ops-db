@@ -7787,6 +7787,32 @@ function renderBriefResult(data) {
     siBody = `<div class="db2-list">${rowsSi.map(e => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(e.p.name || '')}</b><span class="db2-sub">${escHtml(e.p.employee_id || '')} · ${escHtml([...e.outlets].filter(Boolean).join(', '))}${isRange ? ' · ' + e.dates.filter(Boolean).sort().map(fmtDay).join(', ') : ''}</span><span class="sp"></span><span class="db2-tag">${e.dates.length} missed</span></div>`).join('')}</div>`;
   }
 
+  // 2b. late sign-ins: one row per employee, times late (most first)
+  const lateP = (m.late_signins || {}).people || [];
+  let ltBody;
+  if (err('Late Sign-ins')) ltBody = errHtml('Late Sign-ins');
+  else if (!m.late_signins) ltBody = '<div class="db2-ok">Refresh to load</div>';
+  else if (!lateP.length) ltBody = '<div class="db2-ok">✓ No late sign-ins</div>';
+  else {
+    const byEmp = {};
+    lateP.forEach(p => { const k = p.employee_id || p.name; (byEmp[k] = byEmp[k] || { p, items: [], outlets: new Set() }).items.push(p); byEmp[k].outlets.add(p.outlet || ''); });
+    const rowsLt = Object.values(byEmp).sort((a, b) => b.items.length - a.items.length || (a.p.name || '').localeCompare(b.p.name || ''));
+    ltBody = `<div class="db2-list">${rowsLt.map(e => `<div class="db2-row"><span class="db2-dot amber"></span><b>${escHtml(e.p.name || '')}</b><span class="db2-sub">${escHtml(e.p.employee_id || '')} · ${escHtml([...e.outlets].filter(Boolean).join(', '))} · ${e.items.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(x => (isRange ? fmtDay(x.date) + ' ' : '') + x.late_by_minutes + 'm').join(', ')}</span><span class="sp"></span><span class="db2-tag">${isRange ? e.items.length + ' late' : e.items[0].late_by_minutes + ' min late'}</span></div>`).join('')}</div>`;
+  }
+
+  // 2c. missed checklists: one row per outlet
+  const mc = m.missed_checklists;
+  let mcBody;
+  if (err('Missed Checklists')) mcBody = errHtml('Missed Checklists');
+  else if (!mc) mcBody = '<div class="db2-ok">Refresh to load</div>';
+  else if (!mc.missing.length) mcBody = `<div class="db2-ok">✓ All ${mc.checked} checklist slots filled</div>`;
+  else {
+    const byOutlet = {};
+    mc.missing.forEach(x => (byOutlet[x.outlet] = byOutlet[x.outlet] || []).push(x));
+    const rowsMc = Object.entries(byOutlet).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+    mcBody = `<div class="db2-list">${rowsMc.map(([o, xs]) => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(o)}</b><span class="db2-sub">${xs.map(x => escHtml(x.slot) + (isRange ? ' ' + fmtDay(x.date) : '')).join(', ')}</span><span class="sp"></span><span class="db2-tag">${xs.length} missed</span></div>`).join('')}</div>`;
+  }
+
   // 3. availability: one row per outlet below threshold on either platform
   const av = m.availability, th = av.threshold || 95, plats = ['Swiggy', 'Zomato'];
   const P = av.platforms || {};
@@ -7872,6 +7898,8 @@ function renderBriefResult(data) {
   body.innerHTML = `<div class="db2-grid">
     ${card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
+    ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
+    ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
     ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online % · checked against staff power-off forms', outlets.size, avBody, true)}
   </div>`;
 }
@@ -17028,6 +17056,7 @@ async function ctDelete(id, cid) {
 .db2-dot { width:8px;height:8px;border-radius:4px;flex:none; }
 .db2-dot.red { background:var(--red); }
 .db2-dot.green { background:var(--green); }
+.db2-dot.amber { background:var(--amber, #d97706); }
 .db2-tag { font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--ink-2);border:1px solid var(--border); }
 .db2-tbl { width:100%;border-collapse:collapse;font-size:13px; }
 .db2-tbl th { text-align:left;font-size:11px;font-weight:700;color:var(--ink-3);padding:6px 4px;border-bottom:1px solid var(--border); }
