@@ -7903,7 +7903,7 @@ function renderBriefResult(data) {
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
     ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
     ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
-    ${card('📶', `Availability below ${th}%`, `${isRange ? rangeLbl : fmtDay(m.date_to)} · Swiggy & Zomato online % · checked against staff power-off forms`, outlets.size + (avErr ? 1 : 0), avBody, true)}
+    ${card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>`, 'Swiggy & Zomato online % · checked against staff power-off forms', outlets.size + (avErr ? 1 : 0), avBody, true)}
   </div>`;
 }
 
