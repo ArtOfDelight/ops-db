@@ -7881,9 +7881,12 @@ function renderBriefResult(data) {
           ${it.note ? `<span class="db2-sub">${it.note}</span>` : ''}</td></tr>`));
   }));
   let avBody;
-  if (err('Availability Below 95%')) avBody = errHtml('Availability Below 95%');
-  else if (!avRows.length) avBody = `<div class="db2-ok">✓ All outlets online ${th}% or more</div>`;
-  else avBody = `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off form</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th></tr></thead>
+  // A platform with no data for the date is an error, but the other platform's rows still show
+  const avErr = errHtml('Availability Below 95%');
+  const avHave = plats.some(pl => (P[pl] || {}).date);
+  if (avErr && !avHave) avBody = avErr;
+  else if (!avRows.length) avBody = avErr + `<div class="db2-ok">✓ All ${avErr ? 'loaded ' : ''}outlets online ${th}% or more</div>`;
+  else avBody = avErr + `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off form</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th></tr></thead>
     <tbody>${avRows.join('')}</tbody></table></div>
     <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–${th}%</span></div>
     <div class="db2-legend">Delta = offline − power off: <span class="db2-delta bad">+</span> offline longer than the power cut, <span class="db2-delta neg">−</span> power cut longer than the platform was offline.</div>
@@ -7900,7 +7903,7 @@ function renderBriefResult(data) {
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
     ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
     ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
-    ${card('📶', `Availability below ${th}%`, 'Swiggy & Zomato online % · checked against staff power-off forms', outlets.size, avBody, true)}
+    ${card('📶', `Availability below ${th}%`, `${isRange ? rangeLbl : fmtDay(m.date_to)} · Swiggy & Zomato online % · checked against staff power-off forms`, outlets.size + (avErr ? 1 : 0), avBody, true)}
   </div>`;
 }
 
