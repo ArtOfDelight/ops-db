@@ -7789,6 +7789,7 @@ function renderBriefResult(data) {
 
   // 2b. late sign-ins: one row per employee, times late (most first)
   const lateP = (m.late_signins || {}).people || [];
+  const wk = (m.late_signins || {}).week;
   let ltBody;
   if (err('Late Sign-ins')) ltBody = errHtml('Late Sign-ins');
   else if (!m.late_signins) ltBody = '<div class="db2-ok">Refresh to load</div>';
@@ -7797,7 +7798,8 @@ function renderBriefResult(data) {
     const byEmp = {};
     lateP.forEach(p => { const k = p.employee_id || p.name; (byEmp[k] = byEmp[k] || { p, items: [], outlets: new Set() }).items.push(p); byEmp[k].outlets.add(p.outlet || ''); });
     const rowsLt = Object.values(byEmp).sort((a, b) => b.items.length - a.items.length || (a.p.name || '').localeCompare(b.p.name || ''));
-    ltBody = `<div class="db2-list">${rowsLt.map(e => `<div class="db2-row"><span class="db2-dot amber"></span><b>${escHtml(e.p.name || '')}</b><span class="db2-sub">${escHtml(e.p.employee_id || '')} · ${escHtml([...e.outlets].filter(Boolean).join(', '))} · ${e.items.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(x => (isRange ? fmtDay(x.date) + ' ' : '') + x.late_by_minutes + 'm').join(', ')}</span><span class="sp"></span><span class="db2-tag">${isRange ? e.items.length + ' late' : e.items[0].late_by_minutes + ' min late'}</span></div>`).join('')}</div>`;
+    ltBody = `<div class="db2-list">${rowsLt.map(e => `<div class="db2-row"><span class="db2-dot amber"></span><b>${escHtml(e.p.name || '')}</b><span class="db2-sub">${escHtml(e.p.employee_id || '')} · ${escHtml([...e.outlets].filter(Boolean).join(', '))} · ${e.items.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(x => (isRange ? fmtDay(x.date) + ' ' : '') + x.late_by_minutes + 'm').join(', ')}</span><span class="sp"></span><span class="db2-tag">${isRange ? e.items.length + ' late' : e.items[0].late_by_minutes + ' min late'}</span>${wk ? `<span class="db2-tag" title="${e.p.week_late || 0} late this incentive week × ₹${wk.fine_per_late}" style="margin-left:6px;background:${e.p.week_fine ? '#fee2e2' : '#ecfdf5'};color:${e.p.week_fine ? 'var(--red)' : 'var(--green)'};font-weight:700">₹${(e.p.week_fine || 0).toLocaleString('en-IN')} fine this week</span>` : ''}</div>`).join('')}</div>`;
+    if (wk) ltBody = `<div class="db2-sub" style="margin:0 0 8px">Fine = incentive week ${fmtDay(wk.start)} – ${fmtDay(wk.end)} so far · ₹${wk.fine_per_late} per late sign-in</div>` + ltBody;
   }
 
   // 2c. missed checklists: one row per outlet
