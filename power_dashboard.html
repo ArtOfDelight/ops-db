@@ -7884,7 +7884,11 @@ function renderBriefResult(data) {
   }));
   let avBody;
   // A platform with no data for the date is an error, but the other platform's rows still show
-  const avErr = errHtml('Availability Below 95%');
+  // Platform hasn't published that day yet (normal lag) → amber note; anything else → real error
+  const notYet = plats.filter(pl => P[pl] && !P[pl].date && P[pl].latest);
+  const avErr = notYet.length && notYet.length === plats.filter(pl => P[pl] && !P[pl].date).length
+    ? `<div class="db2-err" style="background:#fffbeb;border-color:#fcd34d;color:#92400e">⏳ ${notYet.map(pl => `${pl} hasn't published ${fmtDay(m.date_to)} yet (latest: ${fmtDay(P[pl].latest)})`).join(' · ')}. Re-checked automatically at 12:05, 16:05 and 20:05.</div>`
+    : errHtml('Availability Below 95%');
   const avHave = plats.some(pl => (P[pl] || {}).date);
   if (avErr && !avHave) avBody = avErr;
   else if (!avRows.length) avBody = avErr + `<div class="db2-ok">✓ All ${avErr ? 'loaded ' : ''}outlets online ${th}% or more</div>`;
