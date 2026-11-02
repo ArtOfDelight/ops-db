@@ -15274,6 +15274,10 @@ function exRemoveCapex(pid, cid) {
 .tm-handle { cursor:grab; color:var(--navy-text); user-select:none; text-align:center; font-size:14px; padding-top:8px !important; width:22px; }
 .tm-rank { color:var(--navy-text); font-family:var(--mono); padding-top:9px !important; width:26px; }
 .tm-row.dragging { opacity:.4; }
+.tm-row.hp td { background:rgba(239,68,68,.10); }
+.tm-row.hp td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+.tm-hp { background:none; border:1px solid var(--border, #ccc); border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; padding:2px 5px; color:var(--navy-text); opacity:.55; white-space:nowrap; }
+.tm-hp.on { background:var(--red); border-color:var(--red); color:#fff; opacity:1; }
 .tm-row.over-top td { box-shadow: inset 0 2px 0 var(--info); }
 .tm-row.over-bot td { box-shadow: inset 0 -2px 0 var(--info); }
 .tm-row.done textarea[data-f=name] { text-decoration:line-through; color:var(--navy-text); }
@@ -15604,12 +15608,12 @@ function tmStatusSelect(v, attrs) {
 
 function tmRowHtml(t, rank) {
   const on = f => `data-f="${f}" onchange="tmEdit(${t.id}, this)"`;
-  return `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}" data-id="${t.id}"
+  return `<tr class="tm-row${t.status === 'Done' ? ' done' : ''}${t.high_priority ? ' hp' : ''}" data-id="${t.id}"
       ondragstart="tmDragStart(event)" ondragend="tmDragEnd(event)">
     ${_tm.tab === 'done'
       ? `<td class="tm-meta">${tmDoneDate(t.end_time)}</td><td class="tm-meta">${tmSpent(t.time_spent_seconds)}</td>`
       : `<td class="tm-handle" title="Drag to set priority" onmousedown="this.parentElement.draggable=true">⋮⋮</td>
-    <td class="tm-rank">${rank}</td>`}
+    <td class="tm-rank" style="white-space:nowrap">${rank} <button class="tm-hp${t.high_priority ? ' on' : ''}" title="${t.high_priority ? 'High priority — click to remove' : 'Mark high priority (moves to top)'}" onclick="tmToggleHp(${t.id})">🔥 High</button></td>`}
     <td><textarea rows="1" oninput="tmFit(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" ${on('name')}>${tmEsc(t.name)}</textarea></td>
     <td>${tmCatSelect(t.category, on('category'))}</td>
     <td>${tmPersonSelect(t.responsible_id, on('responsible'))}</td>
@@ -15669,6 +15673,21 @@ async function tmEdit(id, el) {
     tmSetSave('All changes saved');
     // Status/assignee changes can move the row between filters or groups.
     if (f === 'status' || f === 'responsible' || f === 'category') tmRenderBody();
+  } catch (e) { tmSetSave('Not saved: ' + e.message, true); }
+}
+
+/* High priority: flagged tasks sit above the rest (server orders them first too). */
+async function tmToggleHp(id) {
+  const t = _tm.tasks.find(x => x.id === id);
+  if (!t) return;
+  tmSetSave('Saving…');
+  try {
+    const d = await tmApi('PATCH', `/${id}`, { high_priority: !t.high_priority });
+    _tm.tasks[_tm.tasks.indexOf(t)] = d.task;
+    // Stable sort keeps the existing priority order inside each group.
+    _tm.tasks = [..._tm.tasks.filter(x => x.high_priority), ..._tm.tasks.filter(x => !x.high_priority)];
+    tmSetSave('All changes saved');
+    tmRenderBody();
   } catch (e) { tmSetSave('Not saved: ' + e.message, true); }
 }
 
