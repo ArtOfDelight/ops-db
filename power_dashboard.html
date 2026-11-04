@@ -1560,6 +1560,7 @@ function renderPowerPage() {
       <button class="ptab active" id="ptab-live"     onclick="switchPTab('live')">Live Status</button>
       <button class="ptab"        id="ptab-log"      onclick="switchPTab('log')">Power Cut Log</button>
       <button class="ptab"        id="ptab-platform" onclick="switchPTab('platform')">Platform Downtime</button>
+      <button class="ptab"        id="ptab-hours"    onclick="switchPTab('hours')">Outlet Hours</button>
     </div>
 
     <div id="ppanel-live">
@@ -1619,16 +1620,114 @@ function renderPowerPage() {
         </div>
         <div id="log-content" class="loader-box"><div class="loader"></div> Loading…</div>
       </div>
+    </div>
+
+    <div id="ppanel-hours" style="display:none">
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-icon amber">🕒</div>
+            <div>
+              <div class="section-title">Outlet Hours &amp; Power Status</div>
+              <div class="section-sub">Keep-alive switches Swiggy/Zomato (+FC/Ownly) back on every 15 min inside these hours unless staff reported Power Off in the app · 08:00 resets everyone to Power On</div>
+            </div>
+          </div>
+          <span class="section-meta" id="ohMeta"></span>
+        </div>
+        <div id="oh-content" class="loader-box"><div class="loader"></div> Loading…</div>
+      </div>
     </div>`;
 
   loadAll();
 }
 
 function switchPTab(t) {
-  ['live','log','platform'].forEach(id => {
+  ['live','log','platform','hours'].forEach(id => {
     document.getElementById('ptab-' + id).classList.toggle('active', id === t);
     document.getElementById('ppanel-' + id).style.display = id === t ? 'block' : 'none';
   });
+  if (t === 'hours') ohLoad();
+}
+
+/* ── OUTLET HOURS (power_control: replaces the Apps Script "Outlet Sheet") ── */
+let _ohData = null;
+async function ohLoad() {
+  const el = document.getElementById('oh-content');
+  try {
+    const r = await fetch(API + '/api/power/outlets', { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status);
+    _ohData = await r.json();
+    ohRender();
+  } catch (e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--red)">Could not load outlet hours: ${e.message || e}</div>`;
+  }
+}
+function ohRender() {
+  const d = _ohData, el = document.getElementById('oh-content');
+  el.className = '';
+  const run = d.last_run;
+  document.getElementById('ohMeta').innerHTML =
+    (d.keepalive_live ? '<b style="color:var(--green)">Keep-alive LIVE</b>' : '<b style="color:var(--amber)">Keep-alive OFF (dry run — Apps Script still in charge)</b>') +
+    (run ? ` · last run ${new Date(run.ts).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'})}` : '');
+  const apiBy = {}; (run && run.rows || []).forEach(x => apiBy[x.code] = x.api);
+  const chk = c => `<input type="checkbox" ${c ? 'checked' : ''}>`;
+  const rows = d.outlets.map(o => `
+    <tr data-code="${o.code}" style="${o.active ? '' : 'opacity:.5'}">
+      <td><b>${o.code}</b><div style="font-size:10px;color:var(--ink-3)">${o.rista_branch || ''}</div></td>
+      <td>${o.name || ''}</td>
+      <td><input type="time" class="oh-open" value="${o.open || ''}" style="font-size:12px"></td>
+      <td><input type="time" class="oh-close" value="${o.close || ''}" style="font-size:12px"></td>
+      <td><span style="font-weight:600;color:${o.status === 'Power Off' ? 'var(--red)' : 'var(--green)'}">${o.status}</span>
+        <div style="font-size:10px;color:var(--ink-3)">${o.status_by || o.status_source || ''}${o.status_since ? ' · ' + new Date(o.status_since).toLocaleString('en-IN', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : ''}</div></td>
+      <td>${o.check}</td>
+      <td class="oh-fc" style="text-align:center">${chk(o.fc)}</td>
+      <td class="oh-ownly" style="text-align:center">${chk(o.ownly)}</td>
+      <td class="oh-active" style="text-align:center">${chk(o.active)}</td>
+      <td style="font-size:10px;color:var(--ink-3);max-width:200px">${apiBy[o.code] || ''}</td>
+      <td><button class="ptab" onclick="ohSave('${o.code}')" style="padding:4px 10px;font-size:11px">Save</button></td>
+    </tr>`).join('');
+  el.innerHTML = `
+    <div style="overflow-x:auto"><table class="pm-table" style="width:100%">
+      <thead><tr><th>Code</th><th>Branch Name</th><th>Opening</th><th>Closing</th><th>Override Status</th><th>Check</th><th>FC?</th><th>Ownly</th><th>Active</th><th>Last keep-alive</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:12px">+ Add outlet</summary>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end;padding:10px 0;font-size:11px">
+        <label>Roster code<br><input id="ohN-code" placeholder="CVR" style="width:70px"></label>
+        <label>Branch name<br><input id="ohN-name" placeholder="CV Raman Nagar"></label>
+        <label>Rista branch code<br><input id="ohN-branch" placeholder="AOD-CVR" style="width:100px"></label>
+        <label>Opening<br><input id="ohN-open" type="time" value="11:15"></label>
+        <label>Closing<br><input id="ohN-close" type="time" value="01:45"></label>
+        <label><input id="ohN-fc" type="checkbox"> FC</label>
+        <label><input id="ohN-ownly" type="checkbox" checked> Ownly</label>
+        <button class="ptab active" onclick="ohAdd()" style="padding:5px 14px">Add</button>
+      </div>
+      <div style="font-size:10px;color:var(--ink-3)">Roster code must match the outlet code staff are rostered at, or they won't see the power buttons. Rista branch code must match Rista exactly, or the keep-alive fails.</div>
+    </details>`;
+}
+async function ohSend(method, path, body) {
+  const r = await fetch(API + '/api/power/outlets' + path, {
+    method, headers: { Authorization: `Bearer ${_lsToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || r.status);
+  return j;
+}
+async function ohSave(code) {
+  const tr = document.querySelector(`#oh-content tr[data-code="${code}"]`);
+  const body = {
+    open: tr.querySelector('.oh-open').value, close: tr.querySelector('.oh-close').value,
+    fc: tr.querySelector('.oh-fc input').checked, ownly: tr.querySelector('.oh-ownly input').checked,
+    active: tr.querySelector('.oh-active input').checked,
+  };
+  try { await ohSend('PUT', '/' + code, body); await ohLoad(); }
+  catch (e) { tr.style.background = 'rgba(220,38,38,.08)'; tr.title = 'Save failed: ' + (e.message || e); }
+}
+async function ohAdd() {
+  const v = id => document.getElementById(id).value.trim();
+  const body = { code: v('ohN-code'), name: v('ohN-name'), rista_branch: v('ohN-branch'), open: v('ohN-open'), close: v('ohN-close'),
+    fc: document.getElementById('ohN-fc').checked, ownly: document.getElementById('ohN-ownly').checked };
+  try { await ohSend('POST', '', body); await ohLoad(); }
+  catch (e) { document.getElementById('ohMeta').textContent = 'Add failed: ' + (e.message || e); }
 }
 
 /* ── RENDER LIVE ── */
