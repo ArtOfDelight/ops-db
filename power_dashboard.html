@@ -16280,7 +16280,7 @@ let _rf = { data: null, show: 'all', busy: false };
 // exchanged for an accounting session too. Only people listed in the
 // accounting app's users get one; everyone else sees a notice on this tab.
 const ACCT_API = 'https://aod-accounting-api-v2.onrender.com/api';
-const _cf = { rows: null, period: 'yesterday', cat: 'all' };
+const _cf = { rows: null, period: 'yesterday', cat: 'all', view: 'transfers' };
 
 async function acctLogin(idToken) {
   try {
@@ -16399,6 +16399,7 @@ async function renderCashfreePage(refresh = false) {
     return;
   }
   body.innerHTML = '<div class="loader-box"><div class="loader"></div> Fetching the Cashfree report…</div>';
+  if (refresh) { _cfR.claims = null; _cfR.rosters = {}; }
   try {
     // "Cashfree Report 2" sheet, read by the accounting backend: head = column R,
     // remarks = M, beneficiary = G.
@@ -16436,8 +16437,24 @@ function cfInPeriod() {
   return _cf.rows.filter(t => t.date >= from && t.date <= to);
 }
 
+// Transfers / Reimbursements switch plus the period buttons, shared by both views.
+function cfTopBar() {
+  const { from, to } = cfRange(_cf.period);
+  const btn = (on, click, label) => `<button onclick="${click}" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${on?'#111827':'var(--surface)'};color:${on?'#fff':'inherit'};font-weight:600">${label}</button>`;
+  const tab = (k, label) => btn(_cf.period === k, `_cf.period='${k}';cfDraw()`, label);
+  const view = (k, label) => btn(_cf.view === k, `_cf.view='${k}';cfDraw()`, label);
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${view('transfers','Transfers')}${view('reimb','Reimbursements by outlet')}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('month','Last month')}${tab('all','All time')}
+      <span style="color:#6b7280">${_cf.period === 'all' ? '' : from === to ? from : from + ' → ' + to}</span>
+      ${_cf.view === 'transfers' ? '<button onclick="cfClearFilters()" class="btn-refresh" style="margin-left:auto">Clear filters</button>' : '<span style="margin-left:auto"></span>'}
+      <button onclick="renderCashfreePage(true)" class="btn-refresh">↻ Refresh</button>
+    </div>`;
+}
+
 function cfDraw() {
-  const body = document.getElementById('pageBody'), { from, to } = cfRange(_cf.period);
+  if (_cf.view === 'reimb') return cfReimbDraw();
+  const body = document.getElementById('pageBody');
   const inPeriod = cfInPeriod();
   // ~40 heads, so a dropdown (biggest first) rather than a row of buttons.
   const heads = Object.entries(inPeriod.reduce((m, t) => { (m[t.head] = m[t.head] || []).push(t); return m; }, {}))
@@ -16445,7 +16462,6 @@ function cfDraw() {
   if (_cf.cat !== 'all' && !heads.some(([h]) => h === _cf.cat)) heads.push([_cf.cat, []]);
   const opt = (v, label, list) => `<option value="${sfEsc(v)}" ${_cf.cat === v ? 'selected' : ''}>${sfEsc(label)} · ${cfInr(cfSum(list))} (${list.length})</option>`;
   const statuses = [...new Set(_cf.rows.map(t => t.status).filter(Boolean))].sort();
-  const tab = (k, label) => `<button onclick="_cf.period='${k}';cfDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_cf.period===k?'#111827':'var(--surface)'};color:${_cf.period===k?'#fff':'inherit'};font-weight:600">${label}</button>`;
   const inp = 'padding:5px 7px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;width:100%;box-sizing:border-box;font-weight:400';
   const text = (k, ph) => `<input value="${sfEsc(_cfF[k])}" placeholder="${ph}" oninput="_cfF.${k}=this.value;cfRows()" style="${inp}"/>`;
   const filters = {
@@ -16460,12 +16476,7 @@ function cfDraw() {
   const th = 'padding:8px;text-align:left;vertical-align:bottom';
   body.innerHTML = `
   <div style="padding:16px;max-width:1250px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('month','Last month')}${tab('all','All time')}
-      <span style="color:#6b7280">${_cf.period === 'all' ? '' : from === to ? from : from + ' → ' + to}</span>
-      <button onclick="cfClearFilters()" class="btn-refresh" style="margin-left:auto">Clear filters</button>
-      <button onclick="renderCashfreePage(true)" class="btn-refresh">↻ Refresh from sheet</button>
-    </div>
+    ${cfTopBar()}
     <div id="cf-summary" style="font-size:13px;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr id="cf-head" style="color:#6b7280"></tr>
@@ -16512,6 +16523,145 @@ function cfRows() {
       <td style="padding:8px;${t.status === 'SUCCESS' ? '' : 'color:#b91c1c'}">${sfEsc(t.status)}</td>
       <td style="padding:8px;color:#6b7280;font-size:12px">${sfEsc(t.utr)}</td>
     </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;color:#6b7280">No transfers match.</td></tr>';
+}
+
+/* ── Reimbursements by outlet ── claims come from the AOD app, so BulkPe-paid
+   ones count too (the Cashfree sheet would miss them). The outlet a person picks
+   in the app can be wrong, so their roster for the claim's day decides. */
+const _cfR = { claims: null, rosters: {}, status: 'paid', cat: 'all', open: null, seq: 0 };
+// Sushant, Nishat, Jatin, Jimmy, Sanu: not tied to one outlet, their pick always stands.
+const CF_PICK_OWN_OUTLET = new Set(['AOD133', 'AOD005', 'AOD019', 'AOD021', 'AOD091']);
+const CF_NOT_AN_OUTLET = new Set(['', 'WO', 'PL', 'UPL']);
+const CF_REIMB_CATS = { dummy_order: 'Dummy order', food_items: 'Food items', bananas: 'Food items', ingredients: 'Food items',
+  water: 'Water', packaging: 'Packaging items', tape_stationery: 'Tape / stationery', porter: 'Porter / delivery',
+  staff_meal: 'Staff meal', cleaning: 'Cleaning items', repairs: 'Repairs & maintenance', other: 'Other' };
+
+// submitted_at is UTC, often without a zone; rosters and the period buttons are IST days.
+function cfClaimDate(c) {
+  const s = c.submitted_at || '';
+  const d = new Date(/(Z|[+-]\d\d:?\d\d)$/.test(s) ? s : s + 'Z');
+  return isNaN(d) ? s.slice(0, 10) : new Date(d.getTime() + 330 * 60000).toISOString().slice(0, 10);
+}
+const cfEmpId = c => (c.employee_id || '').toUpperCase();
+const cfDmy = iso => iso.split('-').reverse().join('/');
+const cfClaimUsesRoster = c => !CF_PICK_OWN_OUTLET.has(cfEmpId(c));
+const cfClaimRejected = c => /^rejected$/i.test(c.status || '');
+
+function cfClaimOutlet(c) {
+  const picked = (c.outlet || '').trim().toUpperCase();
+  const fallback = picked || 'Unassigned';
+  if (!cfClaimUsesRoster(c)) return { outlet: fallback, from: 'own' };
+  const day = _cfR.rosters[c.date];
+  if (day === null) return { outlet: fallback, from: 'noroster' };
+  const rostered = (day && day[cfEmpId(c)]) || [];
+  if (!rostered.length) return { outlet: fallback, from: 'offroster' };
+  if (rostered.includes(picked)) return { outlet: picked, from: 'roster' };
+  return { outlet: rostered[0], from: 'roster', corrected: picked };
+}
+
+async function cfReimbFetchRosters(seq) {
+  const dates = [...new Set(cfReimbInPeriod().filter(cfClaimUsesRoster).map(c => c.date))].filter(d => !(d in _cfR.rosters));
+  let next = 0, done = 0;
+  const worker = async () => {
+    while (next < dates.length && seq === _cfR.seq) {
+      const iso = dates[next++];
+      try {
+        const { entries = [] } = await sfFetch(`/api/ops/roster/for-date?date=${encodeURIComponent(cfDmy(iso))}`);
+        const map = {};
+        entries.forEach(e => {
+          const o = (e.outlet || '').trim().toUpperCase(), id = (e.employee_id || '').toUpperCase();
+          if (!CF_NOT_AN_OUTLET.has(o)) (map[id] = map[id] || []).push(o);
+        });
+        _cfR.rosters[iso] = map;
+      } catch { _cfR.rosters[iso] = null; }   // shown as a warning, never silently trusted
+      done++;
+      const el = document.getElementById('cf-r-progress');
+      if (el) el.textContent = `Matching claims to the roster… ${done} of ${dates.length} days`;
+    }
+  };
+  await Promise.all([1, 2, 3, 4, 5, 6].map(worker));
+}
+
+const cfReimbInPeriod = () => {
+  const { from, to } = cfRange(_cf.period);
+  return _cfR.claims.filter(c => c.date >= from && c.date <= to && !cfClaimRejected(c));
+};
+
+async function cfReimbDraw() {
+  const body = document.getElementById('pageBody'), seq = ++_cfR.seq;
+  const stale = () => seq !== _cfR.seq || _currentPage !== 'cashfree' || _cf.view !== 'reimb';
+  const loading = msg => { body.innerHTML = `<div style="padding:16px;max-width:1250px">${cfTopBar()}<div class="loader-box"><div class="loader"></div> <span id="cf-r-progress">${msg}</span></div></div>`; };
+  try {
+    if (!_cfR.claims) {
+      loading('Fetching reimbursement claims…');
+      const list = await sfFetch('/api/admin/reimbursements');
+      if (stale()) return;
+      _cfR.claims = list.map(c => ({ ...c, date: cfClaimDate(c), cat: CF_REIMB_CATS[c.category] || 'Uncategorised' }));
+    }
+  } catch (e) {
+    if (!stale()) body.innerHTML = `<div style="padding:16px;max-width:1250px">${cfTopBar()}<div style="color:#b91c1c">${sfEsc(e.message)}</div></div>`;
+    return;
+  }
+  if (cfReimbInPeriod().some(c => cfClaimUsesRoster(c) && !(c.date in _cfR.rosters))) {
+    loading('Matching claims to the roster…');
+    await cfReimbFetchRosters(seq);
+    if (stale()) return;
+  }
+  cfReimbRender();
+}
+
+function cfReimbRender() {
+  const body = document.getElementById('pageBody');
+  const paid = c => /^paid$/i.test(c.status || '');
+  const failed = c => /fail/i.test(c.status || '');
+  const statusOk = { paid, open: c => !paid(c) && !failed(c), all: () => true }[_cfR.status];
+  const base = cfReimbInPeriod().filter(statusOk).map(c => ({ ...c, tag: cfClaimOutlet(c) }));
+  const total = l => l.reduce((s, c) => s + (+c.amount || 0), 0);
+  const group = (l, key) => Object.entries(l.reduce((m, c) => { (m[key(c)] = m[key(c)] || []).push(c); return m; }, {}))
+    .sort((a, b) => total(b[1]) - total(a[1]));
+  const cats = group(base, c => c.cat);
+  if (_cfR.cat !== 'all' && !cats.some(([k]) => k === _cfR.cat)) _cfR.cat = 'all';
+  const claims = base.filter(c => _cfR.cat === 'all' || c.cat === _cfR.cat);
+  const outlets = group(claims, c => c.tag.outlet);
+  const inp = 'padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px';
+  const count = f => claims.filter(f).length;
+  const notes = [
+    [count(c => c.tag.corrected !== undefined), 'moved to the rostered outlet'],
+    [count(c => c.tag.from === 'offroster'), 'not rostered that day, so the outlet picked in the app was used'],
+    [count(c => c.tag.from === 'noroster'), 'roster could not be loaded, so the outlet picked in the app was used'],
+  ].filter(([n]) => n).map(([n, t]) => `${n} ${t}`).join(' · ');
+  const tagNote = t => t.corrected !== undefined ? `<span style="color:#b45309">Roster · app said ${sfEsc(t.corrected || 'nothing')}</span>`
+    : t.from === 'roster' ? 'Roster' : t.from === 'own' ? 'Own pick'
+    : `<span style="color:#b45309">${t.from === 'offroster' ? 'Not rostered · app pick' : 'Roster unavailable · app pick'}</span>`;
+  const th = 'padding:8px;text-align:left', num = 'padding:8px;text-align:right;white-space:nowrap';
+  const detail = list => `<tr><td colspan="4" style="padding:4px 8px 16px 24px;background:var(--surface)">
+    <div style="margin:8px 0;font-size:12px;color:#6b7280">${group(list, c => c.cat).map(([k, l]) => `${sfEsc(k)} <b>${cfInr(total(l))}</b> (${l.length})`).join(' · ')}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:#6b7280"><th style="${th}">Date</th><th style="${th}">Person</th><th style="${th}">Category</th><th style="${th}">Description</th><th style="${num}">Amount</th><th style="${th}">Status</th><th style="${th}">Tagged from</th></tr></thead>
+      <tbody>${list.slice().sort((a, b) => (b.submitted_at || '').localeCompare(a.submitted_at || '')).map(c => `<tr style="border-top:1px solid #f3f4f6">
+        <td style="padding:8px;white-space:nowrap">${sfEsc(c.date)}</td>
+        <td style="padding:8px"><b>${sfEsc(c.employee_name || '')}</b> <span style="color:#6b7280">${sfEsc(c.employee_id || '')}</span></td>
+        <td style="padding:8px">${sfEsc(c.cat)}</td><td style="padding:8px">${sfEsc(c.comment || '')}</td>
+        <td style="${num}">${cfInr(c.amount)}</td><td style="padding:8px">${sfEsc(c.status || '')}</td><td style="padding:8px">${tagNote(c.tag)}</td></tr>`).join('')}</tbody>
+    </table></div></td></tr>`;
+  body.innerHTML = `<div style="padding:16px;max-width:1250px">${cfTopBar()}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <select onchange="_cfR.status=this.value;cfReimbRender()" style="${inp}">
+        ${[['paid', 'Paid'], ['open', 'Not paid yet'], ['all', 'All except rejected']].map(([k, l]) => `<option value="${k}" ${_cfR.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select onchange="_cfR.cat=this.value;cfReimbRender()" style="${inp}">
+        <option value="all">All categories · ${cfInr(total(base))} (${base.length})</option>
+        ${cats.map(([k, l]) => `<option value="${sfEsc(k)}" ${_cfR.cat === k ? 'selected' : ''}>${sfEsc(k)} · ${cfInr(total(l))} (${l.length})</option>`).join('')}</select>
+    </div>
+    <div style="font-size:13px;margin-bottom:10px">${claims.length} claims · <b>${cfInr(total(claims))}</b> across ${outlets.length} outlets
+      <span style="color:#6b7280">· by the day the claim was submitted · click an outlet for details</span>
+      ${notes ? `<div style="color:#b45309;margin-top:4px">${notes}</div>` : ''}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb"><th style="${th}">Outlet</th><th style="${num}">Claims</th><th style="${num}">Amount</th><th style="${th}">Biggest categories</th></tr></thead>
+      <tbody>${outlets.length ? outlets.map(([o, l]) => `<tr data-o="${sfEsc(o)}" onclick="_cfR.open=_cfR.open===this.dataset.o?null:this.dataset.o;cfReimbRender()" style="border-top:1px solid #f3f4f6;cursor:pointer">
+        <td style="padding:8px;font-weight:600">${_cfR.open === o ? '▾' : '▸'} ${sfEsc(o)}</td><td style="${num}">${l.length}</td><td style="${num};font-weight:600">${cfInr(total(l))}</td>
+        <td style="padding:8px;color:#6b7280">${group(l, c => c.cat).slice(0, 3).map(([k, x]) => `${sfEsc(k)} ${cfInr(total(x))}`).join(' · ')}</td></tr>${_cfR.open === o ? detail(l) : ''}`).join('')
+        : '<tr><td colspan="4" style="padding:20px;color:#6b7280">No reimbursements in this period.</td></tr>'}</tbody>
+    </table></div></div>`;
 }
 
 async function renderReferralsPage() {
