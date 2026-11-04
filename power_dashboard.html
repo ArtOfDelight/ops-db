@@ -2709,6 +2709,7 @@ function scBuildTable(rows, offset) {
   };
   const thead = `<thead><tr>
     ${th('name', 'Employee', 'left')}
+    <th class="left" title="Outlets rostered this week (today + next 6 days; last 7 days if none ahead)">Current Outlets</th>
     ${th('total_orders', 'Orders')}
     ${th('high_rated', 'High Rated')}
     ${th('high_pct', 'High Rated %')}
@@ -2741,6 +2742,7 @@ function scBuildTable(rows, offset) {
           </div>
         </div>
       </td>
+      <td class="left"><span style="font-size:11px;color:var(--ink-2)">${(e.current_outlets || []).join(', ') || '—'}</span></td>
       <td><span class="sc-num">${e.total_orders ?? '—'}</span></td>
       <td><span class="sc-num" style="color:var(--green)">${e.high_rated ?? '—'}</span></td>
       <td><span class="sc-pct ${hrPctCls}">${hrPct !== null ? hrPct + '%' : '—'}</span></td>
@@ -2754,7 +2756,7 @@ function scBuildTable(rows, offset) {
         <div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.checklist_submitted ?? '—'}/${e.checklist_scheduled ?? '—'}</div>
       </td>
       <td><span class="sc-num ${e.late_count > 0 ? 'sc-pct bad' : ''}">${e.late_count ?? 0}</span></td>
-    </tr>` + (open ? scDetailRowHtml(e.employee_id, 11) : '');
+    </tr>` + (open ? scDetailRowHtml(e.employee_id, 12) : '');
   }).join('');
   return `<table class="sc-table">${thead}<tbody>${trs}</tbody></table>`;
 }
