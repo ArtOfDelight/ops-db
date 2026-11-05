@@ -16379,7 +16379,7 @@ let _rf = { data: null, show: 'all', busy: false };
 // exchanged for an accounting session too. Only people listed in the
 // accounting app's users get one; everyone else sees a notice on this tab.
 const ACCT_API = 'https://aod-accounting-api-v2.onrender.com/api';
-const _cf = { rows: null, period: 'yesterday', cat: 'all', view: 'transfers' };
+const _cf = { rows: null, period: 'yesterday', cat: 'all', view: 'transfers', bucket: '' };
 
 async function acctLogin(idToken) {
   try {
@@ -16531,6 +16531,54 @@ const cfInr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDi
 // Totals count money that actually went out; failed / reversed rows still list.
 const cfSum = list => list.reduce((s, t) => s + (t.status === 'SUCCESS' ? +t.amount || 0 : 0), 0);
 
+// Spend buckets for the pie: sheet head (column R) -> bucket. A head that isn't
+// listed, including a new one, lands in Needs tagging so it can't hide in a bucket.
+const CF_BUCKETS = [
+  { k: 'Labour', c: '#2a78d6', heads: ['salary payable', 'incentives', 'employee salary advance', 'staff welfare expense (food)'], re: /^staff room rent/ },
+  { k: 'Capex', c: '#eb6834', heads: ['vehicles (fixed asset)', 'vehicles (fixed asset) / freight'] },
+  { k: 'Rents', c: '#1baf7a', heads: ['accounts payable (rent bill)'] },
+  { k: 'Repairs & Maintenance', c: '#eda100', heads: ['repairs and maintenance – general', 'equipment maintenance', 'pest control'] },
+  { k: 'COGS', c: '#e87ba4', heads: ['packaging cost', 'food cost', 'kitchen item expensee'] },
+  { k: 'Transport', c: '#008300', heads: ['transportation expenses', 'fuel expenses', 'travelling expenses - staff'] },
+  { k: 'Stationery', c: '#6250d6', heads: ['printing and stationary'] },
+  { k: 'Other', c: '#e34948', heads: ['electricity expenses', 'consultancy charges', 'gas expenses', 'water expenses', 'fssai expenses', 'cleaning expenses', 'telephone and internet expenses', 'garbage collection', 'bank charges', 'employee reimbursements', 'dummy orders', 'rental deposit'] },
+  { k: 'Needs tagging', c: '#9ca3af', heads: [] },
+];
+function cfBucket(t) {
+  const h = (t.head || '').replace(/\?/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  // No tape head exists: tape is spotted in the description of stationery rows.
+  if (h === 'printing and stationary' && /\btapes?\b/i.test(t.remarks || '')) return 'COGS';
+  const b = CF_BUCKETS.find(x => x.heads.includes(h) || (x.re && x.re.test(h)));
+  return b ? b.k : 'Needs tagging';
+}
+
+function cfPie() {
+  const parts = CF_BUCKETS.map(b => ({ ...b, amt: cfSum(cfInPeriod().filter(t => cfBucket(t) === b.k)) }))
+    .filter(b => b.amt > 0).sort((a, b) => b.amt - a.amt);
+  const total = parts.reduce((s, b) => s + b.amt, 0);
+  if (!total) return '';
+  const R = 90, C = 100, pt = f => `${(C + R * Math.sin(f * 2 * Math.PI)).toFixed(2)} ${(C - R * Math.cos(f * 2 * Math.PI)).toFixed(2)}`;
+  const click = b => `data-b="${sfEsc(b.k)}" onclick="_cf.bucket=_cf.bucket===this.dataset.b?'':this.dataset.b;cfDraw()"`;
+  const dim = b => _cf.bucket && _cf.bucket !== b.k ? 'opacity:.3;' : '';
+  const label = b => `${b.k}: ${cfInr(b.amt)} (${(b.amt / total * 100).toFixed(1)}%)`;
+  let at = 0;
+  const slices = parts.map(b => {
+    const from = at, frac = b.amt / total; at += frac;
+    const shape = frac > 0.9999 ? `<circle cx="${C}" cy="${C}" r="${R}"` :
+      `<path d="M${C} ${C} L${pt(from)} A${R} ${R} 0 ${frac > 0.5 ? 1 : 0} 1 ${pt(from + frac)} Z"`;
+    return `${shape} fill="${b.c}" stroke="var(--surface)" stroke-width="2" ${click(b)} style="cursor:pointer;${dim(b)}"><title>${sfEsc(label(b))}</title>${frac > 0.9999 ? '</circle>' : '</path>'}`;
+  }).join('');
+  const rows = parts.map(b => `<tr ${click(b)} style="cursor:pointer;border-top:1px solid #f3f4f6;${dim(b)}">
+      <td style="padding:6px 8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${b.c};margin-right:8px"></span>${sfEsc(b.k)}</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(b.amt)}</td>
+      <td style="padding:6px 8px;text-align:right;color:#6b7280">${(b.amt / total * 100).toFixed(1)}%</td></tr>`).join('');
+  return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+    <svg viewBox="0 0 200 200" width="220" height="220" role="img" aria-label="Paid out by spend bucket" style="flex:none">${slices}</svg>
+    <div style="flex:1;min-width:280px;max-width:520px;font-size:13px">
+      <div style="margin-bottom:6px">Paid out by bucket · <b>${cfInr(total)}</b> <span style="color:#6b7280">· click one to see its transfers</span></div>
+      <table style="width:100%;border-collapse:collapse">${rows}</table></div></div>`;
+}
+
 function cfInPeriod() {
   const { from, to } = cfRange(_cf.period);
   return _cf.rows.filter(t => t.date >= from && t.date <= to);
@@ -16576,6 +16624,7 @@ function cfDraw() {
   body.innerHTML = `
   <div style="padding:16px;max-width:1250px">
     ${cfTopBar()}
+    ${cfPie()}
     <div id="cf-summary" style="font-size:13px;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr id="cf-head" style="color:#6b7280"></tr>
@@ -16595,6 +16644,7 @@ function cfSortBy(k) {
 function cfClearFilters() {
   Object.assign(_cfF, { ben: '', desc: '', utr: '', status: '', min: '', max: '' });
   _cf.cat = 'all';
+  _cf.bucket = '';
   cfDraw();
 }
 
@@ -16606,12 +16656,13 @@ function cfRows() {
   const col = _cfCols.find(c => c.k === _cfF.sort);
   const rows = cfInPeriod().filter(t =>
     (_cf.cat === 'all' || t.head === _cf.cat)
+    && (!_cf.bucket || cfBucket(t) === _cf.bucket)
     && has(t.beneficiary + ' ' + t.beneficiary_id, _cfF.ben) && has(t.remarks, _cfF.desc) && has(t.utr, _cfF.utr)
     && (!_cfF.status || t.status === _cfF.status)
     && (isNaN(min) || t.amount >= min) && (isNaN(max) || t.amount <= max))
     .sort((a, b) => { const x = col.val(a), y = col.val(b); return (x < y ? -1 : x > y ? 1 : 0) * _cfF.dir; });
   document.getElementById('cf-head').innerHTML = _cfCols.map(c => `<th onclick="cfSortBy('${c.k}')" style="padding:8px;text-align:${c.right ? 'right' : 'left'};cursor:pointer;white-space:nowrap;user-select:none">${c.label} <span style="opacity:${_cfF.sort === c.k ? 1 : .3}">${_cfF.sort === c.k ? (_cfF.dir < 0 ? '▼' : '▲') : '↕'}</span></th>`).join('');
-  document.getElementById('cf-summary').innerHTML = `${rows.length} transfers · paid out <b>${cfInr(cfSum(rows))}</b>
+  document.getElementById('cf-summary').innerHTML = `${_cf.bucket ? sfEsc(_cf.bucket) + ' · ' : ''}${rows.length} transfers · paid out <b>${cfInr(cfSum(rows))}</b>
     <span style="color:#6b7280">· sheet has transfers up to ${sfEsc(_cf.rows[0]?.date || '—')} · click a column name to sort</span>`;
   tbody.innerHTML = rows.length ? rows.map(t => `<tr style="border-top:1px solid #f3f4f6">
       <td style="padding:8px;white-space:nowrap">${sfEsc(t.date)}</td>
