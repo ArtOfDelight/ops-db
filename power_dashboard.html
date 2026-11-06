@@ -16579,11 +16579,11 @@ function cfPie() {
   const rows = parts.map(b => `<tr ${click(b)} style="cursor:pointer;border-top:1px solid #f3f4f6;${dim(b)}">
       <td style="padding:6px 8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${b.c};margin-right:8px"></span>${sfEsc(b.k)}</td>
       <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(b.amt)}</td>
-      <td style="padding:6px 8px;text-align:right;color:#6b7280">${(b.amt / total * 100).toFixed(1)}%</td></tr>`).join('')
+      <td style="padding:6px 8px;text-align:right;color:#6b7280">${(b.amt / total * 100).toFixed(1)}%</td></tr>${_cf.bucket === b.k ? cfBucketSplit() : ''}`).join('')
     + (failed.length ? `<tr ${click({ k: CF_FAILED })} style="cursor:pointer;border-top:2px solid #e5e7eb;color:#b91c1c;${dim({ k: CF_FAILED })}">
       <td style="padding:6px 8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;border:1px dashed #b91c1c;margin-right:8px"></span>${CF_FAILED} (${failed.length})</td>
       <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(failed.reduce((s, t) => s + (+t.amount || 0), 0))}</td>
-      <td style="padding:6px 8px;text-align:right;font-size:12px">not paid</td></tr>` : '');
+      <td style="padding:6px 8px;text-align:right;font-size:12px">not paid</td></tr>${_cf.bucket === CF_FAILED ? cfBucketSplit() : ''}` : '');
   return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
     <svg viewBox="0 0 200 200" width="220" height="220" role="img" aria-label="Paid out by spend bucket" style="flex:none">${slices}</svg>
     <div style="flex:1;min-width:280px;max-width:520px;font-size:13px">
@@ -16612,11 +16612,11 @@ function cfBucketSplit() {
       <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(p.amt)}</td>
       <td style="padding:6px 8px;text-align:right;color:#6b7280">${total ? (p.amt / total * 100).toFixed(1) : '0.0'}%</td></tr>`;
   }).join('');
-  return `<div style="max-width:620px;font-size:13px;margin-bottom:16px">
-    <div style="margin-bottom:6px"><b>${sfEsc(_cf.bucket)}</b> by head <span style="color:#6b7280">· click a head to filter the list</span></div>
-    <table style="width:100%;border-collapse:collapse">
+  return `<tr><td colspan="3" style="padding:4px 0 10px 26px">
+    <div style="color:#6b7280;font-size:12px;margin:2px 0 4px">${sfEsc(_cf.bucket)} by head · click a head to filter the list</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;background:var(--surface);border:1px solid #e5e7eb;border-radius:8px">
       <tr style="color:#6b7280;font-size:12px"><td style="padding:4px 8px">Head</td><td style="padding:4px 8px;text-align:right">Transfers</td><td style="padding:4px 8px;text-align:right">Paid out</td><td style="padding:4px 8px;text-align:right">Share</td></tr>
-      ${rows}</table></div>`;
+      ${rows}</table></td></tr>`;
 }
 
 function cfInPeriod() {
@@ -16667,7 +16667,6 @@ function cfDraw() {
   <div style="padding:16px;max-width:1250px">
     ${cfTopBar()}
     ${cfPie()}
-    ${cfBucketSplit()}
     <div id="cf-summary" style="font-size:13px;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr id="cf-head" style="color:#6b7280"></tr>
