@@ -16511,6 +16511,7 @@ async function renderCashfreePage(refresh = false) {
     _cf.rows = ((await r.json()).rows || [])
       .map(t => ({ ...t, date: t.initiated_at.slice(0, 10), head: t.head || 'Uncategorised' }))
       .sort((a, b) => b.initiated_at.localeCompare(a.initiated_at));
+    await cfLoadTags();
   } catch (e) {
     if (_currentPage === 'cashfree') body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`;
     return;
@@ -16550,8 +16551,87 @@ const CF_BUCKETS = [
 // Anything that didn't go through (failed, reversed, rejected, pending...) sits
 // in its own bucket, whatever its head. Listed beside the pie, never in its total.
 const CF_FAILED = 'Failed / Reversed';
-function cfBucket(t) {
+// Manual tags (AODAPP backend, ops login): Other / Needs tagging rows can be
+// moved into any bucket, including new ones Ajay or Jatin approve.
+const CF_EXTRA_COLORS = ['#0e9aa7', '#a05195', '#7a5c00', '#3d5a80', '#c2410c', '#4d7c0f'];
+const _cfT = { tags: {}, buckets: [], canTag: false, canApprove: false, newName: '', msg: '' };
+const cfKey = t => String(t.utr || t.transfer_id || `${t.beneficiary_id}_${t.initiated_at}`).replace(/\//g, '_');
+async function cfLoadTags() {
+  try {
+    const r = await fetch(`${API}/api/admin/cashfree-tags`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!r.ok) return;
+    const d = await r.json();
+    Object.assign(_cfT, { tags: d.tags || {}, buckets: d.buckets || [], canTag: !!d.can_tag, canApprove: !!d.can_approve });
+  } catch {}
+}
+// Fixed buckets plus approved custom ones (Needs tagging stays last).
+function cfAllBuckets() {
+  const extra = _cfT.buckets.filter(b => b.status === 'approved')
+    .map((b, i) => ({ k: b.name, c: CF_EXTRA_COLORS[i % CF_EXTRA_COLORS.length], heads: [] }));
+  return [...CF_BUCKETS.slice(0, -1), ...extra, CF_BUCKETS[CF_BUCKETS.length - 1]];
+}
+async function cfApi(method, path, body) {
+  const r = await fetch(`${API}/api/admin/${path}`, { method,
+    headers: { Authorization: `Bearer ${_lsToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || `Error ${r.status}`);
+  return d;
+}
+async function cfTag(key, bucket) {
+  if (bucket === '__new') { _cfT.msg = 'Type the new bucket name in the box above the pie.'; cfDraw(); document.getElementById('cf-newb')?.focus(); return; }
+  try {
+    await cfApi('PUT', 'cashfree-tags', { key, bucket: bucket || null });
+    if (bucket) _cfT.tags[key] = { bucket }; else delete _cfT.tags[key];
+    _cfT.msg = '';
+  } catch (e) { _cfT.msg = e.message; }
+  cfDraw();
+}
+async function cfNewBucket() {
+  const name = (_cfT.newName || '').trim();
+  if (!name) return;
+  try {
+    const d = await cfApi('POST', 'cashfree-buckets', { name });
+    _cfT.buckets.push(d); _cfT.newName = '';
+    _cfT.msg = d.status === 'approved' ? `“${name}” added.` : `“${name}” sent to Ajay / Jatin for approval.`;
+  } catch (e) { _cfT.msg = e.message; }
+  cfDraw();
+}
+async function cfDecide(id, approve) {
+  try {
+    const d = await cfApi('POST', `cashfree-buckets/${id}/decision`, { approve });
+    Object.assign(_cfT.buckets.find(b => b.id === id) || {}, d);
+    _cfT.msg = '';
+  } catch (e) { _cfT.msg = e.message; }
+  cfDraw();
+}
+// New-bucket box + pending approvals, shown to the people who can tag.
+function cfTagBar() {
+  if (!_cfT.canTag) return '';
+  const pending = _cfT.buckets.filter(b => b.status === 'pending');
+  const pend = pending.map(b => `<span style="display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border:1px dashed #d97706;border-radius:8px;background:#fffbeb">
+      <b>${sfEsc(b.name)}</b> <span style="color:#6b7280">asked by ${sfEsc(b.requested_by)}</span>
+      ${_cfT.canApprove ? `<button onclick="cfDecide('${b.id}',true)" class="btn-refresh">Approve</button><button onclick="cfDecide('${b.id}',false)" class="btn-refresh">Reject</button>` : '<span style="color:#92400e">waiting for Ajay / Jatin</span>'}</span>`).join('');
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:13px">
+    <input id="cf-newb" value="${sfEsc(_cfT.newName)}" oninput="_cfT.newName=this.value" onkeydown="if(event.key==='Enter')cfNewBucket()" placeholder="New bucket name" maxlength="40" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:8px"/>
+    <button onclick="cfNewBucket()" class="btn-refresh">${_cfT.canApprove ? '+ Add bucket' : '+ Request bucket'}</button>
+    ${pend}
+    ${_cfT.msg ? `<span style="color:#6b7280">${sfEsc(_cfT.msg)}</span>` : ''}</div>`;
+}
+// Head cell of a transfer row: a tag picker for Other / Needs tagging rows (or ones already tagged).
+function cfTagCell(t) {
+  const tag = _cfT.tags[cfKey(t)];
+  const nat = cfBucket(t, true);
+  if (!_cfT.canTag || t.status !== 'SUCCESS' || (!tag && nat !== 'Other' && nat !== 'Needs tagging'))
+    return tag ? `<div style="font-size:11px;color:#2563eb">→ ${sfEsc(tag.bucket)}</div>` : '';
+  const opts = cfAllBuckets().filter(b => b.k !== 'Needs tagging')
+    .map(b => `<option value="${sfEsc(b.k)}" ${tag && tag.bucket === b.k ? 'selected' : ''}>${sfEsc(b.k)}</option>`).join('');
+  return `<select data-k="${sfEsc(cfKey(t))}" onchange="cfTag(this.dataset.k,this.value)" style="margin-top:4px;padding:3px 5px;border:1px solid ${tag ? '#2563eb' : '#d1d5db'};border-radius:6px;font-size:11px;color:${tag ? '#2563eb' : 'inherit'}">
+    <option value="">${tag ? '✕ Remove tag' : 'Tag into…'}</option>${opts}<option value="__new">+ New bucket…</option></select>`;
+}
+function cfBucket(t, natural) {
   if (t.status !== 'SUCCESS') return CF_FAILED;
+  const tag = !natural && _cfT.tags[cfKey(t)];
+  if (tag && cfAllBuckets().some(b => b.k === tag.bucket)) return tag.bucket;
   const h = (t.head || '').replace(/\?/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   // No tape head exists: tape is spotted in the description of stationery rows.
   if (h === 'printing and stationary' && /\btapes?\b/i.test(t.remarks || '')) return 'COGS';
@@ -16560,7 +16640,7 @@ function cfBucket(t) {
 }
 
 function cfPie() {
-  const parts = CF_BUCKETS.map(b => ({ ...b, amt: cfSum(cfInPeriod().filter(t => cfBucket(t) === b.k)) }))
+  const parts = cfAllBuckets().map(b => ({ ...b, amt: cfSum(cfInPeriod().filter(t => cfBucket(t) === b.k)) }))
     .filter(b => b.amt > 0).sort((a, b) => b.amt - a.amt);
   const total = parts.reduce((s, b) => s + b.amt, 0);
   const failed = cfInPeriod().filter(t => cfBucket(t) === CF_FAILED);
@@ -16666,6 +16746,7 @@ function cfDraw() {
   body.innerHTML = `
   <div style="padding:16px;max-width:1250px">
     ${cfTopBar()}
+    ${cfTagBar()}
     ${cfPie()}
     <div id="cf-summary" style="font-size:13px;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -16709,7 +16790,7 @@ function cfRows() {
   tbody.innerHTML = rows.length ? rows.map(t => `<tr style="border-top:1px solid #f3f4f6">
       <td style="padding:8px;white-space:nowrap">${sfEsc(t.date)}</td>
       <td style="padding:8px"><b>${sfEsc(t.beneficiary)}</b> <span style="color:#6b7280">${sfEsc(t.beneficiary_id)}</span></td>
-      <td style="padding:8px">${sfEsc(t.head)}</td>
+      <td style="padding:8px">${sfEsc(t.head)}${cfTagCell(t)}</td>
       <td style="padding:8px">${sfEsc(t.remarks)}</td>
       <td style="padding:8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(t.amount)}</td>
       <td style="padding:8px;${t.status === 'SUCCESS' ? '' : 'color:#b91c1c'}">${sfEsc(t.status)}</td>
