@@ -16558,7 +16558,7 @@ function cfPie() {
   const total = parts.reduce((s, b) => s + b.amt, 0);
   if (!total) return '';
   const R = 90, C = 100, pt = f => `${(C + R * Math.sin(f * 2 * Math.PI)).toFixed(2)} ${(C - R * Math.cos(f * 2 * Math.PI)).toFixed(2)}`;
-  const click = b => `data-b="${sfEsc(b.k)}" onclick="_cf.bucket=_cf.bucket===this.dataset.b?'':this.dataset.b;cfDraw()"`;
+  const click = b => `data-b="${sfEsc(b.k)}" onclick="_cf.bucket=_cf.bucket===this.dataset.b?'':this.dataset.b;_cf.cat='all';cfDraw()"`;
   const dim = b => _cf.bucket && _cf.bucket !== b.k ? 'opacity:.3;' : '';
   const label = b => `${b.k}: ${cfInr(b.amt)} (${(b.amt / total * 100).toFixed(1)}%)`;
   let at = 0;
@@ -16577,6 +16577,33 @@ function cfPie() {
     <div style="flex:1;min-width:280px;max-width:520px;font-size:13px">
       <div style="margin-bottom:6px">Paid out by bucket · <b>${cfInr(total)}</b> <span style="color:#6b7280">· click one to see its transfers</span></div>
       <table style="width:100%;border-collapse:collapse">${rows}</table></div></div>`;
+}
+
+// Clicked bucket -> how it splits across its sheet heads (Labour: salary,
+// incentives, advances, staff welfare, staff room rent). Click a head to filter.
+function cfBucketSplit() {
+  if (!_cf.bucket) return '';
+  const name = t => /^staff room rent/i.test(t.head) ? 'Staff Room Rent' : t.head;
+  const list = cfInPeriod().filter(t => cfBucket(t) === _cf.bucket);
+  const total = cfSum(list);
+  const parts = Object.entries(list.reduce((m, t) => { (m[name(t)] = m[name(t)] || []).push(t); return m; }, {}))
+    .map(([h, l]) => ({ h, l, amt: cfSum(l), heads: [...new Set(l.map(t => t.head))] }))
+    .sort((a, b) => b.amt - a.amt);
+  if (!parts.length) return '';
+  const rows = parts.map(p => {
+    const on = p.heads.includes(_cf.cat);
+    const pick = p.heads.length === 1 ? `_cf.cat=_cf.cat===this.dataset.h?'all':this.dataset.h;cfDraw()` : '';
+    return `<tr data-h="${sfEsc(p.heads[0])}" onclick="${pick}" style="${pick ? 'cursor:pointer;' : ''}border-top:1px solid #f3f4f6;${_cf.cat !== 'all' && !on ? 'opacity:.4' : ''}">
+      <td style="padding:6px 8px">${sfEsc(p.h)}</td>
+      <td style="padding:6px 8px;text-align:right;color:#6b7280">${p.l.length}</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(p.amt)}</td>
+      <td style="padding:6px 8px;text-align:right;color:#6b7280">${total ? (p.amt / total * 100).toFixed(1) : '0.0'}%</td></tr>`;
+  }).join('');
+  return `<div style="max-width:620px;font-size:13px;margin-bottom:16px">
+    <div style="margin-bottom:6px"><b>${sfEsc(_cf.bucket)}</b> by head <span style="color:#6b7280">· click a head to filter the list</span></div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr style="color:#6b7280;font-size:12px"><td style="padding:4px 8px">Head</td><td style="padding:4px 8px;text-align:right">Transfers</td><td style="padding:4px 8px;text-align:right">Paid out</td><td style="padding:4px 8px;text-align:right">Share</td></tr>
+      ${rows}</table></div>`;
 }
 
 function cfInPeriod() {
@@ -16625,6 +16652,7 @@ function cfDraw() {
   <div style="padding:16px;max-width:1250px">
     ${cfTopBar()}
     ${cfPie()}
+    ${cfBucketSplit()}
     <div id="cf-summary" style="font-size:13px;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr id="cf-head" style="color:#6b7280"></tr>
