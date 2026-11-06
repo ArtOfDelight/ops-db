@@ -16472,6 +16472,7 @@ function cfRange(period) {
   if (period === '7d')        return { from: lsFmtISO(ago(7)), to: lsFmtISO(ago(1)) };
   if (period === '28d')       return { from: lsFmtISO(ago(28)), to: lsFmtISO(ago(1)) };
   if (period === 'thismonth') return { from: lsFmtISO(new Date(t.getFullYear(), t.getMonth(), 1)), to: lsFmtISO(t) };
+  if (period === 'all')       return { from: '0000-00-00', to: '9999-99-99' };
   if (period === 'custom')    return { from: _cf.from || lsFmtISO(ago(7)), to: _cf.to || lsFmtISO(ago(1)) };
   // last month = previous calendar month
   return { from: lsFmtISO(new Date(t.getFullYear(), t.getMonth() - 1, 1)),
@@ -16546,7 +16547,11 @@ const CF_BUCKETS = [
   { k: 'Other', c: '#e34948', heads: ['electricity expenses', 'consultancy charges', 'gas expenses', 'water expenses', 'fssai expenses', 'cleaning expenses', 'telephone and internet expenses', 'garbage collection', 'bank charges', 'employee reimbursements', 'dummy orders', 'rental deposit'] },
   { k: 'Needs tagging', c: '#9ca3af', heads: [] },
 ];
+// Anything that didn't go through (failed, reversed, rejected, pending...) sits
+// in its own bucket, whatever its head. Listed beside the pie, never in its total.
+const CF_FAILED = 'Failed / Reversed';
 function cfBucket(t) {
+  if (t.status !== 'SUCCESS') return CF_FAILED;
   const h = (t.head || '').replace(/\?/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
   // No tape head exists: tape is spotted in the description of stationery rows.
   if (h === 'printing and stationary' && /\btapes?\b/i.test(t.remarks || '')) return 'COGS';
@@ -16558,7 +16563,8 @@ function cfPie() {
   const parts = CF_BUCKETS.map(b => ({ ...b, amt: cfSum(cfInPeriod().filter(t => cfBucket(t) === b.k)) }))
     .filter(b => b.amt > 0).sort((a, b) => b.amt - a.amt);
   const total = parts.reduce((s, b) => s + b.amt, 0);
-  if (!total) return '';
+  const failed = cfInPeriod().filter(t => cfBucket(t) === CF_FAILED);
+  if (!total && !failed.length) return '';
   const R = 90, C = 100, pt = f => `${(C + R * Math.sin(f * 2 * Math.PI)).toFixed(2)} ${(C - R * Math.cos(f * 2 * Math.PI)).toFixed(2)}`;
   const click = b => `data-b="${sfEsc(b.k)}" onclick="_cf.bucket=_cf.bucket===this.dataset.b?'':this.dataset.b;_cf.cat='all';cfDraw()"`;
   const dim = b => _cf.bucket && _cf.bucket !== b.k ? 'opacity:.3;' : '';
@@ -16573,7 +16579,11 @@ function cfPie() {
   const rows = parts.map(b => `<tr ${click(b)} style="cursor:pointer;border-top:1px solid #f3f4f6;${dim(b)}">
       <td style="padding:6px 8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${b.c};margin-right:8px"></span>${sfEsc(b.k)}</td>
       <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(b.amt)}</td>
-      <td style="padding:6px 8px;text-align:right;color:#6b7280">${(b.amt / total * 100).toFixed(1)}%</td></tr>`).join('');
+      <td style="padding:6px 8px;text-align:right;color:#6b7280">${(b.amt / total * 100).toFixed(1)}%</td></tr>`).join('')
+    + (failed.length ? `<tr ${click({ k: CF_FAILED })} style="cursor:pointer;border-top:2px solid #e5e7eb;color:#b91c1c;${dim({ k: CF_FAILED })}">
+      <td style="padding:6px 8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;border:1px dashed #b91c1c;margin-right:8px"></span>${CF_FAILED} (${failed.length})</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(failed.reduce((s, t) => s + (+t.amount || 0), 0))}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:12px">not paid</td></tr>` : '');
   return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
     <svg viewBox="0 0 200 200" width="220" height="220" role="img" aria-label="Paid out by spend bucket" style="flex:none">${slices}</svg>
     <div style="flex:1;min-width:280px;max-width:520px;font-size:13px">
@@ -16587,9 +16597,10 @@ function cfBucketSplit() {
   if (!_cf.bucket) return '';
   const name = t => /^staff room rent/i.test(t.head) ? 'Staff Room Rent' : t.head;
   const list = cfInPeriod().filter(t => cfBucket(t) === _cf.bucket);
-  const total = cfSum(list);
+  const sum = _cf.bucket === CF_FAILED ? l => l.reduce((s, t) => s + (+t.amount || 0), 0) : cfSum;
+  const total = sum(list);
   const parts = Object.entries(list.reduce((m, t) => { (m[name(t)] = m[name(t)] || []).push(t); return m; }, {}))
-    .map(([h, l]) => ({ h, l, amt: cfSum(l), heads: [...new Set(l.map(t => t.head))] }))
+    .map(([h, l]) => ({ h, l, amt: sum(l), heads: [...new Set(l.map(t => t.head))] }))
     .sort((a, b) => b.amt - a.amt);
   if (!parts.length) return '';
   const rows = parts.map(p => {
@@ -16621,8 +16632,8 @@ function cfTopBar() {
   const view = (k, label) => btn(_cf.view === k, `_cf.view='${k}';cfDraw()`, label);
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${view('transfers','Transfers')}${view('reimb','Reimbursements by outlet')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('28d','Last 28 days')}${tab('thismonth','This month')}${tab('month','Last month')}${tab('custom','Custom')}
-      ${_cf.period === 'custom'
+      ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('28d','Last 28 days')}${tab('thismonth','This month')}${tab('month','Last month')}${tab('all','All time')}${tab('custom','Custom')}
+      ${_cf.period === 'all' ? '' : _cf.period === 'custom'
         ? `<input type="date" value="${from}" onchange="_cf.from=this.value;cfDraw()" style="padding:6px;border:1px solid #d1d5db;border-radius:8px"/> → <input type="date" value="${to}" onchange="_cf.to=this.value;cfDraw()" style="padding:6px;border:1px solid #d1d5db;border-radius:8px"/>`
         : `<span style="color:#6b7280">${from === to ? from : from + ' → ' + to}</span>`}
       ${_cf.view === 'transfers' ? '<button onclick="cfClearFilters()" class="btn-refresh" style="margin-left:auto">Clear filters</button>' : '<span style="margin-left:auto"></span>'}
