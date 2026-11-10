@@ -16671,6 +16671,35 @@ function cfPie() {
       <table style="width:100%;border-collapse:collapse">${rows}</table></div></div>`;
 }
 
+// Bucket pie + legend for reimbursements (same look as the transfers pie).
+// amtOf(bucket) -> ₹; onclick toggles the selected bucket.
+function cfPieHtml(amtOf, selected, onclick, title, noun, size = 220) {
+  const parts = CF_BUCKETS.map(b => ({ ...b, amt: amtOf(b) }))
+    .filter(b => b.amt > 0).sort((a, b) => b.amt - a.amt);
+  const total = parts.reduce((s, b) => s + b.amt, 0);
+  if (!total) return '';
+  const R = 90, C = 100, pt = f => `${(C + R * Math.sin(f * 2 * Math.PI)).toFixed(2)} ${(C - R * Math.cos(f * 2 * Math.PI)).toFixed(2)}`;
+  const click = b => `data-b="${sfEsc(b.k)}" onclick="event.stopPropagation();${onclick}"`;
+  const dim = b => selected && selected !== b.k ? 'opacity:.3;' : '';
+  const label = b => `${b.k}: ${cfInr(b.amt)} (${(b.amt / total * 100).toFixed(1)}%)`;
+  let at = 0;
+  const slices = parts.map(b => {
+    const from = at, frac = b.amt / total; at += frac;
+    const shape = frac > 0.9999 ? `<circle cx="${C}" cy="${C}" r="${R}"` :
+      `<path d="M${C} ${C} L${pt(from)} A${R} ${R} 0 ${frac > 0.5 ? 1 : 0} 1 ${pt(from + frac)} Z"`;
+    return `${shape} fill="${b.c}" stroke="var(--surface)" stroke-width="2" ${click(b)} style="cursor:pointer;${dim(b)}"><title>${sfEsc(label(b))}</title>${frac > 0.9999 ? '</circle>' : '</path>'}`;
+  }).join('');
+  const rows = parts.map(b => `<tr ${click(b)} style="cursor:pointer;border-top:1px solid #f3f4f6;${dim(b)}">
+      <td style="padding:6px 8px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${b.c};margin-right:8px"></span>${sfEsc(b.k)}</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(b.amt)}</td>
+      <td style="padding:6px 8px;text-align:right;color:#6b7280">${(b.amt / total * 100).toFixed(1)}%</td></tr>`).join('');
+  return `<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+    <svg viewBox="0 0 200 200" width="${size}" height="${size}" role="img" aria-label="${sfEsc(title)}" style="flex:none">${slices}</svg>
+    <div style="flex:1;min-width:280px;max-width:520px;font-size:13px">
+      <div style="margin-bottom:6px">${sfEsc(title)} · <b>${cfInr(total)}</b> <span style="color:#6b7280">· click one to see its ${noun}</span></div>
+      <table style="width:100%;border-collapse:collapse">${rows}</table></div></div>`;
+}
+
 // Clicked bucket -> how it splits across its sheet heads (Labour: salary,
 // incentives, advances, staff welfare, staff room rent). Click a head to filter.
 function cfBucketSplit() {
@@ -16801,13 +16830,22 @@ function cfRows() {
 /* ── Reimbursements by outlet ── claims come from the AOD app, so BulkPe-paid
    ones count too (the Cashfree sheet would miss them). The outlet a person picks
    in the app can be wrong, so their roster for the claim's day decides. */
-const _cfR = { claims: null, rosters: {}, status: 'paid', cat: 'all', open: null, seq: 0 };
+const _cfR = { claims: null, rosters: {}, status: 'paid', cat: 'all', open: null, seq: 0, bucket: '', obucket: '' };
 // Sushant, Nishat, Jatin, Jimmy, Sanu: not tied to one outlet, their pick always stands.
 const CF_PICK_OWN_OUTLET = new Set(['AOD133', 'AOD005', 'AOD019', 'AOD021', 'AOD091']);
 const CF_NOT_AN_OUTLET = new Set(['', 'WO', 'PL', 'UPL']);
 const CF_REIMB_CATS = { dummy_order: 'Dummy order', food_items: 'Food items', bananas: 'Food items', ingredients: 'Food items',
   water: 'Water', packaging: 'Packaging items', tape_stationery: 'Tape / stationery', porter: 'Porter / delivery',
   staff_meal: 'Staff meal', cleaning: 'Cleaning items', repairs: 'Repairs & maintenance', other: 'Other' };
+// Claim category -> the same spend buckets the Transfers pie uses.
+const CF_REIMB_BUCKET = { 'Food items': 'COGS', 'Packaging items': 'COGS', 'Porter / delivery': 'Transport',
+  'Staff meal': 'Labour', 'Repairs & maintenance': 'Repairs & Maintenance', 'Water': 'Other',
+  'Cleaning items': 'Other', 'Dummy order': 'Other', 'Other': 'Other' };
+function cfReimbBucket(c) {
+  // Same rule as transfers: tape is COGS, other stationery stays Stationery.
+  if (c.cat === 'Tape / stationery') return /\btapes?\b/i.test(c.comment || '') ? 'COGS' : 'Stationery';
+  return CF_REIMB_BUCKET[c.cat] || 'Needs tagging';
+}
 
 // submitted_at is UTC, often without a zone; rosters and the period buttons are IST days.
 function cfClaimDate(c) {
@@ -16894,8 +16932,12 @@ function cfReimbRender() {
     .sort((a, b) => total(b[1]) - total(a[1]));
   const cats = group(base, c => c.cat);
   if (_cfR.cat !== 'all' && !cats.some(([k]) => k === _cfR.cat)) _cfR.cat = 'all';
-  const claims = base.filter(c => _cfR.cat === 'all' || c.cat === _cfR.cat);
+  const catClaims = base.filter(c => _cfR.cat === 'all' || c.cat === _cfR.cat);
+  const claims = catClaims.filter(c => !_cfR.bucket || cfReimbBucket(c) === _cfR.bucket);
   const outlets = group(claims, c => c.tag.outlet);
+  const bucketAmt = l => b => total(l.filter(c => cfReimbBucket(c) === b.k));
+  const pie = cfPieHtml(bucketAmt(catClaims), _cfR.bucket,
+    `_cfR.bucket=_cfR.bucket===this.dataset.b?'':this.dataset.b;cfReimbRender()`, 'Reimbursed by bucket', 'outlets');
   const inp = 'padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px';
   const count = f => claims.filter(f).length;
   const notes = [
@@ -16907,8 +16949,11 @@ function cfReimbRender() {
     : t.from === 'roster' ? 'Roster' : t.from === 'own' ? 'Own pick'
     : `<span style="color:#b45309">${t.from === 'offroster' ? 'Not rostered · app pick' : 'Roster unavailable · app pick'}</span>`;
   const th = 'padding:8px;text-align:left', num = 'padding:8px;text-align:right;white-space:nowrap';
-  const detail = list => `<tr><td colspan="4" style="padding:4px 8px 16px 24px;background:var(--surface)">
-    <div style="margin:8px 0;font-size:12px;color:#6b7280">${group(list, c => c.cat).map(([k, l]) => `${sfEsc(k)} <b>${cfInr(total(l))}</b> (${l.length})`).join(' · ')}</div>
+  const detail = all => { const list = all.filter(c => !_cfR.obucket || cfReimbBucket(c) === _cfR.obucket);
+    return `<tr><td colspan="4" style="padding:4px 8px 16px 24px;background:var(--surface)">
+    <div style="margin-top:10px">${cfPieHtml(bucketAmt(all), _cfR.obucket,
+      `_cfR.obucket=_cfR.obucket===this.dataset.b?'':this.dataset.b;cfReimbRender()`, _cfR.open + ' by bucket', 'claims', 180)}</div>
+    <div style="margin:8px 0;font-size:12px;color:#6b7280">${_cfR.obucket ? sfEsc(_cfR.obucket) + ': ' : ''}${group(list, c => c.cat).map(([k, l]) => `${sfEsc(k)} <b>${cfInr(total(l))}</b> (${l.length})`).join(' · ')}</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr style="color:#6b7280"><th style="${th}">Date</th><th style="${th}">Person</th><th style="${th}">Category</th><th style="${th}">Description</th><th style="${num}">Amount</th><th style="${th}">Status</th><th style="${th}">Tagged from</th></tr></thead>
       <tbody>${list.slice().sort((a, b) => (b.submitted_at || '').localeCompare(a.submitted_at || '')).map(c => `<tr style="border-top:1px solid #f3f4f6">
@@ -16916,7 +16961,7 @@ function cfReimbRender() {
         <td style="padding:8px"><b>${sfEsc(c.employee_name || '')}</b> <span style="color:#6b7280">${sfEsc(c.employee_id || '')}</span></td>
         <td style="padding:8px">${sfEsc(c.cat)}</td><td style="padding:8px">${sfEsc(c.comment || '')}</td>
         <td style="${num}">${cfInr(c.amount)}</td><td style="padding:8px">${sfEsc(c.status || '')}</td><td style="padding:8px">${tagNote(c.tag)}</td></tr>`).join('')}</tbody>
-    </table></div></td></tr>`;
+    </table></div></td></tr>`; };
   body.innerHTML = `<div style="padding:16px;max-width:1250px">${cfTopBar()}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <select onchange="_cfR.status=this.value;cfReimbRender()" style="${inp}">
@@ -16925,14 +16970,15 @@ function cfReimbRender() {
         <option value="all">All categories · ${cfInr(total(base))} (${base.length})</option>
         ${cats.map(([k, l]) => `<option value="${sfEsc(k)}" ${_cfR.cat === k ? 'selected' : ''}>${sfEsc(k)} · ${cfInr(total(l))} (${l.length})</option>`).join('')}</select>
     </div>
-    <div style="font-size:13px;margin-bottom:10px">${claims.length} claims · <b>${cfInr(total(claims))}</b> across ${outlets.length} outlets
+    ${pie}
+    <div style="font-size:13px;margin-bottom:10px">${_cfR.bucket ? sfEsc(_cfR.bucket) + ' · ' : ''}${claims.length} claims · <b>${cfInr(total(claims))}</b> across ${outlets.length} outlets
       <span style="color:#6b7280">· by the day the claim was submitted · click an outlet for details</span>
       ${notes ? `<div style="color:#b45309;margin-top:4px">${notes}</div>` : ''}</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb"><th style="${th}">Outlet</th><th style="${num}">Claims</th><th style="${num}">Amount</th><th style="${th}">Biggest categories</th></tr></thead>
-      <tbody>${outlets.length ? outlets.map(([o, l]) => `<tr data-o="${sfEsc(o)}" onclick="_cfR.open=_cfR.open===this.dataset.o?null:this.dataset.o;cfReimbRender()" style="border-top:1px solid #f3f4f6;cursor:pointer">
+      <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb"><th style="${th}">Outlet</th><th style="${num}">Claims</th><th style="${num}">Amount</th><th style="${th}">Biggest buckets</th></tr></thead>
+      <tbody>${outlets.length ? outlets.map(([o, l]) => `<tr data-o="${sfEsc(o)}" onclick="_cfR.open=_cfR.open===this.dataset.o?null:this.dataset.o;_cfR.obucket='';cfReimbRender()" style="border-top:1px solid #f3f4f6;cursor:pointer">
         <td style="padding:8px;font-weight:600">${_cfR.open === o ? '▾' : '▸'} ${sfEsc(o)}</td><td style="${num}">${l.length}</td><td style="${num};font-weight:600">${cfInr(total(l))}</td>
-        <td style="padding:8px;color:#6b7280">${group(l, c => c.cat).slice(0, 3).map(([k, x]) => `${sfEsc(k)} ${cfInr(total(x))}`).join(' · ')}</td></tr>${_cfR.open === o ? detail(l) : ''}`).join('')
+        <td style="padding:8px;color:#6b7280">${group(l, cfReimbBucket).slice(0, 3).map(([k, x]) => `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${(CF_BUCKETS.find(b => b.k === k) || {}).c};margin-right:4px"></span>${sfEsc(k)} ${cfInr(total(x))}`).join(' · ')}</td></tr>${_cfR.open === o ? detail(l) : ''}`).join('')
         : '<tr><td colspan="4" style="padding:20px;color:#6b7280">No reimbursements in this period.</td></tr>'}</tbody>
     </table></div></div>`;
 }
