@@ -16835,7 +16835,7 @@ const _cfR = { claims: null, rosters: {}, status: 'paid', cat: 'all', open: null
 const CF_PICK_OWN_OUTLET = new Set(['AOD133', 'AOD005', 'AOD019', 'AOD021', 'AOD091']);
 const CF_NOT_AN_OUTLET = new Set(['', 'WO', 'PL', 'UPL']);
 // Kim, Nishat, Ajay, Ayaaz, Jatin, Sushant: mostly not rostered, so their claims
-// always count against RR (dummy orders still follow the Rista match).
+// always count against RR, dummy orders included.
 const CF_ALWAYS_RR = new Set(['AOD004', 'AOD005', 'AOD002', 'AOD001', 'AOD019', 'AOD133']);
 const CF_REIMB_CATS = { dummy_order: 'Dummy order', food_items: 'Food items', bananas: 'Food items', ingredients: 'Food items',
   water: 'Water', packaging: 'Packaging items', tape_stationery: 'Tape / stationery', porter: 'Porter / delivery',
@@ -16858,7 +16858,7 @@ function cfClaimDate(c) {
 }
 const cfEmpId = c => (c.employee_id || '').toUpperCase();
 const cfDmy = iso => iso.split('-').reverse().join('/');
-const cfClaimFixedRR = c => CF_ALWAYS_RR.has(cfEmpId(c)) && c.category !== 'dummy_order';
+const cfClaimFixedRR = c => CF_ALWAYS_RR.has(cfEmpId(c));
 const cfClaimUsesRoster = c => !CF_PICK_OWN_OUTLET.has(cfEmpId(c)) && !cfClaimFixedRR(c);
 const cfClaimRejected = c => /^rejected$/i.test(c.status || '');
 
