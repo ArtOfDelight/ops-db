@@ -16834,6 +16834,9 @@ const _cfR = { claims: null, rosters: {}, status: 'paid', cat: 'all', open: null
 // Sushant, Nishat, Jatin, Jimmy, Sanu: not tied to one outlet, their pick always stands.
 const CF_PICK_OWN_OUTLET = new Set(['AOD133', 'AOD005', 'AOD019', 'AOD021', 'AOD091']);
 const CF_NOT_AN_OUTLET = new Set(['', 'WO', 'PL', 'UPL']);
+// Kim, Nishat, Ajay, Ayaaz, Jatin, Sushant: mostly not rostered, so their claims
+// always count against RR (dummy orders still follow the Rista match).
+const CF_ALWAYS_RR = new Set(['AOD004', 'AOD005', 'AOD002', 'AOD001', 'AOD019', 'AOD133']);
 const CF_REIMB_CATS = { dummy_order: 'Dummy order', food_items: 'Food items', bananas: 'Food items', ingredients: 'Food items',
   water: 'Water', packaging: 'Packaging items', tape_stationery: 'Tape / stationery', porter: 'Porter / delivery',
   staff_meal: 'Staff meal', cleaning: 'Cleaning items', repairs: 'Repairs & maintenance', other: 'Other' };
@@ -16855,12 +16858,14 @@ function cfClaimDate(c) {
 }
 const cfEmpId = c => (c.employee_id || '').toUpperCase();
 const cfDmy = iso => iso.split('-').reverse().join('/');
-const cfClaimUsesRoster = c => !CF_PICK_OWN_OUTLET.has(cfEmpId(c));
+const cfClaimFixedRR = c => CF_ALWAYS_RR.has(cfEmpId(c)) && c.category !== 'dummy_order';
+const cfClaimUsesRoster = c => !CF_PICK_OWN_OUTLET.has(cfEmpId(c)) && !cfClaimFixedRR(c);
 const cfClaimRejected = c => /^rejected$/i.test(c.status || '');
 
 function cfClaimOutlet(c) {
   const picked = (c.outlet || '').trim().toUpperCase();
   const fallback = picked || 'Unassigned';
+  if (cfClaimFixedRR(c)) return { outlet: 'RR', from: 'fixed' };
   if (!cfClaimUsesRoster(c)) return { outlet: fallback, from: 'own' };
   const day = _cfR.rosters[c.date];
   if (day === null) return { outlet: fallback, from: 'noroster' };
@@ -16946,7 +16951,7 @@ function cfReimbRender() {
     [count(c => c.tag.from === 'noroster'), 'roster could not be loaded, so the outlet picked in the app was used'],
   ].filter(([n]) => n).map(([n, t]) => `${n} ${t}`).join(' · ');
   const tagNote = t => t.corrected !== undefined ? `<span style="color:#b45309">Roster · app said ${sfEsc(t.corrected || 'nothing')}</span>`
-    : t.from === 'roster' ? 'Roster' : t.from === 'own' ? 'Own pick'
+    : t.from === 'roster' ? 'Roster' : t.from === 'own' ? 'Own pick' : t.from === 'fixed' ? 'Always RR'
     : `<span style="color:#b45309">${t.from === 'offroster' ? 'Not rostered · app pick' : 'Roster unavailable · app pick'}</span>`;
   const th = 'padding:8px;text-align:left', num = 'padding:8px;text-align:right;white-space:nowrap';
   const detail = all => { const list = all.filter(c => !_cfR.obucket || cfReimbBucket(c) === _cfR.obucket);
