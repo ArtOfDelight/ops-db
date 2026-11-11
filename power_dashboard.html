@@ -16521,7 +16521,9 @@ async function renderCashfreePage(refresh = false) {
 
 // Column sort + per-column filters. The table body redraws on its own
 // (cfRows) so typing in a filter box keeps its focus.
-const _cfF = { sort: 'date', dir: -1, ben: '', desc: '', utr: '', status: '', min: '', max: '' };
+const _cfF = { sort: 'date', dir: -1, ben: '', desc: '', utr: '', status: '', min: '', max: '', src: '' };
+// Where a transfer's category comes from: a manual change, else the sheet head (column R).
+const cfSource = t => _cfT.tags[cfKey(t)] ? 'Manual' : 'Sheet';
 const _cfCols = [
   { k: 'date', label: 'Date', val: t => t.initiated_at },
   { k: 'beneficiary', label: 'Beneficiary', val: t => t.beneficiary.toLowerCase() },
@@ -16529,24 +16531,28 @@ const _cfCols = [
   { k: 'remarks', label: 'Description', val: t => t.remarks.toLowerCase() },
   { k: 'amount', label: 'Amount', val: t => +t.amount || 0, right: true },
   { k: 'status', label: 'Status', val: t => t.status },
+  { k: 'source', label: 'Source', val: t => cfSource(t) },
   { k: 'utr', label: 'UTR', val: t => t.utr },
 ];
 const cfInr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 // Totals count money that actually went out; failed / reversed rows still list.
 const cfSum = list => list.reduce((s, t) => s + (t.status === 'SUCCESS' ? +t.amount || 0 : 0), 0);
 
-// Spend buckets for the pie: sheet head (column R) -> bucket. A head that isn't
-// listed, including a new one, lands in Needs tagging so it can't hide in a bucket.
+// Four categories for the pie. The head is column R of "Cashfree Report 2"
+// (the proposed head), shown as is; the category comes from the head text.
+// Order matters: an "advance" head is Advance even if it says salary.
 const CF_BUCKETS = [
-  { k: 'Labour', c: '#2a78d6', heads: ['salary payable', 'incentives', 'employee salary advance', 'staff welfare expense (food)'], re: /^staff room rent/ },
-  { k: 'Capex', c: '#eb6834', heads: ['vehicles (fixed asset)', 'vehicles (fixed asset) / freight'] },
-  { k: 'Rents', c: '#1baf7a', heads: ['accounts payable (rent bill)'] },
-  { k: 'Repairs & Maintenance', c: '#eda100', heads: ['repairs and maintenance – general', 'equipment maintenance', 'pest control'] },
-  { k: 'COGS', c: '#e87ba4', heads: ['packaging cost', 'food cost', 'kitchen item expensee'] },
-  { k: 'Transport', c: '#008300', heads: ['transportation expenses', 'fuel expenses', 'travelling expenses - staff'] },
-  { k: 'Stationery', c: '#6250d6', heads: ['printing and stationary'] },
-  { k: 'Other', c: '#e34948', heads: ['electricity expenses', 'consultancy charges', 'gas expenses', 'water expenses', 'fssai expenses', 'cleaning expenses', 'telephone and internet expenses', 'garbage collection', 'bank charges', 'employee reimbursements', 'dummy orders', 'rental deposit'] },
-  { k: 'Needs tagging', c: '#9ca3af', heads: [] },
+  { k: 'Admin Payments', c: '#2a78d6' },
+  { k: 'Advance', c: '#eda100', re: /advance/ },
+  { k: 'Salaries', c: '#1baf7a', re: /salar|incentive|wage|bonus|payroll|stipend|referral/ },
+  { k: 'Reimbursements', c: '#e87ba4', re: /reimburs|dummy order/ },
+];
+const CF_BUCKET_ORDER = ['Advance', 'Reimbursements', 'Salaries'];
+// Spend buckets for the "Reimbursements by outlet" view (claim categories).
+const CF_REIMB_BUCKETS = [
+  { k: 'Labour', c: '#2a78d6' }, { k: 'Capex', c: '#eb6834' }, { k: 'Rents', c: '#1baf7a' },
+  { k: 'Repairs & Maintenance', c: '#eda100' }, { k: 'COGS', c: '#e87ba4' }, { k: 'Transport', c: '#008300' },
+  { k: 'Stationery', c: '#6250d6' }, { k: 'Other', c: '#e34948' }, { k: 'Needs tagging', c: '#9ca3af' },
 ];
 // Anything that didn't go through (failed, reversed, rejected, pending...) sits
 // in its own bucket, whatever its head. Listed beside the pie, never in its total.
@@ -16565,11 +16571,7 @@ async function cfLoadTags() {
   } catch {}
 }
 // Fixed buckets plus approved custom ones (Needs tagging stays last).
-function cfAllBuckets() {
-  const extra = _cfT.buckets.filter(b => b.status === 'approved')
-    .map((b, i) => ({ k: b.name, c: CF_EXTRA_COLORS[i % CF_EXTRA_COLORS.length], heads: [] }));
-  return [...CF_BUCKETS.slice(0, -1), ...extra, CF_BUCKETS[CF_BUCKETS.length - 1]];
-}
+function cfAllBuckets() { return CF_BUCKETS; }
 async function cfApi(method, path, body) {
   const r = await fetch(`${API}/api/admin/${path}`, { method,
     headers: { Authorization: `Bearer ${_lsToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -16578,10 +16580,13 @@ async function cfApi(method, path, body) {
   return d;
 }
 async function cfTag(key, bucket) {
+  const t = (_cf.rows || []).find(x => cfKey(x) === key) || {};
   if (bucket === '__new') { _cfT.msg = 'Type the new bucket name in the box above the pie.'; cfDraw(); document.getElementById('cf-newb')?.focus(); return; }
   try {
-    await cfApi('PUT', 'cashfree-tags', { key, bucket: bucket || null });
-    if (bucket) _cfT.tags[key] = { bucket }; else delete _cfT.tags[key];
+    await cfApi('PUT', 'cashfree-tags', { key, bucket: bucket || null, natural: t.head ? cfBucket(t, true) : null,
+      head: t.head || null, beneficiary: t.beneficiary || null, amount: +t.amount || null });
+    if (bucket) _cfT.tags[key] = { bucket, tagged_by: 'you', tagged_at: 'just now' }; else delete _cfT.tags[key];
+    _cfLog.rows = null;
     _cfT.msg = '';
   } catch (e) { _cfT.msg = e.message; }
   cfDraw();
@@ -16606,7 +16611,7 @@ async function cfDecide(id, approve) {
 }
 // New-bucket box + pending approvals, shown to the people who can tag.
 function cfTagBar() {
-  if (!_cfT.canTag) return '';
+  if (!_cfT.canTag || true) return ''; // only the four fixed categories now
   const pending = _cfT.buckets.filter(b => b.status === 'pending');
   const pend = pending.map(b => `<span style="display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border:1px dashed #d97706;border-radius:8px;background:#fffbeb">
       <b>${sfEsc(b.name)}</b> <span style="color:#6b7280">asked by ${sfEsc(b.requested_by)}</span>
@@ -16621,27 +16626,25 @@ function cfTagBar() {
 function cfTagCell(t) {
   const tag = _cfT.tags[cfKey(t)];
   const nat = cfBucket(t, true);
-  if (!_cfT.canTag || t.status !== 'SUCCESS' || (!tag && nat !== 'Other' && nat !== 'Needs tagging'))
+  if (!_cfT.canTag || t.status !== 'SUCCESS')
     return tag ? `<div style="font-size:11px;color:#2563eb">→ ${sfEsc(tag.bucket)}</div>` : '';
-  const opts = cfAllBuckets().filter(b => b.k !== 'Needs tagging')
+  const opts = cfAllBuckets().filter(b => b.k !== nat)
     .map(b => `<option value="${sfEsc(b.k)}" ${tag && tag.bucket === b.k ? 'selected' : ''}>${sfEsc(b.k)}</option>`).join('');
   return `<select data-k="${sfEsc(cfKey(t))}" onchange="cfTag(this.dataset.k,this.value)" style="margin-top:4px;padding:3px 5px;border:1px solid ${tag ? '#2563eb' : '#d1d5db'};border-radius:6px;font-size:11px;color:${tag ? '#2563eb' : 'inherit'}">
-    <option value="">${tag ? '✕ Remove tag' : 'Tag into…'}</option>${opts}<option value="__new">+ New bucket…</option></select>`;
+    <option value="">${tag ? '✕ Remove tag' : 'Tag into…'}</option>${opts}</select>`;
 }
 function cfBucket(t, natural) {
   if (t.status !== 'SUCCESS') return CF_FAILED;
   const tag = !natural && _cfT.tags[cfKey(t)];
   if (tag && cfAllBuckets().some(b => b.k === tag.bucket)) return tag.bucket;
   const h = (t.head || '').replace(/\?/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-  // No tape head exists: tape is spotted in the description of stationery rows.
-  if (h === 'printing and stationary' && /\btapes?\b/i.test(t.remarks || '')) return 'COGS';
-  const b = CF_BUCKETS.find(x => x.heads.includes(h) || (x.re && x.re.test(h)));
-  return b ? b.k : 'Needs tagging';
+  const k = CF_BUCKET_ORDER.find(k => CF_BUCKETS.find(b => b.k === k).re.test(h));
+  return k || 'Admin Payments';
 }
 
 function cfPie() {
   const parts = cfAllBuckets().map(b => ({ ...b, amt: cfSum(cfInPeriod().filter(t => cfBucket(t) === b.k)) }))
-    .filter(b => b.amt > 0).sort((a, b) => b.amt - a.amt);
+    .filter(b => b.amt > 0);
   const total = parts.reduce((s, b) => s + b.amt, 0);
   const failed = cfInPeriod().filter(t => cfBucket(t) === CF_FAILED);
   if (!total && !failed.length) return '';
@@ -16674,7 +16677,7 @@ function cfPie() {
 // Bucket pie + legend for reimbursements (same look as the transfers pie).
 // amtOf(bucket) -> ₹; onclick toggles the selected bucket.
 function cfPieHtml(amtOf, selected, onclick, title, noun, size = 220) {
-  const parts = CF_BUCKETS.map(b => ({ ...b, amt: amtOf(b) }))
+  const parts = CF_REIMB_BUCKETS.map(b => ({ ...b, amt: amtOf(b) }))
     .filter(b => b.amt > 0).sort((a, b) => b.amt - a.amt);
   const total = parts.reduce((s, b) => s + b.amt, 0);
   if (!total) return '';
@@ -16704,7 +16707,7 @@ function cfPieHtml(amtOf, selected, onclick, title, noun, size = 220) {
 // incentives, advances, staff welfare, staff room rent). Click a head to filter.
 function cfBucketSplit() {
   if (!_cf.bucket) return '';
-  const name = t => /^staff room rent/i.test(t.head) ? 'Staff Room Rent' : t.head;
+  const name = t => t.head;
   const list = cfInPeriod().filter(t => cfBucket(t) === _cf.bucket);
   const sum = _cf.bucket === CF_FAILED ? l => l.reduce((s, t) => s + (+t.amount || 0), 0) : cfSum;
   const total = sum(list);
@@ -16739,7 +16742,7 @@ function cfTopBar() {
   const btn = (on, click, label) => `<button onclick="${click}" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${on?'#111827':'var(--surface)'};color:${on?'#fff':'inherit'};font-weight:600">${label}</button>`;
   const tab = (k, label) => btn(_cf.period === k, `_cf.period='${k}';cfDraw()`, label);
   const view = (k, label) => btn(_cf.view === k, `_cf.view='${k}';cfDraw()`, label);
-  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${view('transfers','Transfers')}${view('reimb','Reimbursements by outlet')}</div>
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${view('transfers','Transfers')}${view('log','Change log')}<!-- Reimbursements by outlet hidden for now: ${view('reimb','Reimbursements by outlet')} --></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       ${tab('yesterday','Yesterday')}${tab('7d','Last 7 days')}${tab('28d','Last 28 days')}${tab('thismonth','This month')}${tab('month','Last month')}${tab('all','All time')}${tab('custom','Custom')}
       ${_cf.period === 'all' ? '' : _cf.period === 'custom'
@@ -16751,7 +16754,8 @@ function cfTopBar() {
 }
 
 function cfDraw() {
-  if (_cf.view === 'reimb') return cfReimbDraw();
+  if (_cf.view === 'reimb') _cf.view = 'transfers'; // by-outlet view hidden for now
+  if (_cf.view === 'log') return cfLogDraw();
   const body = document.getElementById('pageBody');
   const inPeriod = cfInPeriod();
   // ~40 heads, so a dropdown (biggest first) rather than a row of buttons.
@@ -16770,6 +16774,7 @@ function cfDraw() {
     amount: `<div style="display:flex;gap:4px"><input value="${sfEsc(_cfF.min)}" placeholder="Min" inputmode="decimal" oninput="_cfF.min=this.value;cfRows()" style="${inp};min-width:60px"/><input value="${sfEsc(_cfF.max)}" placeholder="Max" inputmode="decimal" oninput="_cfF.max=this.value;cfRows()" style="${inp};min-width:60px"/></div>`,
     status: `<select onchange="_cfF.status=this.value;cfRows()" style="${inp}"><option value="">All</option>${statuses.map(s => `<option ${_cfF.status === s ? 'selected' : ''}>${sfEsc(s)}</option>`).join('')}</select>`,
     utr: text('utr', 'Search…'),
+    source: `<select onchange="_cfF.src=this.value;cfRows()" style="${inp}">${['', 'Sheet', 'Manual'].map(v => `<option value="${v}" ${_cfF.src === v ? 'selected' : ''}>${v || 'All'}</option>`).join('')}</select>`,
   };
   const th = 'padding:8px;text-align:left;vertical-align:bottom';
   body.innerHTML = `
@@ -16787,6 +16792,43 @@ function cfDraw() {
   cfRows();
 }
 
+function cfSourceCell(t) {
+  const g = _cfT.tags[cfKey(t)];
+  if (!g) return `<span style="color:#6b7280" title="Category from the sheet head (column R)">Sheet</span>`;
+  return `<span style="color:#2563eb;font-weight:600" title="Was ${sfEsc(cfBucket(t, true))} from the sheet">Manual</span>
+    <div style="color:#6b7280">${sfEsc(g.tagged_by || '')}${g.tagged_at ? ' · ' + sfEsc(g.tagged_at) : ''}</div>`;
+}
+
+// Change log: every manual category change on this tab, newest first.
+const _cfLog = { rows: null, err: '' };
+async function cfLogDraw() {
+  const body = document.getElementById('pageBody');
+  if (!_cfLog.rows) {
+    body.innerHTML = `<div style="padding:16px;max-width:1250px">${cfTopBar()}<div class="loader-box"><div class="loader"></div> Loading change log…</div></div>`;
+    try {
+      const r = await fetch(`${API}/api/admin/cashfree-tag-log`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Error ${r.status}`);
+      _cfLog.rows = (await r.json()).log || []; _cfLog.err = '';
+    } catch (e) { _cfLog.rows = []; _cfLog.err = e.message; }
+    if (_currentPage !== 'cashfree' || _cf.view !== 'log') return;
+  }
+  const td = 'padding:8px;border-top:1px solid #f3f4f6';
+  const rows = _cfLog.rows.map(l => `<tr>
+      <td style="${td};white-space:nowrap">${sfEsc(l.at || '')}</td>
+      <td style="${td}"><b>${sfEsc(l.by_name || l.by || '')}</b> <span style="color:#6b7280">${sfEsc(l.by || '')}</span></td>
+      <td style="${td}">${sfEsc(l.beneficiary || '')}<div style="color:#6b7280;font-size:12px">${sfEsc(l.head || '')}</div></td>
+      <td style="${td};text-align:right;white-space:nowrap">${l.amount ? cfInr(l.amount) : ''}</td>
+      <td style="${td}">${sfEsc(l.from || l.natural || '—')} → <b>${sfEsc(l.to || ((l.natural || 'sheet') + ' (back to sheet)'))}</b></td>
+      <td style="${td};color:#6b7280;font-size:12px">${sfEsc(l.key || '')}</td></tr>`).join('');
+  body.innerHTML = `<div style="padding:16px;max-width:1250px">${cfTopBar()}
+    <div style="font-size:13px;margin-bottom:10px">Manual category changes · ${_cfLog.rows.length} shown (latest 500)
+      <button onclick="_cfLog.rows=null;cfLogDraw()" class="btn-refresh" style="margin-left:8px">↻ Reload</button></div>
+    ${_cfLog.err ? `<div style="color:#b91c1c">${sfEsc(_cfLog.err)}</div>` : ''}
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr style="color:#6b7280;text-align:left"><th style="padding:8px">When</th><th style="padding:8px">Changed by</th><th style="padding:8px">Transfer</th><th style="padding:8px;text-align:right">Amount</th><th style="padding:8px">Category</th><th style="padding:8px">UTR / ID</th></tr>
+      ${rows || '<tr><td colspan="6" style="padding:20px;color:#6b7280">No manual changes yet.</td></tr>'}</table></div></div>`;
+}
+
 function cfSortBy(k) {
   _cfF.dir = _cfF.sort === k ? -_cfF.dir : (k === 'date' || k === 'amount' ? -1 : 1);
   _cfF.sort = k;
@@ -16794,7 +16836,7 @@ function cfSortBy(k) {
 }
 
 function cfClearFilters() {
-  Object.assign(_cfF, { ben: '', desc: '', utr: '', status: '', min: '', max: '' });
+  Object.assign(_cfF, { ben: '', desc: '', utr: '', status: '', min: '', max: '', src: '' });
   _cf.cat = 'all';
   _cf.bucket = '';
   cfDraw();
@@ -16810,7 +16852,7 @@ function cfRows() {
     (_cf.cat === 'all' || t.head === _cf.cat)
     && (!_cf.bucket || cfBucket(t) === _cf.bucket)
     && has(t.beneficiary + ' ' + t.beneficiary_id, _cfF.ben) && has(t.remarks, _cfF.desc) && has(t.utr, _cfF.utr)
-    && (!_cfF.status || t.status === _cfF.status)
+    && (!_cfF.status || t.status === _cfF.status) && (!_cfF.src || cfSource(t) === _cfF.src)
     && (isNaN(min) || t.amount >= min) && (isNaN(max) || t.amount <= max))
     .sort((a, b) => { const x = col.val(a), y = col.val(b); return (x < y ? -1 : x > y ? 1 : 0) * _cfF.dir; });
   document.getElementById('cf-head').innerHTML = _cfCols.map(c => `<th onclick="cfSortBy('${c.k}')" style="padding:8px;text-align:${c.right ? 'right' : 'left'};cursor:pointer;white-space:nowrap;user-select:none">${c.label} <span style="opacity:${_cfF.sort === c.k ? 1 : .3}">${_cfF.sort === c.k ? (_cfF.dir < 0 ? '▼' : '▲') : '↕'}</span></th>`).join('');
@@ -16824,7 +16866,8 @@ function cfRows() {
       <td style="padding:8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(t.amount)}</td>
       <td style="padding:8px;${t.status === 'SUCCESS' ? '' : 'color:#b91c1c'}">${sfEsc(t.status)}</td>
       <td style="padding:8px;color:#6b7280;font-size:12px">${sfEsc(t.utr)}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;color:#6b7280">No transfers match.</td></tr>';
+      <td style="padding:8px;font-size:12px">${cfSourceCell(t)}</td>
+    </tr>`).join('') : '<tr><td colspan="8" style="padding:20px;color:#6b7280">No transfers match.</td></tr>';
 }
 
 /* ── Reimbursements by outlet ── claims come from the AOD app, so BulkPe-paid
@@ -16983,7 +17026,7 @@ function cfReimbRender() {
       <thead><tr style="color:#6b7280;border-bottom:1px solid #e5e7eb"><th style="${th}">Outlet</th><th style="${num}">Claims</th><th style="${num}">Amount</th><th style="${th}">Biggest buckets</th></tr></thead>
       <tbody>${outlets.length ? outlets.map(([o, l]) => `<tr data-o="${sfEsc(o)}" onclick="_cfR.open=_cfR.open===this.dataset.o?null:this.dataset.o;_cfR.obucket='';cfReimbRender()" style="border-top:1px solid #f3f4f6;cursor:pointer">
         <td style="padding:8px;font-weight:600">${_cfR.open === o ? '▾' : '▸'} ${sfEsc(o)}</td><td style="${num}">${l.length}</td><td style="${num};font-weight:600">${cfInr(total(l))}</td>
-        <td style="padding:8px;color:#6b7280">${group(l, cfReimbBucket).slice(0, 3).map(([k, x]) => `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${(CF_BUCKETS.find(b => b.k === k) || {}).c};margin-right:4px"></span>${sfEsc(k)} ${cfInr(total(x))}`).join(' · ')}</td></tr>${_cfR.open === o ? detail(l) : ''}`).join('')
+        <td style="padding:8px;color:#6b7280">${group(l, cfReimbBucket).slice(0, 3).map(([k, x]) => `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${(CF_REIMB_BUCKETS.find(b => b.k === k) || {}).c};margin-right:4px"></span>${sfEsc(k)} ${cfInr(total(x))}`).join(' · ')}</td></tr>${_cfR.open === o ? detail(l) : ''}`).join('')
         : '<tr><td colspan="4" style="padding:20px;color:#6b7280">No reimbursements in this period.</td></tr>'}</tbody>
     </table></div></div>`;
 }
