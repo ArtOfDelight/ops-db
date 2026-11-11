@@ -16671,12 +16671,12 @@ function cfDelta(cur, prevList, prev) {
   return `<div class="cf-delta ${cls}" title="${tip}">${pct > 0 ? '▲' : pct < 0 ? '▼' : ''} ${Math.abs(pct).toFixed(0)}% vs ${prev.label}</div>`;
 }
 
-// The sheet is updated every day at 7 PM, so the tab re-reads it at 8 PM IST
+// The tab re-reads the sheet every day at 8 AM IST
 // (skipping the backend's 5-minute cache). Any later open fetches fresh too.
-const CF_AUTO_REFRESH_IST_HOUR = 20;
+const CF_AUTO_REFRESH_IST_HOUR = 8;
 let _cfAutoTimer = null;
 function cfNextAutoRefresh(now = new Date()) {
-  // Next 20:00 IST as a real instant (IST = UTC+5:30, no DST).
+  // Next 08:00 IST as a real instant (IST = UTC+5:30, no DST).
   const ist = new Date(now.getTime() + 330 * 60000);
   let at = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), CF_AUTO_REFRESH_IST_HOUR) - 330 * 60000;
   if (at <= now.getTime()) at += 864e5;
@@ -16690,11 +16690,11 @@ function cfScheduleAutoRefresh() {
     else { _cfStale = true; cfScheduleAutoRefresh(); }
   }, Math.min(wait, 2 ** 31 - 1));
 }
-// Missed the 8 PM refresh (another tab was open, or a details panel): next open forces it.
+// Missed the 8 AM refresh (another tab was open, or a details panel): next open forces it.
 let _cfStale = false;
 const cfTime = d => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const cfDay = d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
-// Also covers a laptop that slept through 8 PM: on wake/focus, refresh if the data predates the last 8 PM.
+// Also covers a laptop that slept through 8 PM: on wake/focus, refresh if the data predates the last 8 AM.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !_cf.fetchedAt || _currentPage !== 'cashfree') return;
   const last8 = new Date(cfNextAutoRefresh().getTime() - 864e5);
@@ -16718,7 +16718,7 @@ function cfTopBar() {
       ${_cf.period === 'all' ? '' : _cf.period === 'custom'
         ? `<input type="date" value="${from}" onchange="_cf.from=this.value;cfDraw()" class="cf-in"/> → <input type="date" value="${to}" onchange="_cf.to=this.value;cfDraw()" class="cf-in"/>`
         : `<span class="cf-muted">${from === to ? from : from + ' → ' + to}</span>`}
-      <span class="cf-muted" style="margin-left:auto;font-size:12px" title="The sheet is updated at 7 PM; this tab reloads it at 8 PM every day">${_cf.fetchedAt ? `Updated ${cfDay(_cf.fetchedAt)}, ${cfTime(_cf.fetchedAt)} · auto-refresh 8 PM` : ''}</span>
+      <span class="cf-muted" style="margin-left:auto;font-size:12px" title="This tab reloads the sheet at 8 AM every day">${_cf.fetchedAt ? `Updated ${cfDay(_cf.fetchedAt)}, ${cfTime(_cf.fetchedAt)} · auto-refresh 8 AM` : ''}</span>
       <button onclick="renderCashfreePage(true)" class="btn-refresh">↻ Refresh</button>
     </div>`;
 }
