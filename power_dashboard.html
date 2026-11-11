@@ -16545,9 +16545,10 @@ const CF_BUCKETS = [
   { k: 'Admin Payments', c: '#2a78d6' },
   { k: 'Advance', c: '#eda100', re: /advance/ },
   { k: 'Salaries', c: '#1baf7a', re: /salar|incentive|wage|bonus|payroll|stipend|referral/ },
-  { k: 'Reimbursements', c: '#e87ba4', re: /reimburs|dummy order/ },
+  { k: 'Reimbursements', c: '#e87ba4', re: /re-?\s?imb|dummy order/ },
 ];
-const CF_BUCKET_ORDER = ['Advance', 'Reimbursements', 'Salaries'];
+// Reimbursements first: anything that reads as one (head or description) goes there.
+const CF_BUCKET_ORDER = ['Reimbursements', 'Advance', 'Salaries'];
 // Spend buckets for the "Reimbursements by outlet" view (claim categories).
 const CF_REIMB_BUCKETS = [
   { k: 'Labour', c: '#2a78d6' }, { k: 'Capex', c: '#eb6834' }, { k: 'Rents', c: '#1baf7a' },
@@ -16638,7 +16639,8 @@ function cfBucket(t, natural) {
   const tag = !natural && _cfT.tags[cfKey(t)];
   if (tag && cfAllBuckets().some(b => b.k === tag.bucket)) return tag.bucket;
   const h = (t.head || '').replace(/\?/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const k = CF_BUCKET_ORDER.find(k => CF_BUCKETS.find(b => b.k === k).re.test(h));
+  const d = (t.remarks || '').toLowerCase();
+  const k = CF_BUCKET_ORDER.find(k => { const re = CF_BUCKETS.find(b => b.k === k).re; return re.test(h) || (k === 'Reimbursements' && re.test(d)); });
   return k || 'Admin Payments';
 }
 
