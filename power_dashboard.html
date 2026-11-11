@@ -1211,6 +1211,10 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 @media (max-width: 1000px) { .cf-grid, .cf-grid.two { grid-template-columns: minmax(0, 1fr); } }
 .cf-panel { border: 1px solid #e5e7eb; border-radius: 12px; background: var(--surface); padding: 12px; }
 .cf-panel-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13px; margin-bottom: 6px; }
+.cf-fold-h { cursor: pointer; user-select: none; }
+.cf-fold-h:hover b { text-decoration: underline; }
+.cf-folded .cf-panel-h { margin-bottom: 0; }
+.cf-chev { width: 12px; color: #6b7280; }
 .cf-scroll { overflow: auto; max-height: 420px; }
 #cf-list .cf-scroll { max-height: none; }
 .cf-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -16634,21 +16638,40 @@ function cfGroupBy(list, key) {
   return Object.values(m).sort((a, b) => b.amt - a.amt).map((p, i) => ({ ...p, c: CF_PALETTE[i % CF_PALETTE.length] }));
 }
 
+// Breakdown tables fold: closed, top rows only (default), or every row. Remembered per table.
+const CF_TOP_ROWS = 5;
+const _cfFold = (() => { try { return JSON.parse(localStorage.getItem('cfFold') || '{}'); } catch { return {}; } })();
+function cfFoldSet(field, v) {
+  _cfFold[field] = v;
+  try { localStorage.setItem('cfFold', JSON.stringify(_cfFold)); } catch {}
+  cfDraw();
+}
 // Clickable breakdown table (tracking groups, or outlets for reimbursements).
 function cfBreakdown(title, parts, field, selected, note = '') {
   const total = parts.reduce((s, p) => s + p.amt, 0);
   const max = parts.reduce((m, p) => Math.max(m, p.amt), 0);
-  const rows = parts.map(p => `<tr data-v="${sfEsc(p.k)}" onclick="cfPickRow('${field}',this.dataset.v)" class="cf-brow${selected === p.k ? ' on' : ''}" style="${selected && selected !== p.k ? 'opacity:.45' : ''}">
+  const fold = _cfFold[field] || 'top';
+  const open = fold !== 'closed';
+  // The picked row always stays visible, even when it's outside the top rows.
+  const shown = fold === 'all' ? parts : parts.filter((p, i) => i < CF_TOP_ROWS || p.k === selected);
+  const head = `<div class="cf-panel-h cf-fold-h" onclick="cfFoldSet('${field}','${open ? 'closed' : 'top'}')" title="${open ? 'Collapse' : 'Expand'}">
+      <span class="cf-chev">${open ? '▾' : '▸'}</span><b>${title}</b>
+      <span class="cf-muted">${parts.length} · ${cfInr0(total)}</span>
+      ${selected ? `<span class="cf-chip" style="padding:1px 8px">${sfEsc(selected)}</span>` : ''}
+      ${note && open ? `<span class="cf-muted" style="font-size:12px">${note}</span>` : ''}</div>`;
+  if (!open) return `<div class="cf-panel cf-folded">${head}</div>`;
+  const more = parts.length > CF_TOP_ROWS
+    ? `<button class="cf-link" style="margin-top:6px" onclick="cfFoldSet('${field}','${fold === 'all' ? 'top' : 'all'}')">${fold === 'all' ? 'Show less ▴' : `Show all ${parts.length} ▾`}</button>` : '';
+  const rows = shown.map(p => `<tr data-v="${sfEsc(p.k)}" onclick="cfPickRow('${field}',this.dataset.v)" class="cf-brow${selected === p.k ? ' on' : ''}" style="${selected && selected !== p.k ? 'opacity:.45' : ''}">
       <td><span class="cf-dot" style="background:${p.c}"></span>${sfEsc(p.k)}
         <div class="cf-minibar"><span style="width:${max ? (p.amt / max * 100).toFixed(1) : 0}%;background:${p.c}"></span></div></td>
       <td class="cf-num cf-muted">${p.n}</td>
       <td class="cf-num" style="font-weight:600">${cfInr0(p.amt)}</td>
       <td class="cf-num cf-muted">${total ? (p.amt / total * 100).toFixed(1) : '0.0'}%</td></tr>`).join('');
-  return `<div class="cf-panel">
-    <div class="cf-panel-h"><b>${title}</b>${note ? `<span class="cf-muted">${note}</span>` : ''}</div>
+  return `<div class="cf-panel">${head}
     <div class="cf-scroll"><table class="cf-tbl">
       <thead><tr><th>Name</th><th class="cf-num">Transfers</th><th class="cf-num">Paid out</th><th class="cf-num">Share</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="4" class="cf-muted" style="padding:16px">Nothing paid in this period.</td></tr>'}</tbody></table></div></div>`;
+      <tbody>${rows || '<tr><td colspan="4" class="cf-muted" style="padding:16px">Nothing paid in this period.</td></tr>'}</tbody></table></div>${more}</div>`;
 }
 function cfPickRow(field, v) {
   _cfF[field] = _cfF[field] === v ? '' : v;
