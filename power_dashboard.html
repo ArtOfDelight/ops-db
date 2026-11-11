@@ -1216,7 +1216,13 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 .cf-folded .cf-panel-h { margin-bottom: 0; }
 .cf-chev { width: 12px; color: #6b7280; }
 /* About five rows tall; the rest scrolls inside the table. Expanded shows everything. */
-.cf-bd-scroll { max-height: 290px; overflow-y: auto; }
+.cf-bd-scroll { max-height: 210px; overflow-y: auto; }
+/* Compact breakdown tables */
+.cf-bd { font-size: 12px; }
+.cf-bd th { font-size: 11px; padding: 4px 8px; }
+.cf-bd td { padding: 4px 8px; }
+.cf-bd .cf-dot { width: 8px; height: 8px; margin-right: 6px; }
+.cf-bd .cf-minibar { height: 2px; margin-top: 2px; max-width: 160px; }
 .cf-bd-full { max-height: none !important; }
 .cf-scroll { overflow: auto; max-height: 420px; }
 #cf-list .cf-scroll { max-height: min(70vh, 720px); overflow: auto; }
@@ -16783,7 +16789,7 @@ function cfBreakdown(title, parts, field, selected, note = '') {
       <td class="cf-num" style="font-weight:600">${cfInr0(p.amt)}</td>
       <td class="cf-num cf-muted">${total ? (p.amt / total * 100).toFixed(1) : '0.0'}%</td></tr>`).join('');
   return `<div class="cf-panel">${head}
-    <div class="cf-scroll${fold === 'all' ? ' cf-bd-full' : ' cf-bd-scroll'}"><table class="cf-tbl">
+    <div class="cf-scroll${fold === 'all' ? ' cf-bd-full' : ' cf-bd-scroll'}"><table class="cf-tbl cf-bd">
       <thead><tr><th>Name</th><th class="cf-num">Transfers</th><th class="cf-num">Paid out</th><th class="cf-num">Share</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4" class="cf-muted" style="padding:16px">Nothing paid in this period.</td></tr>'}</tbody></table></div>${more}</div>`;
 }
