@@ -16509,7 +16509,7 @@ async function renderCashfreePage(refresh = false) {
     if (r.status === 401) { localStorage.removeItem('acctToken'); return renderCashfreePage(); }
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Accounting API error ${r.status}`);
     _cf.rows = ((await r.json()).rows || [])
-      .map(t => ({ ...t, date: t.initiated_at.slice(0, 10), head: t.head || 'Uncategorised' }))
+      .map(t => ({ ...t, date: t.initiated_at.slice(0, 10), head_raw: t.head || '', head: cfHeadName(t.head) }))
       .sort((a, b) => b.initiated_at.localeCompare(a.initiated_at));
     await cfLoadTags();
   } catch (e) {
@@ -16534,6 +16534,8 @@ const _cfCols = [
   { k: 'source', label: 'Source', val: t => cfSource(t) },
   { k: 'utr', label: 'UTR', val: t => t.utr },
 ];
+// Heads merged for the tab: every "Staff Room Rent - <outlet>" is one Staff Room Rent head.
+const cfHeadName = h => { h = (h || '').trim(); return !h ? 'Uncategorised' : /^staff\s*room\s*rent/i.test(h) ? 'Staff Room Rent' : h; };
 const cfInr = n => '₹' + (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 // Totals count money that actually went out; failed / reversed rows still list.
 const cfSum = list => list.reduce((s, t) => s + (t.status === 'SUCCESS' ? +t.amount || 0 : 0), 0);
@@ -16863,7 +16865,7 @@ function cfRows() {
   tbody.innerHTML = rows.length ? rows.map(t => `<tr style="border-top:1px solid #f3f4f6">
       <td style="padding:8px;white-space:nowrap">${sfEsc(t.date)}</td>
       <td style="padding:8px"><b>${sfEsc(t.beneficiary)}</b> <span style="color:#6b7280">${sfEsc(t.beneficiary_id)}</span></td>
-      <td style="padding:8px">${sfEsc(t.head)}${cfTagCell(t)}</td>
+      <td style="padding:8px">${sfEsc(t.head)}${t.head_raw && t.head_raw !== t.head ? `<div style="color:#6b7280;font-size:11px">${sfEsc(t.head_raw)}</div>` : ''}${cfTagCell(t)}</td>
       <td style="padding:8px">${sfEsc(t.remarks)}</td>
       <td style="padding:8px;text-align:right;white-space:nowrap;font-weight:600">${cfInr(t.amount)}</td>
       <td style="padding:8px;${t.status === 'SUCCESS' ? '' : 'color:#b91c1c'}">${sfEsc(t.status)}</td>
