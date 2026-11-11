@@ -1194,7 +1194,7 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 .cf-pill { padding: 7px 12px; border-radius: 999px; border: 1px solid #d1d5db; background: var(--surface); font-weight: 600; font-size: 13px; cursor: pointer; }
 .cf-pill.on { background: #111827; color: #fff; border-color: #111827; }
 .cf-in { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: var(--surface); }
-.cf-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.cf-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
 @media (max-width: 900px) { .cf-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .cf-card { text-align: left; padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: 12px; background: var(--surface); cursor: pointer; font: inherit; transition: box-shadow .15s, border-color .15s; }
 .cf-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.06); }
@@ -1206,11 +1206,10 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 .cf-card-bar span, .cf-minibar span { display: block; height: 100%; }
 .cf-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; flex: none; }
 .cf-sec-h { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 4px; margin: 4px 0 10px; }
-.cf-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; align-items: start; }
-.cf-grid.three { grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1fr); }
-@media (max-width: 1100px) { .cf-grid, .cf-grid.three { grid-template-columns: minmax(0, 1fr); } }
+.cf-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.cf-grid.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 1000px) { .cf-grid, .cf-grid.two { grid-template-columns: minmax(0, 1fr); } }
 .cf-panel { border: 1px solid #e5e7eb; border-radius: 12px; background: var(--surface); padding: 12px; }
-.cf-pie { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .cf-panel-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13px; margin-bottom: 6px; }
 .cf-scroll { overflow: auto; max-height: 420px; }
 #cf-list .cf-scroll { max-height: none; }
@@ -16424,7 +16423,7 @@ let _rf = { data: null, show: 'all', busy: false };
 // exchanged for an accounting session too. Only people listed in the
 // accounting app's users get one; everyone else sees a notice on this tab.
 const ACCT_API = 'https://aod-accounting-api-v2.onrender.com/api';
-const _cf = { rows: null, period: 'yesterday', cat: 'Salaries' };
+const _cf = { rows: null, period: 'yesterday', cat: 'All' };
 
 async function acctLogin(idToken) {
   try {
@@ -16566,15 +16565,17 @@ async function renderCashfreePage(refresh = false) {
 // Four categories from the sheet's type code (column E). The codes are only
 // used to sort transfers; they're never shown. CFTEST rows are dropped on load.
 const CF_CATS = [
-  { k: 'Salaries', c: '#1baf7a', codes: ['SAL', 'SRI', 'INC'] },
-  { k: 'Advances', c: '#eda100', codes: ['ADV'] },
   { k: 'Reimbursements', c: '#e87ba4', codes: ['REIMB'] },
   { k: 'Admin', c: '#2a78d6', codes: [] },
+  { k: 'Salaries', c: '#1baf7a', codes: ['SAL', 'SRI', 'INC'] },
+  { k: 'Advances', c: '#eda100', codes: ['ADV'] },
 ];
+const CF_ALL = { k: 'All', c: '#111827' };
 const cfCat = t => {
   const code = (t.type || '').trim().toUpperCase();
-  return (CF_CATS.find(c => c.codes.includes(code)) || CF_CATS[3]).k;
+  return (CF_CATS.find(c => c.codes.includes(code)) || CF_CATS.find(c => c.k === 'Admin')).k;
 };
+const cfInCat = t => _cf.cat === 'All' || cfCat(t) === _cf.cat;
 const cfIsTest = t => /cftest/i.test(t.type || '');
 // Heads merged for the tab: every "Staff Room Rent - <outlet>" is one Staff Room Rent head.
 const cfHeadName = h => { h = (h || '').trim(); return !h ? 'Uncategorised' : /^staff\s*room\s*rent/i.test(h) ? 'Staff Room Rent' : h; };
@@ -16609,8 +16610,8 @@ function cfTopBar() {
 
 function cfCards(inPeriod) {
   const paidAll = cfSum(inPeriod);
-  return `<div class="cf-cards">${CF_CATS.map(c => {
-    const l = inPeriod.filter(t => cfCat(t) === c.k), amt = cfSum(l), n = l.filter(cfPaid).length;
+  return `<div class="cf-cards">${[CF_ALL, ...CF_CATS].map(c => {
+    const l = c === CF_ALL ? inPeriod : inPeriod.filter(t => cfCat(t) === c.k), amt = cfSum(l), n = l.filter(cfPaid).length;
     const pct = paidAll ? amt / paidAll * 100 : 0;
     return `<button class="cf-card${_cf.cat === c.k ? ' on' : ''}" style="--cc:${c.c}" onclick="cfPickCat('${c.k}')">
         <div class="cf-card-k"><span class="cf-dot" style="background:${c.c}"></span>${c.k}</div>
@@ -16631,21 +16632,6 @@ function cfGroupBy(list, key) {
   const m = {};
   list.filter(cfPaid).forEach(t => { const k = key(t); (m[k] = m[k] || { k, amt: 0, n: 0 }); m[k].amt += +t.amount || 0; m[k].n++; });
   return Object.values(m).sort((a, b) => b.amt - a.amt).map((p, i) => ({ ...p, c: CF_PALETTE[i % CF_PALETTE.length] }));
-}
-
-function cfPieSvg(parts, selected, field) {
-  const total = parts.reduce((s, p) => s + p.amt, 0);
-  if (!total) return '';
-  const R = 90, C = 100, pt = f => `${(C + R * Math.sin(f * 2 * Math.PI)).toFixed(2)} ${(C - R * Math.cos(f * 2 * Math.PI)).toFixed(2)}`;
-  let at = 0;
-  const slices = parts.map(p => {
-    const from = at, frac = p.amt / total; at += frac;
-    const attrs = `fill="${p.c}" stroke="var(--surface)" stroke-width="2" data-v="${sfEsc(p.k)}" onclick="cfPickRow('${field}',this.dataset.v)" style="cursor:pointer;${selected && selected !== p.k ? 'opacity:.25' : ''}"`;
-    const tip = `<title>${sfEsc(p.k)}: ${cfInr(p.amt)} (${(frac * 100).toFixed(1)}%)</title>`;
-    return frac > 0.9999 ? `<circle cx="${C}" cy="${C}" r="${R}" ${attrs}>${tip}</circle>`
-      : `<path d="M${C} ${C} L${pt(from)} A${R} ${R} 0 ${frac > 0.5 ? 1 : 0} 1 ${pt(from + frac)} Z" ${attrs}>${tip}</path>`;
-  }).join('');
-  return `<svg viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Paid out by tracking group" style="flex:none;max-width:100%">${slices}</svg>`;
 }
 
 // Clickable breakdown table (tracking groups, or outlets for reimbursements).
@@ -16676,8 +16662,9 @@ function cfDraw() {
   const reimb = _cf.cat === 'Reimbursements';
   if (reimb && cfNeedOutlets()) return cfLoadOutlets();
   const inPeriod = cfInPeriod();
-  const inCat = inPeriod.filter(t => cfCat(t) === _cf.cat);
-  const cat = CF_CATS.find(c => c.k === _cf.cat);
+  const inCat = inPeriod.filter(cfInCat);
+  const all = _cf.cat === 'All';
+  const cat = all ? CF_ALL : CF_CATS.find(c => c.k === _cf.cat);
   // Groups chart follows the outlet pick (and vice versa) so the two tables cross-filter.
   const groups = cfGroupBy(inCat.filter(t => !_cfF.outlet || cfOutletOf(t) === _cfF.outlet), cfGroupName);
   const outlets = reimb ? cfGroupBy(inCat.filter(t => !_cfF.group || cfGroupName(t) === _cfF.group), cfOutletOf) : [];
@@ -16687,9 +16674,7 @@ function cfDraw() {
     ${cfCards(inPeriod)}
     <div class="cf-sec-h"><span class="cf-dot" style="background:${cat.c}"></span>${cat.k}
       <span class="cf-muted" style="font-weight:400">· ${cfInr(cfSum(inCat))} paid${failed.length ? ` · <a href="#" onclick="event.preventDefault();_cfF.status='failed';cfDraw()">${failed.length} failed / reversed</a>` : ''}</span></div>
-    <div class="cf-grid${reimb ? ' three' : ''}">
-      <div class="cf-panel cf-pie">${cfPieSvg(groups, _cfF.group, 'group') || '<div class="cf-muted" style="padding:40px 0">No paid transfers</div>'}
-        <div class="cf-muted" style="font-size:12px;text-align:center">By tracking group · click to filter</div></div>
+    <div class="cf-grid${reimb ? ' two' : ''}">
       ${cfBreakdown('By tracking group', groups, 'group', _cfF.group)}
       ${reimb ? cfBreakdown('By outlet', outlets, 'outlet', _cfF.outlet, 'from the claim, checked against the roster') : ''}
     </div>
@@ -16717,6 +16702,7 @@ function cfCols() {
     { k: 'head', label: 'Head', val: t => t.head.toLowerCase() },
     { k: 'group', label: 'Tracking group', val: t => cfGroupName(t).toLowerCase() },
   ];
+  if (_cf.cat === 'All') cols.splice(2, 0, { k: 'cat', label: 'Category', val: t => cfCat(t) });
   if (_cf.cat === 'Reimbursements') cols.push({ k: 'outlet', label: 'Outlet', val: t => cfOutletOf(t) });
   cols.push({ k: 'remarks', label: 'Description', val: t => (t.remarks || '').toLowerCase() },
     { k: 'amount', label: 'Amount', val: t => +t.amount || 0, right: true },
@@ -16726,7 +16712,7 @@ function cfCols() {
 function cfListRows() {
   const q = _cfF.q.trim().toLowerCase();
   const cols = cfCols(), col = cols.find(c => c.k === _cfF.sort) || cols[0];
-  return cfInPeriod().filter(t => cfCat(t) === _cf.cat && cfStatusOk(t)
+  return cfInPeriod().filter(t => cfInCat(t) && cfStatusOk(t)
       && (!_cfF.group || cfGroupName(t) === _cfF.group)
       && (!_cfF.outlet || cfOutletOf(t) === _cfF.outlet)
       && (!_cfF.head || t.head === _cfF.head)
@@ -16747,6 +16733,7 @@ function cfRows() {
   tbody.innerHTML = shown.length ? shown.map(t => `<tr>
       <td style="white-space:nowrap">${sfEsc(t.date)}</td>
       <td><b>${sfEsc(t.beneficiary)}</b><div class="cf-muted" style="font-size:11px">${sfEsc(t.beneficiary_id)}</div></td>
+      ${_cf.cat === 'All' ? `<td><span class="cf-dot" style="background:${CF_CATS.find(c => c.k === cfCat(t)).c}"></span>${cfCat(t)}</td>` : ''}
       <td>${sfEsc(t.head)}${t.head_raw && t.head_raw !== t.head ? `<div class="cf-muted" style="font-size:11px">${sfEsc(t.head_raw)}</div>` : ''}</td>
       <td>${sfEsc(cfGroupName(t))}</td>
       ${_cf.cat === 'Reimbursements' ? `<td>${sfEsc(cfOutletOf(t))}</td>` : ''}
@@ -16764,7 +16751,7 @@ function cfSortBy(k) {
 }
 function cfCsv() {
   const cols = cfCols(), esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const val = (t, k) => ({ group: cfGroupName(t), outlet: cfOutletOf(t), date: t.date })[k] ?? t[k];
+  const val = (t, k) => ({ group: cfGroupName(t), outlet: cfOutletOf(t), date: t.date, cat: cfCat(t) })[k] ?? t[k];
   const csv = [cols.map(c => c.label).concat('UTR').map(esc).join(','),
     ...cfListRows().map(t => cols.map(c => val(t, c.k)).concat(t.utr).map(esc).join(','))].join('\n');
   const a = document.createElement('a');
