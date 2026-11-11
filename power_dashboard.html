@@ -1237,6 +1237,21 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 .cf-status { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
 .cf-status.ok { background: #ecfdf5; color: #047857; }
 .cf-status.bad { background: #fef2f2; color: #b91c1c; }
+.cf-delta { font-size: 11px; color: #6b7280; margin-top: 4px; }
+.cf-delta.up { color: #b45309; }
+.cf-delta.down { color: #047857; }
+.cf-sticky { position: sticky; top: 0; z-index: 4; background: var(--surface); margin: -12px -12px 0; padding: 12px 12px 2px; border-radius: 12px 12px 0 0; border-bottom: 1px solid #f3f4f6; }
+.cf-row { cursor: pointer; }
+.cf-backdrop { position: fixed; inset: 0; background: rgba(17,24,39,.3); z-index: 1000; }
+.cf-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--surface); z-index: 1001; box-shadow: -8px 0 24px rgba(0,0,0,.15); padding: 18px 20px; overflow-y: auto; font-size: 13px; }
+.cf-drawer-amt { font-size: 26px; font-weight: 700; margin: 10px 0 4px; }
+.cf-x { margin-left: auto; border: none; background: none; font-size: 18px; cursor: pointer; color: #6b7280; }
+.cf-dsec { border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 10px; }
+.cf-dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px; padding: 5px 0; }
+.cf-dl > span { color: #6b7280; }
+.cf-dl > div { word-break: break-word; }
+.cf-photos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.cf-photo { max-width: 100%; max-height: 260px; border-radius: 8px; border: 1px solid #e5e7eb; }
 </style>
 </head>
 <body>
@@ -1459,6 +1474,7 @@ function navTo(page) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
   }
+  if (page !== 'cashfree' && /^#cashfree/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
   _currentPage = page;
   document.getElementById('pageTitle').textContent = titles[page] || '';
   // Refresh is on every page: Power reloads its live feed; every other page
@@ -8614,6 +8630,8 @@ function opsdbCanSee(page) {
 }
 
 function opsdbFirstPage() {
+  // A shared Cashfree link opens straight on that tab.
+  if (/^#cashfree/.test(location.hash) && opsdbCanSee('cashfree')) return 'cashfree';
   const first = opsdbTabCatalog().find(t => opsdbCanSee(t.key));
   return first ? first.key : (OPSDB_ME && OPSDB_ME.is_access_admin ? 'access' : null);
 }
@@ -16594,6 +16612,60 @@ const cfPaid = t => t.status === 'SUCCESS';
 const cfSum = list => list.reduce((s, t) => s + (cfPaid(t) ? +t.amount || 0 : 0), 0);
 const CF_PALETTE = ['#2a78d6', '#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#eb6834', '#0e9aa7', '#a05195', '#008300', '#e34948', '#7a5c00', '#3d5a80'];
 
+
+// ── View in the link: #cashfree?cat=Admin&period=month&group=... ──
+const CF_URL_KEYS = { cat: _cf => _cf.cat, period: _cf => _cf.period, from: _cf => _cf.period === 'custom' ? _cf.from : '', to: _cf => _cf.period === 'custom' ? _cf.to : '' };
+const CF_URL_FILTERS = ['group', 'outlet', 'head', 'q', 'status'];
+let _cfUrlRead = false;
+function cfUrlRead() {
+  if (_cfUrlRead) return;
+  _cfUrlRead = true;
+  const m = location.hash.match(/^#cashfree\?(.*)$/);
+  if (!m) return;
+  const q = new URLSearchParams(m[1]);
+  if (q.get('cat') && (q.get('cat') === 'All' || CF_CATS.some(c => c.k === q.get('cat')))) _cf.cat = q.get('cat');
+  if (q.get('period')) _cf.period = q.get('period');
+  if (q.get('from')) _cf.from = q.get('from');
+  if (q.get('to')) _cf.to = q.get('to');
+  CF_URL_FILTERS.forEach(k => { if (q.has(k)) _cfF[k] = q.get(k); });
+}
+function cfUrlWrite() {
+  if (_currentPage !== 'cashfree') return;
+  const q = new URLSearchParams();
+  Object.entries(CF_URL_KEYS).forEach(([k, f]) => { const v = f(_cf); if (v) q.set(k, v); });
+  CF_URL_FILTERS.forEach(k => { if (_cfF[k] && !(k === 'status' && _cfF[k] === 'paid')) q.set(k, _cfF[k]); });
+  history.replaceState(null, '', `${location.pathname}${location.search}#cashfree?${q}`);
+}
+
+// ── Previous period of the same length, for the "vs last" line on the cards ──
+function cfPrevRange(period) {
+  if (period === 'all') return null;
+  const { from, to } = cfRange(period);
+  const d = iso => new Date(iso + 'T00:00:00Z'), iso = x => x.toISOString().slice(0, 10);
+  const f = d(from), t = d(to);
+  if (period === 'month' || period === 'thismonth') {
+    // Same days of the month before (this month so far -> same stretch last month).
+    const pf = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() - 1, 1));
+    const last = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth(), 0)).getUTCDate();
+    const pt = period === 'month' ? new Date(Date.UTC(pf.getUTCFullYear(), pf.getUTCMonth(), last))
+      : new Date(Date.UTC(pf.getUTCFullYear(), pf.getUTCMonth(), Math.min(t.getUTCDate(), last)));
+    return { from: iso(pf), to: iso(pt), label: 'last month' };
+  }
+  const days = Math.round((t - f) / 864e5) + 1;
+  const pt = new Date(f.getTime() - 864e5), pf = new Date(pt.getTime() - (days - 1) * 864e5);
+  return { from: iso(pf), to: iso(pt), label: days === 1 ? 'day before' : `previous ${days} days` };
+}
+function cfDelta(cur, prevList, prev) {
+  if (!prev) return '';
+  const p = cfSum(prevList);
+  const tip = `${prev.label}: ${cfInr0(p)} (${prev.from}${prev.from === prev.to ? '' : ' → ' + prev.to})`;
+  if (!p && !cur) return `<div class="cf-delta" title="${tip}">— vs ${prev.label}</div>`;
+  if (!p) return `<div class="cf-delta up" title="${tip}">new vs ${prev.label}</div>`;
+  const pct = (cur - p) / p * 100;
+  const cls = Math.abs(pct) < 0.5 ? '' : pct > 0 ? 'up' : 'down';
+  return `<div class="cf-delta ${cls}" title="${tip}">${pct > 0 ? '▲' : pct < 0 ? '▼' : ''} ${Math.abs(pct).toFixed(0)}% vs ${prev.label}</div>`;
+}
+
 // Filters for the list under the charts. group / outlet come from clicking a chart row.
 const _cfF = { group: '', outlet: '', head: '', q: '', status: 'paid', sort: 'date', dir: -1, limit: 200 };
 
@@ -16617,6 +16689,8 @@ function cfTopBar() {
 
 function cfCards(inPeriod) {
   const paidAll = cfSum(inPeriod);
+  const prev = cfPrevRange(_cf.period);
+  const prevRows = prev ? _cf.rows.filter(t => t.date >= prev.from && t.date <= prev.to) : [];
   return `<div class="cf-cards">${[CF_ALL, ...CF_CATS].map(c => {
     const l = c === CF_ALL ? inPeriod : inPeriod.filter(t => cfCat(t) === c.k), amt = cfSum(l), n = l.filter(cfPaid).length;
     const pct = paidAll ? amt / paidAll * 100 : 0;
@@ -16624,6 +16698,7 @@ function cfCards(inPeriod) {
         <div class="cf-card-k"><span class="cf-dot" style="background:${c.c}"></span>${c.k}</div>
         <div class="cf-card-amt">${cfInr0(amt)}</div>
         <div class="cf-muted" style="font-size:12px">${n} transfer${n === 1 ? '' : 's'} · ${pct.toFixed(1)}%</div>
+        ${cfDelta(amt, c === CF_ALL ? prevRows : prevRows.filter(t => cfCat(t) === c.k), prev)}
         <div class="cf-card-bar"><span style="width:${pct.toFixed(1)}%;background:${c.c}"></span></div>
       </button>`;
   }).join('')}</div>`;
@@ -16684,6 +16759,7 @@ function cfPickRow(field, v) {
 }
 
 function cfDraw() {
+  cfUrlRead();
   const body = document.getElementById('pageBody');
   const reimb = _cf.cat === 'Reimbursements';
   if (reimb && cfNeedOutlets()) return cfLoadOutlets();
@@ -16705,14 +16781,14 @@ function cfDraw() {
       ${reimb ? cfBreakdown('By outlet', outlets, 'outlet', _cfF.outlet, 'from the claim, checked against the roster') : ''}
     </div>
     <div id="cf-list" class="cf-panel" style="margin-top:16px">
-      <div class="cf-filters">
+      <div class="cf-sticky"><div class="cf-filters">
         <input id="cf-q" class="cf-in" style="flex:1;min-width:200px" placeholder="Search name, description, UTR…" value="${sfEsc(_cfF.q)}" oninput="_cfF.q=this.value;_cfF.limit=200;cfRows()"/>
         <select class="cf-in" onchange="_cfF.head=this.value;cfRows()"><option value="">All heads</option>${[...new Set(inCat.map(t => t.head))].sort().map(h => `<option ${_cfF.head === h ? 'selected' : ''}>${sfEsc(h)}</option>`).join('')}</select>
         <select class="cf-in" onchange="_cfF.status=this.value;cfRows()">${[['paid', 'Paid'], ['failed', 'Failed / reversed'], ['all', 'All statuses']].map(([v, l]) => `<option value="${v}" ${_cfF.status === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <button class="btn-refresh" onclick="cfCsv()">⬇ CSV</button>
       </div>
       <div id="cf-chips" class="cf-chips"></div>
-      <div id="cf-summary" class="cf-muted" style="font-size:13px;margin:6px 0 8px"></div>
+      <div id="cf-summary" class="cf-muted" style="font-size:13px;margin:6px 0 8px"></div></div>
       <div class="cf-scroll"><table class="cf-tbl cf-list">
         <thead><tr id="cf-head"></tr></thead><tbody id="cf-body"></tbody></table></div>
       <div id="cf-more"></div>
@@ -16748,6 +16824,7 @@ function cfListRows() {
 function cfRows() {
   const tbody = document.getElementById('cf-body');
   if (!tbody) return;
+  cfUrlWrite();
   const cols = cfCols(), rows = cfListRows(), shown = rows.slice(0, _cfF.limit);
   document.getElementById('cf-head').innerHTML = cols.map(c => `<th onclick="cfSortBy('${c.k}')" class="${c.right ? 'cf-num' : ''}" style="cursor:pointer;user-select:none;white-space:nowrap">${c.label} <span style="opacity:${_cfF.sort === c.k ? 1 : .3}">${_cfF.sort === c.k ? (_cfF.dir < 0 ? '▼' : '▲') : '↕'}</span></th>`).join('');
   const chip = (label, field) => `<span class="cf-chip">${label} <button onclick="_cfF.${field}='';cfDraw()" title="Remove">✕</button></span>`;
@@ -16756,7 +16833,8 @@ function cfRows() {
   document.getElementById('cf-chips').innerHTML = chips.length ? chips.join('') + `<button class="cf-link" onclick="Object.assign(_cfF,{group:'',outlet:'',head:'',q:'',status:'paid'});cfDraw()">Clear all</button>` : '';
   const amt = rows.reduce((s, t) => s + (+t.amount || 0), 0);
   document.getElementById('cf-summary').innerHTML = `<b style="color:var(--ink)">${rows.length}</b> transfers · <b style="color:var(--ink)">${cfInr(amt)}</b> · sheet has transfers up to ${sfEsc(_cf.rows[0]?.date || '—')}`;
-  tbody.innerHTML = shown.length ? shown.map(t => `<tr>
+  _cf.shown = shown;
+  tbody.innerHTML = shown.length ? shown.map((t, i) => `<tr class="cf-row" onclick="cfOpen(${i})" title="Click for details">
       <td style="white-space:nowrap">${sfEsc(t.date)}</td>
       <td><b>${sfEsc(t.beneficiary)}</b><div class="cf-muted" style="font-size:11px">${sfEsc(t.beneficiary_id)}</div></td>
       ${_cf.cat === 'All' ? `<td><span class="cf-dot" style="background:${CF_CATS.find(c => c.k === cfCat(t)).c}"></span>${cfCat(t)}</td>` : ''}
@@ -16770,6 +16848,81 @@ function cfRows() {
   document.getElementById('cf-more').innerHTML = rows.length > shown.length
     ? `<button class="btn-refresh" style="margin-top:10px" onclick="_cfF.limit+=500;cfRows()">Show more (${rows.length - shown.length} left)</button>` : '';
 }
+
+// ── Transfer details panel (click a row) ──
+function cfCloseDrawer() {
+  document.getElementById('cf-drawer')?.remove();
+  document.removeEventListener('keydown', cfDrawerKey);
+}
+function cfDrawerKey(e) { if (e.key === 'Escape') cfCloseDrawer(); }
+function cfCopy(btn, text) {
+  navigator.clipboard?.writeText(text).then(() => { btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1200); });
+}
+async function cfEnsureClaims() {
+  if (_cfR.claims) return;
+  const list = await sfFetch('/api/admin/reimbursements');
+  _cfR.claims = list.filter(c => !cfClaimRejected(c)).map(c => ({ ...c, date: cfClaimDate(c) }));
+  _cfR.byRef = {}; _cfR.byUtr = {};
+  _cfR.claims.forEach(c => {
+    if (c.bulkpe_ref_id) _cfR.byRef[c.bulkpe_ref_id] = c;
+    if (c.bulkpe_utr) _cfR.byUtr[c.bulkpe_utr] = c;
+  });
+}
+async function cfPhoto(btn, rid, which) {
+  btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const r = await fetch(`${API}/api/admin/reimbursements/${encodeURIComponent(rid)}/photo/${which}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!r.ok) throw new Error(r.status === 404 ? 'No photo' : `Error ${r.status}`);
+    const url = URL.createObjectURL(await r.blob());
+    btn.outerHTML = `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${which} photo" class="cf-photo"/></a>`;
+  } catch (e) { btn.textContent = e.message; }
+}
+function cfOpen(i) {
+  const t = (_cf.shown || [])[i];
+  if (!t) return;
+  cfCloseDrawer();
+  const cat = cfCat(t), catObj = CF_CATS.find(c => c.k === cat);
+  const line = (k, v, copy) => v ? `<div class="cf-dl"><span>${k}</span><div>${sfEsc(v)}${copy ? ` <button class="cf-link" onclick="cfCopy(this, this.dataset.v)" data-v="${sfEsc(v)}">Copy</button>` : ''}</div></div>` : '';
+  const el = document.createElement('div');
+  el.id = 'cf-drawer';
+  el.innerHTML = `<div class="cf-backdrop" onclick="cfCloseDrawer()"></div>
+    <aside class="cf-drawer" role="dialog" aria-label="Transfer details">
+      <div style="display:flex;align-items:center;gap:8px"><span class="cf-dot" style="background:${catObj.c}"></span><b>${cat}</b>
+        <button class="cf-x" onclick="cfCloseDrawer()" aria-label="Close">✕</button></div>
+      <div class="cf-drawer-amt">${cfInr(t.amount)}</div>
+      <div><span class="cf-status ${cfPaid(t) ? 'ok' : 'bad'}">${sfEsc(t.status)}</span> <span class="cf-muted">${sfEsc(t.initiated_at)}</span></div>
+      <div class="cf-dsec">
+        ${line('Beneficiary', t.beneficiary)}${line('Beneficiary ID', t.beneficiary_id, true)}
+        ${line('Head', t.head)}${t.head_raw && t.head_raw !== t.head ? line('Head in sheet', t.head_raw) : ''}
+        ${line('Tracking group', cfGroupName(t))}
+        ${cat === 'Reimbursements' && _cfR.claims ? line('Outlet', cfOutletOf(t)) : ''}
+        ${line('Description', t.remarks)}${line('Mode', t.mode)}
+        ${line('Transfer ID', t.transfer_id, true)}${line('UTR', t.utr, true)}
+      </div>
+      ${cat === 'Reimbursements' ? '<div id="cf-claim" class="cf-dsec"><div class="cf-muted">Looking up the app claim…</div></div>' : ''}
+    </aside>`;
+  document.body.appendChild(el);
+  document.addEventListener('keydown', cfDrawerKey);
+  if (cat === 'Reimbursements') cfFillClaim(t);
+}
+async function cfFillClaim(t) {
+  const box = () => document.getElementById('cf-claim');
+  try { await cfEnsureClaims(); } catch (e) { if (box()) box().innerHTML = `<div class="cf-muted">Couldn't load claims: ${sfEsc(e.message)}</div>`; return; }
+  const c = cfClaimFor(t), b = box();
+  if (!b) return;
+  if (!c) { b.innerHTML = `<b>App claim</b><div class="cf-muted" style="margin-top:4px">No matching claim in the app. Outlet: ${sfEsc(cfOutletOf(t))} (from the roster).</div>`; return; }
+  const o = cfClaimOutlet(c);
+  const rid = c.reimbursement_id || '';
+  const line = (k, v) => v ? `<div class="cf-dl"><span>${k}</span><div>${sfEsc(v)}</div></div>` : '';
+  b.innerHTML = `<b>App claim</b>
+    ${line('Submitted by', `${c.employee_name || ''} ${c.employee_id || ''}`.trim())}
+    ${line('Submitted', c.date)}${line('Claim amount', c.amount != null ? cfInr(c.amount) : '')}
+    ${line('Category', (c.category || '').replace(/_/g, ' '))}${line('Comment', c.comment)}
+    ${line('Outlet', o.outlet + (o.corrected !== undefined ? ` (picked ${o.corrected}, moved by roster)` : ''))}
+    ${line('Claim status', c.status)}
+    ${rid ? `<div class="cf-photos">${['bill', 'product', 'grn'].map(w => `<button class="btn-refresh" onclick="cfPhoto(this,'${sfEsc(rid)}','${w}')">${w === 'grn' ? 'GRN' : w[0].toUpperCase() + w.slice(1)} photo</button>`).join('')}</div>` : ''}`;
+}
+
 function cfSortBy(k) {
   _cfF.dir = _cfF.sort === k ? -_cfF.dir : (k === 'date' || k === 'amount' ? -1 : 1);
   _cfF.sort = k;
@@ -16850,14 +17003,8 @@ async function cfLoadOutlets() {
   try {
     if (!_cfR.claims) {
       loading('Fetching reimbursement claims for outlets…');
-      const list = await sfFetch('/api/admin/reimbursements');
+      await cfEnsureClaims();
       if (stale()) return;
-      _cfR.claims = list.filter(c => !cfClaimRejected(c)).map(c => ({ ...c, date: cfClaimDate(c) }));
-      _cfR.byRef = {}; _cfR.byUtr = {};
-      _cfR.claims.forEach(c => {
-        if (c.bulkpe_ref_id) _cfR.byRef[c.bulkpe_ref_id] = c;
-        if (c.bulkpe_utr) _cfR.byUtr[c.bulkpe_utr] = c;
-      });
     }
   } catch (e) {
     // Outlets can't be worked out; show everything as Unassigned rather than nothing.
