@@ -16549,6 +16549,7 @@ function cfRange(period) {
 }
 
 async function renderCashfreePage(refresh = false) {
+  if (_cfStale) { refresh = true; _cfStale = false; }
   const body = document.getElementById('pageBody');
   const token = localStorage.getItem('acctToken');
   if (!token) {
@@ -16580,6 +16581,8 @@ async function renderCashfreePage(refresh = false) {
     _cf.rows = ((await r.json()).rows || []).filter(t => !cfIsTest(t))
       .map(t => ({ ...t, date: t.initiated_at.slice(0, 10), head_raw: t.head || '', head: cfHeadName(t.head) }))
       .sort((a, b) => b.initiated_at.localeCompare(a.initiated_at));
+    _cf.fetchedAt = new Date();
+    cfScheduleAutoRefresh();
   } catch (e) {
     if (_currentPage === 'cashfree') body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`;
     return;
@@ -16666,6 +16669,36 @@ function cfDelta(cur, prevList, prev) {
   return `<div class="cf-delta ${cls}" title="${tip}">${pct > 0 ? '▲' : pct < 0 ? '▼' : ''} ${Math.abs(pct).toFixed(0)}% vs ${prev.label}</div>`;
 }
 
+// The sheet is updated every day at 7 PM, so the tab re-reads it at 8 PM IST
+// (skipping the backend's 5-minute cache). Any later open fetches fresh too.
+const CF_AUTO_REFRESH_IST_HOUR = 20;
+let _cfAutoTimer = null;
+function cfNextAutoRefresh(now = new Date()) {
+  // Next 20:00 IST as a real instant (IST = UTC+5:30, no DST).
+  const ist = new Date(now.getTime() + 330 * 60000);
+  let at = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), CF_AUTO_REFRESH_IST_HOUR) - 330 * 60000;
+  if (at <= now.getTime()) at += 864e5;
+  return new Date(at);
+}
+function cfScheduleAutoRefresh() {
+  clearTimeout(_cfAutoTimer);
+  const wait = cfNextAutoRefresh() - Date.now();
+  _cfAutoTimer = setTimeout(() => {
+    if (_currentPage === 'cashfree' && !document.getElementById('cf-drawer')) renderCashfreePage(true);
+    else { _cfStale = true; cfScheduleAutoRefresh(); }
+  }, Math.min(wait, 2 ** 31 - 1));
+}
+// Missed the 8 PM refresh (another tab was open, or a details panel): next open forces it.
+let _cfStale = false;
+const cfTime = d => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+const cfDay = d => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+// Also covers a laptop that slept through 8 PM: on wake/focus, refresh if the data predates the last 8 PM.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !_cf.fetchedAt || _currentPage !== 'cashfree') return;
+  const last8 = new Date(cfNextAutoRefresh().getTime() - 864e5);
+  if (_cf.fetchedAt < last8) renderCashfreePage(true);
+});
+
 // Filters for the list under the charts. group / outlet come from clicking a chart row.
 const _cfF = { group: '', outlet: '', head: '', q: '', status: 'paid', sort: 'date', dir: -1, limit: 200 };
 
@@ -16683,7 +16716,8 @@ function cfTopBar() {
       ${_cf.period === 'all' ? '' : _cf.period === 'custom'
         ? `<input type="date" value="${from}" onchange="_cf.from=this.value;cfDraw()" class="cf-in"/> → <input type="date" value="${to}" onchange="_cf.to=this.value;cfDraw()" class="cf-in"/>`
         : `<span class="cf-muted">${from === to ? from : from + ' → ' + to}</span>`}
-      <button onclick="renderCashfreePage(true)" class="btn-refresh" style="margin-left:auto">↻ Refresh</button>
+      <span class="cf-muted" style="margin-left:auto;font-size:12px" title="The sheet is updated at 7 PM; this tab reloads it at 8 PM every day">${_cf.fetchedAt ? `Updated ${cfDay(_cf.fetchedAt)}, ${cfTime(_cf.fetchedAt)} · auto-refresh 8 PM` : ''}</span>
+      <button onclick="renderCashfreePage(true)" class="btn-refresh">↻ Refresh</button>
     </div>`;
 }
 
