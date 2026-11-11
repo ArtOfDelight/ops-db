@@ -1215,8 +1215,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 .cf-fold-h:hover b { text-decoration: underline; }
 .cf-folded .cf-panel-h { margin-bottom: 0; }
 .cf-chev { width: 12px; color: #6b7280; }
-/* Show all keeps the top-5 height; the rest scrolls inside the table. */
-.cf-bd-scroll { max-height: 300px; overflow-y: auto; }
+/* About five rows tall; the rest scrolls inside the table. Expanded shows everything. */
+.cf-bd-scroll { max-height: 290px; overflow-y: auto; }
+.cf-bd-full { max-height: none !important; }
 .cf-scroll { overflow: auto; max-height: 420px; }
 #cf-list .cf-scroll { max-height: none; }
 .cf-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -16654,8 +16655,8 @@ function cfBreakdown(title, parts, field, selected, note = '') {
   const max = parts.reduce((m, p) => Math.max(m, p.amt), 0);
   const fold = _cfFold[field] || 'top';
   const open = fold !== 'closed';
-  // The picked row always stays visible, even when it's outside the top rows.
-  const shown = fold === 'all' ? parts : parts.filter((p, i) => i < CF_TOP_ROWS || p.k === selected);
+  // Default: every row, in a box about CF_TOP_ROWS tall that scrolls. Expanded: no height limit.
+  const shown = parts;
   const head = `<div class="cf-panel-h cf-fold-h" onclick="cfFoldSet('${field}','${open ? 'closed' : 'top'}')" title="${open ? 'Collapse' : 'Expand'}">
       <span class="cf-chev">${open ? '▾' : '▸'}</span><b>${title}</b>
       <span class="cf-muted">${parts.length} · ${cfInr0(total)}</span>
@@ -16663,7 +16664,7 @@ function cfBreakdown(title, parts, field, selected, note = '') {
       ${note && open ? `<span class="cf-muted" style="font-size:12px">${note}</span>` : ''}</div>`;
   if (!open) return `<div class="cf-panel cf-folded">${head}</div>`;
   const more = parts.length > CF_TOP_ROWS
-    ? `<button class="cf-link" style="margin-top:6px" onclick="cfFoldSet('${field}','${fold === 'all' ? 'top' : 'all'}')">${fold === 'all' ? 'Show less ▴' : `Show all ${parts.length} ▾`}</button>` : '';
+    ? `<button class="cf-link" style="margin-top:6px" onclick="cfFoldSet('${field}','${fold === 'all' ? 'top' : 'all'}')">${fold === 'all' ? 'Shrink ▴' : `Expand all ${parts.length} ▾`}</button>` : '';
   const rows = shown.map(p => `<tr data-v="${sfEsc(p.k)}" onclick="cfPickRow('${field}',this.dataset.v)" class="cf-brow${selected === p.k ? ' on' : ''}" style="${selected && selected !== p.k ? 'opacity:.45' : ''}">
       <td><span class="cf-dot" style="background:${p.c}"></span>${sfEsc(p.k)}
         <div class="cf-minibar"><span style="width:${max ? (p.amt / max * 100).toFixed(1) : 0}%;background:${p.c}"></span></div></td>
@@ -16671,7 +16672,7 @@ function cfBreakdown(title, parts, field, selected, note = '') {
       <td class="cf-num" style="font-weight:600">${cfInr0(p.amt)}</td>
       <td class="cf-num cf-muted">${total ? (p.amt / total * 100).toFixed(1) : '0.0'}%</td></tr>`).join('');
   return `<div class="cf-panel">${head}
-    <div class="cf-scroll cf-bd-scroll"><table class="cf-tbl">
+    <div class="cf-scroll${fold === 'all' ? ' cf-bd-full' : ' cf-bd-scroll'}"><table class="cf-tbl">
       <thead><tr><th>Name</th><th class="cf-num">Transfers</th><th class="cf-num">Paid out</th><th class="cf-num">Share</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4" class="cf-muted" style="padding:16px">Nothing paid in this period.</td></tr>'}</tbody></table></div>${more}</div>`;
 }
