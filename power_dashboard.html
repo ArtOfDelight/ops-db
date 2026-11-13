@@ -7997,7 +7997,8 @@ function renderBriefResult(data) {
   const outlets = new Set();
   plats.forEach(pl => Object.entries((P[pl] || {}).outlets || {}).forEach(([o, v]) => { if (v < th) outlets.add(o); }));
   const VERDICT = { power: ['pw', '⚡ power cut'], partly_power: ['part', '⚡ partly power'], not_power: ['staff', 'not power'],
-                    no_power_on_form: ['part', 'no power-on form'], outlet_off: ['staff', 'switched off by outlet'] };
+                    no_power_on_form: ['part', 'no power-on report'], outlet_off: ['staff', 'switched off by outlet'],
+                    rista_outlet_off: ['staff', 'switched off on Rista'], rista_power: ['part', '⚡ power cut on Rista, no report'] };
   const KIND = { power: ['pw', '⚡ power cut'], outlet: ['out', 'switched off by outlet'],
                  power_unconfirmed: ['unc', 'power-off, no power-on'], unexplained: ['bad', 'unexplained'] };
   const fmtM = n => n >= 60 ? `${Math.floor(n / 60)}h ${n % 60}m` : `${n}m`;
@@ -8015,7 +8016,15 @@ function renderBriefResult(data) {
   const overlaps = (a, b) => { const off = t => (t - 300 + 1440) % 1440;  // trading day starts 05:00
     return off(toMin(a.start)) < off(toMin(b.end)) && off(toMin(b.start)) < off(toMin(a.end)); };
   const pDur = p => (toMin(p.end) - toMin(p.start) + 1440) % 1440;
-  const NO_FORM = 'No power-off form submitted';
+  const NO_FORM = 'No power-off report';
+  // Rista activity log: who switched it off on Rista and why, Zomato/Swiggy notices, failed pushes
+  const ristaCell = c => {
+    if (c.rista_available === false) return '<span class="db2-sub">Rista log unavailable</span>';
+    const parts = (c.rista || []).map(b => `<div class="mono">${b.start}–${b.end || 'close'} <b>${escHtml(b.user || '')}</b>${b.reason ? ` · ${escHtml(b.reason)}` : ''}</div>`);
+    (c.rista_notes || []).forEach(n => parts.push(`<div class="db2-sub">${n.time} notice: ${escHtml(n.note)}</div>`));
+    if (c.rista_failed) parts.push(`<div style="color:#b91c1c;font-size:12px">${c.rista_failed} failed push${c.rista_failed === 1 ? '' : 'es'}</div>`);
+    return parts.join('') || '<span class="db2-sub">no OFF on Rista</span>';
+  };
   const avRows = [];
   const worst = o => Math.min(...plats.map(pl => ((P[pl] || {}).outlets || {})[o] ?? 999));
   [...outlets].sort((a, b) => worst(a) - worst(b)).forEach(o => plats.forEach(pl => {
@@ -8038,7 +8047,7 @@ function renderBriefResult(data) {
     });
     if (!items.length)  // no live-monitor data (older than 7 days or outlet not monitored): totals only
       items.push({ when: `~${fmtM(c.offline_mins || 0)} total`, mins: null, kind: null,
-        power: c.power_off_mins ? 'forms (total)' : NO_FORM, tmins: c.offline_mins || 0, pmins: c.power_off_mins || 0,
+        power: c.power_off_mins ? 'reports (total)' : NO_FORM, tmins: c.offline_mins || 0, pmins: c.power_off_mins || 0,
         verdict: c.verdict, note: tls.length ? '' : 'no live-monitor data' });
     // Offline periods that match the same power cut share one Power off / Delta cell
     items.forEach((it, i) => { it.span = 0; const prev = items[i - 1];
@@ -8056,7 +8065,8 @@ function renderBriefResult(data) {
             <td class="mono db2-delta ${d == null ? '' : d > 15 ? 'bad' : d < -15 ? 'neg' : 'ok'}" rowspan="${it.span}">${d == null ? '' : (d > 0 ? '+' : d < 0 ? '−' : '') + fmtM(Math.abs(d))}</td>`; })() : ''}
       <td>${it.kind ? `<span class="db2-k ${KIND[it.kind][0]}"></span>${KIND[it.kind][1]}`
           : it.verdict && VERDICT[it.verdict] ? `<span class="db2-verdict ${VERDICT[it.verdict][0]}">${VERDICT[it.verdict][1]}</span>` : ''}
-          ${it.note ? `<span class="db2-sub">${it.note}</span>` : ''}</td></tr>`));
+          ${it.note ? `<span class="db2-sub">${it.note}</span>` : ''}</td>
+      ${i === 0 ? `<td rowspan="${items.length}" class="db2-rista">${ristaCell(c)}</td>` : ''}</tr>`));
   }));
   let avBody;
   // A platform with no data for the date is an error, but the other platform's rows still show
@@ -8068,11 +8078,11 @@ function renderBriefResult(data) {
   const avHave = plats.some(pl => (P[pl] || {}).date);
   if (avErr && !avHave) avBody = avErr;
   else if (!avRows.length) avBody = avErr + `<div class="db2-ok">✓ All ${avErr ? 'loaded ' : ''}outlets online ${th}% or more</div>`;
-  else avBody = avErr + `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off form</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th></tr></thead>
+  else avBody = avErr + `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off report</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th><th>Rista log</th></tr></thead>
     <tbody>${avRows.join('')}</tbody></table></div>
     <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–${th}%</span></div>
     <div class="db2-legend">Delta = offline − power off: <span class="db2-delta bad">+</span> offline longer than the power cut, <span class="db2-delta neg">−</span> power cut longer than the platform was offline.</div>
-    <div class="db2-legend">Online % is from Swiggy/Zomato. Offline periods come from the 2-minute live monitor (last 7 days) and are matched to power-off forms by time.</div>`;
+    <div class="db2-legend">Online % is from Swiggy/Zomato. Offline periods come from the 2-minute live monitor (last 7 days) and are matched to power-off reports by time. Rista log = who switched the outlet off on Rista and why.</div>`;
 
   const card = (icon, title, sub, count, inner, wide) => `
     <div class="db2-card ${count ? 'bad' : 'good'}${wide ? ' wide' : ''}">
@@ -8085,7 +8095,7 @@ function renderBriefResult(data) {
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
     ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
     ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
-    ${card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>`, 'Swiggy & Zomato online % · checked against staff power-off forms', outlets.size + (avErr ? 1 : 0), avBody, true)}
+    ${card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>`, 'Swiggy & Zomato online % · checked against power-off reports and the Rista log', outlets.size + (avErr ? 1 : 0), avBody, true)}
   </div>`;
 }
 
