@@ -8020,8 +8020,10 @@ function renderBriefResult(data) {
   // Rista activity log: who switched it off on Rista and why, Zomato/Swiggy notices, failed pushes
   const ristaCell = c => {
     if (c.rista_available === false) return '<span class="db2-sub">Rista log unavailable</span>';
-    const parts = (c.rista || []).map(b => `<div class="mono">${b.start}–${b.end || 'close'} <b>${escHtml(b.user || '')}</b>${b.reason ? ` · ${escHtml(b.reason)}` : ''}</div>`);
+    const parts = (c.rista || []).map(b => `<div class="mono">${b.start}–${b.end || 'close'} (${fmtM(b.mins || 0)}) <b>${escHtml(b.user || '')}</b>${b.reason ? ` · ${escHtml(b.reason)}` : ''}</div>`);
     (c.rista_notes || []).forEach(n => parts.push(`<div class="db2-sub">${n.time} notice: ${escHtml(n.note)}</div>`));
+    const rTot = (c.rista || []).reduce((n, b) => n + (b.mins || 0), 0);
+    if ((c.rista || []).length > 1) parts.push(`<div class="mono"><b>Total off on Rista: ${fmtM(rTot)}</b></div>`);
     if (c.rista_failed) parts.push(`<div style="color:#b91c1c;font-size:12px">${c.rista_failed} failed push${c.rista_failed === 1 ? '' : 'es'}</div>`);
     return parts.join('') || '<span class="db2-sub">no OFF on Rista</span>';
   };
