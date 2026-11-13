@@ -8020,6 +8020,7 @@ function renderBriefResult(data) {
   // Rista activity log: who switched it off on Rista and why, Zomato/Swiggy notices, failed pushes
   const ristaCell = c => {
     if (c.rista_available === false) return '<span class="db2-sub">Rista log unavailable</span>';
+    if (c.rista_available === undefined) return '<span class="db2-sub">not loaded — press Refresh</span>';
     const parts = (c.rista || []).map(b => `<div class="mono">${b.start}–${b.end || 'close'} (${fmtM(b.mins || 0)}) <b>${escHtml(b.user || '')}</b>${b.reason ? ` · ${escHtml(b.reason)}` : ''}</div>`);
     (c.rista_notes || []).forEach(n => parts.push(`<div class="db2-sub">${n.time} notice: ${escHtml(n.note)}</div>`));
     const rTot = (c.rista || []).reduce((n, b) => n + (b.mins || 0), 0);
