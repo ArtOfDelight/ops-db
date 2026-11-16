@@ -2158,14 +2158,86 @@ function renderPlatform(summaryData, platformData) {
     ${totalPlatCells}
   </tr>`;
 
-  el.innerHTML = `<table class="pm-table">
+  el.innerHTML = pdEventsHtml(summaryData, platformData) + `
+  <details style="margin-top:14px"><summary style="cursor:pointer;font-weight:700;font-size:12px;padding:6px 0">Totals per outlet and platform</summary>
+  <table class="pm-table">
     <thead><tr>
       <th class="outlet-col">Outlet</th>
       <th class="pc-col">Power Cut Form</th>
       ${platHeaders}
     </tr></thead>
     <tbody>${bodyRows}${totalRow}</tbody>
-  </table>`;
+  </table></details>`;
+}
+
+/* One row per outage: when, how long, which channels were off, and whether a power report covers it */
+function pdWindowRange() {
+  const now = new Date(), mid = new Date(now); mid.setHours(0, 0, 0, 0);
+  const day = 86400000;
+  if (_pdWindow === 'live')      return [mid.getTime(), now.getTime()];
+  if (_pdWindow === 'yesterday') return [mid.getTime() - day, mid.getTime()];
+  if (_pdWindow === 'custom') {
+    const s = document.getElementById('pdCustomStart')?.value, e = document.getElementById('pdCustomEnd')?.value;
+    return [s ? new Date(s + 'T00:00:00').getTime() : 0, e ? new Date(e + 'T00:00:00').getTime() + day : now.getTime()];
+  }
+  return [mid.getTime() - _pdWindow * day, now.getTime()];
+}
+function pdEventsHtml(summaryData, platformData) {
+  const [w0, w1] = pdWindowRange();
+  const PL = { swiggy_aod: 'Swiggy', swiggy_fc: 'Swiggy FC', zomato: 'Zomato', ownly: 'Ownly' };
+  const t = iso => new Date(iso).getTime();
+  const parseOn = (txt, offIso) => {  // 'dd Mon HH:MM' -> ms (year from the off time); 'Still Offline' -> now
+    if (!txt || /still/i.test(txt)) return Date.now();
+    const d = new Date(`${txt} ${new Date(offIso).getFullYear()}`.replace(/^(\d+ \w+) (\d+:\d+) (\d+)$/, '$1 $3 $2'));
+    return isNaN(d) ? t(offIso) : d.getTime();
+  };
+  const hm = ms => new Date(ms).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const dd = ms => new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const events = [];
+  Object.entries(platformData.outlets || {}).forEach(([outlet, plats]) => {
+    const spans = [];
+    Object.entries(PL).forEach(([k, label]) => ((plats[k] || {}).incidents || []).forEach(i => {
+      const a = t(i.off_iso), b = parseOn(i.on, i.off_iso);
+      if (b > w0 && a < w1 && i.duration_mins >= 3) spans.push({ a, b, label, mins: i.duration_mins, open: /still/i.test(i.on || '') });
+    }));
+    spans.sort((x, y) => x.a - y.a);
+    spans.forEach(sp => {  // merge overlapping platform outages into one event
+      const ev = events.find(e => e.outlet === outlet && sp.a <= e.b + 60000 && sp.b >= e.a - 60000);
+      if (ev) { ev.a = Math.min(ev.a, sp.a); ev.b = Math.max(ev.b, sp.b); ev.ch[sp.label] = sp; ev.open = ev.open || sp.open; }
+      else events.push({ outlet, a: sp.a, b: sp.b, ch: { [sp.label]: sp }, open: sp.open });
+    });
+  });
+  const cuts = {};
+  Object.entries(summaryData.outlets || {}).forEach(([o, v]) => cuts[o] = (v.recent_outages || []).map(r => ({
+    a: t(r.off_iso), b: r.closed_iso ? t(r.closed_iso) : Date.now(), unres: r.unresolved })));
+  // power reports with no platform outage at all are shown too
+  Object.entries(cuts).forEach(([o, list]) => list.forEach(c => {
+    if (c.b > w0 && c.a < w1 && !events.some(e => e.outlet === o && c.a < e.b && c.b > e.a))
+      events.push({ outlet: o, a: c.a, b: c.b, ch: {}, onlyCut: true });
+  }));
+  events.sort((x, y) => y.a - x.a);
+  if (!events.length) return '<div class="no-outages" style="padding:24px">No outages of 3 minutes or more in this period.</div>';
+  const chip = (label, sp) => sp
+    ? `<span class="pill red" style="margin:1px 3px 1px 0;white-space:nowrap">${label} ${hm(sp.a)}–${sp.open ? 'now' : hm(sp.b)}</span>`
+    : '';
+  const rows = events.map(e => {
+    const cut = (cuts[e.outlet] || []).find(c => c.a < e.b + 300000 && c.b > e.a - 300000);
+    const why = e.onlyCut ? '<span style="color:var(--ink-3)">Power-off reported, all platforms stayed online</span>'
+      : cut ? `<span style="color:#b45309;font-weight:600">⚡ Power cut reported ${hm(cut.a)}${cut.unres ? ' (no Power On filed)' : '–' + hm(cut.b)}</span>`
+      : '<span style="color:var(--red);font-weight:600">No power-off report</span>';
+    const mins = Math.round((Math.min(e.b, Date.now()) - e.a) / 60000);
+    return `<tr>
+      <td style="white-space:nowrap">${dd(e.a)}</td>
+      <td><b>${escHtml(e.outlet)}</b></td>
+      <td class="mono" style="white-space:nowrap">${hm(e.a)}–${e.open ? 'now' : hm(e.b)}</td>
+      <td class="mono">${fmtMins(mins)}</td>
+      <td>${Object.keys(PL).map(k => chip(PL[k], e.ch[PL[k]])).join('') || '—'}</td>
+      <td>${why}</td></tr>`;
+  }).join('');
+  return `<div style="font-size:11px;color:var(--ink-3);margin-bottom:8px">Each row is one outage (3 min or more), newest first. Red chips = which channel was off and when. Platforms off with <b>no power-off report</b> is what to chase.</div>
+    <div style="overflow-x:auto"><table class="pm-table" style="width:100%">
+    <thead><tr><th>Date</th><th>Outlet</th><th>Off</th><th>For</th><th>Channels off</th><th>Power report</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 
 /* ── LOAD ALL ── */
