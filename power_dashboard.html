@@ -8004,7 +8004,8 @@ function renderBriefResult(data) {
   plats.forEach(pl => Object.entries((P[pl] || {}).outlets || {}).forEach(([o, v]) => { if (v < th) outlets.add(o); }));
   const VERDICT = { power: ['pw', '⚡ power cut'], partly_power: ['part', '⚡ partly power'], not_power: ['staff', 'not power'],
                     no_power_on_form: ['part', 'no power-on report'], outlet_off: ['staff', 'switched off by outlet'],
-                    rista_outlet_off: ['staff', 'switched off on Rista'], rista_power: ['part', '⚡ power cut on Rista, no report'] };
+                    rista_outlet_off: ['staff', 'switched off on Rista'], rista_power: ['part', '⚡ power cut on Rista, no report'],
+                    platform_side: ['part', 'platform-side dip'], platform_paused: ['part', 'paused by platform'] };
   const KIND = { power: ['pw', '⚡ power cut'], outlet: ['out', 'switched off by outlet'],
                  power_unconfirmed: ['unc', 'power-off, no power-on'], unexplained: ['bad', 'unexplained'],
                  platform: ['unc', 'paused by platform'] };
