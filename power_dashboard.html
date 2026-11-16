@@ -8188,11 +8188,15 @@ function renderBriefResult(data) {
           const rs = (c.rista || []).filter(r => (!r.date || r.date === t.date) && overlaps({ start: r.start, end: r.end || '23:59' }, b));
           const note = (c.rista_notes || []).find(n => n.time && !/menu/i.test(n.note || '') && overlaps({ start: n.time, end: n.time }, { start: hmAdd(b.start, -10), end: hmAdd(b.end, 1) }));
           let why;
-          if (b.kind === 'power') why = { cls: 'pw', txt: `⚡ Power cut — reported ${pw.map(p => p.no_power_on ? p.start + ' (no Power On)' : p.start + '–' + p.end).join(', ')}` };
+          const openHm = t.open ? t.open.slice(11, 16) : '';
+          const closeHm = t.close ? t.close.slice(11, 16) : '';
+          if (b.kind !== 'power' && !rs.length && b.start === openHm) why = { cls: 'staff', txt: `Opened late — still off at opening time (${openHm})` };
+          else if (b.kind !== 'power' && !rs.length && b.end === closeHm) why = { cls: 'staff', txt: `Closed early — off before closing time (${closeHm})` };
+          else if (b.kind === 'power') why = { cls: 'pw', txt: `⚡ Power cut — reported ${pw.map(p => p.no_power_on ? p.start + ' (no Power On)' : p.start + '–' + p.end).join(', ')}` };
           else if (rs.length) why = { cls: 'staff', txt: `Switched off on Rista by ${rs.map(r => escHtml(r.user || '?') + (r.reason ? ': ' + escHtml(r.reason) : '')).join('; ')}` };
           else if (note) why = { cls: 'part', txt: `Paused by ${pl}: ${escHtml(note.note)}` };
           else if (b.kind === 'power_unconfirmed') why = { cls: 'part', txt: 'Power-off reported, no Power On filed' };
-          else if (b.kind === 'outlet') why = { cls: 'staff', txt: `Switched off by outlet${b.reason ? ': ' + escHtml(b.reason) : ''}` };
+          else if (b.kind === 'outlet') why = { cls: 'staff', txt: 'Switched off by the outlet on ' + pl };
           else why = { cls: 'bad', txt: '❓ No reason — no power-off report, not switched off on Rista' };
           const ev = evs.find(e => e.date === t.date && overlaps(e, b));
           if (ev) { ev.ch.push(`${pl} ${b.start}–${b.end}`); if (toMin(b.start) < toMin(ev.start)) ev.start = b.start; ev.mins = Math.max(ev.mins, b.mins);
