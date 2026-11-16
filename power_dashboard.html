@@ -8224,9 +8224,8 @@ function renderBriefResult(data) {
           <td><span class="db2-verdict ${v[0]}">${v[1]}</span></td></tr>`);
       });
     });
-    return `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th>${isRange ? '<th>Date</th>' : ''}<th>Off</th><th>For</th>${plats.map(pl => `<th>${pl}</th>`).join('')}<th>Rista (who switched off · why)</th><th>Power report</th><th>Verdict</th></tr></thead>
-      <tbody>${rows.join('')}</tbody></table></div>
-      <div class="db2-legend">One row per time the outlet was off. ❓ No reason = off on the platform, but no power report and nobody switched it off on Rista — ask the outlet.</div>`;
+    return `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th>${isRange ? '<th>Date</th>' : ''}<th>Off</th><th>For</th>${plats.map(pl => `<th>${pl}</th>`).join('')}<th>Rista</th><th>Power report</th><th>Verdict</th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table></div>`;
   }
 
   let avBody;
@@ -8239,12 +8238,7 @@ function renderBriefResult(data) {
   const avHave = plats.some(pl => (P[pl] || {}).date);
   if (avErr && !avHave) avBody = avErr;
   else if (!avRows.length) avBody = avErr + `<div class="db2-ok">✓ All ${avErr ? 'loaded ' : ''}outlets online ${th}% or more</div>`;
-  else avBody = avErr + avEventsHtml() + `<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;font-weight:600">Full detail (per platform, power-off minutes, Rista log)</summary>
-    <div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off report</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th><th>Rista log</th></tr></thead>
-    <tbody>${avRows.join('')}</tbody></table></div></details>
-    <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–${th}%</span></div>
-    <div class="db2-legend">Delta = offline − power off: <span class="db2-delta bad">+</span> offline longer than the power cut, <span class="db2-delta neg">−</span> power cut longer than the platform was offline.</div>
-    <div class="db2-legend">Online % is from Swiggy/Zomato. Offline periods come from the 2-minute live monitor (last 7 days) and are matched to power-off reports by time. Rista log = who switched the outlet off on Rista and why.</div>`;
+  else avBody = avErr + avEventsHtml();
 
   const card = (icon, title, sub, count, inner, wide) => `
     <div class="db2-card ${count ? 'bad' : 'good'}${wide ? ' wide' : ''}">
