@@ -2225,12 +2225,14 @@ function pdEventsHtml(summaryData, platformData) {
     const why = e.onlyCut ? '<span style="color:var(--ink-3)">Power-off reported, all platforms stayed online</span>'
       : cut ? `<span style="color:#b45309;font-weight:600">⚡ Power cut reported ${hm(cut.a)}${cut.unres ? ' (no Power On filed)' : '–' + hm(cut.b)}</span>`
       : '<span style="color:var(--red);font-weight:600">No power-off report</span>';
-    const mins = Math.round((Math.min(e.b, Date.now()) - e.a) / 60000);
+    // Opening-hours minutes only (the closed night isn't downtime): longest channel's figure from the server
+    const chMins = Object.values(e.ch).map(sp => sp.mins);
+    const mins = chMins.length ? Math.max(...chMins) : Math.round((Math.min(e.b, Date.now()) - e.a) / 60000);
     return `<tr>
-      <td style="white-space:nowrap">${dd(e.a)}</td>
-      <td><b>${escHtml(e.outlet)}</b></td>
-      <td class="mono" style="white-space:nowrap">${hm(e.a)}–${e.open ? 'now' : hm(e.b)}</td>
-      <td class="mono">${fmtMins(mins)}</td>
+      <td style="white-space:nowrap;color:var(--ink)">${dd(e.a)}</td>
+      <td style="color:var(--ink);font-weight:700">${escHtml(e.outlet)}</td>
+      <td class="mono" style="white-space:nowrap;color:var(--ink)">${hm(e.a)}–${e.open ? 'now' : hm(e.b)}</td>
+      <td class="mono" style="color:var(--ink);font-weight:700">${fmtMins(mins)}</td>
       <td>${Object.keys(PL).map(k => chip(PL[k], e.ch[PL[k]])).join('') || '—'}</td>
       <td>${why}</td></tr>`;
   }).join('');
