@@ -8171,55 +8171,62 @@ function renderBriefResult(data) {
   }));
   // Simple view: one row per time the outlet was off — when, which channels, and why
   function avEventsHtml() {
+    // One row per time the outlet was off. Each source has its own column so they can be compared side by side.
     const rows = [];
+    const cellOff = x => x ? `<span class="mono" style="color:var(--red);font-weight:700">${x}</span>` : '<span style="color:var(--ink-3)">online</span>';
     [...outlets].sort((a, b) => worst(a) - worst(b)).forEach(o => {
-      const pcts = plats.map(pl => { const v = ((P[pl] || {}).outlets || {})[o];
-        return v == null ? '' : `<span class="db2-pct ${v < 90 ? 'red' : v < th ? 'amber' : 'green'}" style="margin-right:4px">${pl} ${v}%</span>`; }).join('');
-      const evs = [], extra = [];
+      const evs = [];
+      const pctOf = pl => ((P[pl] || {}).outlets || {})[o];
       plats.forEach(pl => {
-        const v = ((P[pl] || {}).outlets || {})[o];
+        const v = pctOf(pl);
         if (v == null || v >= th) return;
         const c = ((av.checks || {})[pl] || {})[o] || {};
-        const tls = c.timelines || [];
         let any = false;
-        tls.forEach(t => t.offline.forEach(b => {
+        (c.timelines || []).forEach(t => t.offline.forEach(bk => {
           any = true;
-          const pw = t.power.filter(p => overlaps(p, b));
-          const rs = (c.rista || []).filter(r => (!r.date || r.date === t.date) && overlaps({ start: r.start, end: r.end || '23:59' }, b));
-          const note = (c.rista_notes || []).find(n => n.time && !/menu/i.test(n.note || '') && overlaps({ start: n.time, end: n.time }, { start: hmAdd(b.start, -10), end: hmAdd(b.end, 1) }));
-          let why;
-          const openHm = t.open ? t.open.slice(11, 16) : '';
-          const closeHm = t.close ? t.close.slice(11, 16) : '';
-          if (b.kind !== 'power' && !rs.length && b.start === openHm) why = { cls: 'staff', txt: `Opened late — still off at opening time (${openHm})` };
-          else if (b.kind !== 'power' && !rs.length && b.end === closeHm) why = { cls: 'staff', txt: `Closed early — off before closing time (${closeHm})` };
-          else if (b.kind === 'power') why = { cls: 'pw', txt: `⚡ Power cut — reported ${pw.map(p => p.no_power_on ? p.start + ' (no Power On)' : p.start + '–' + p.end).join(', ')}` };
-          else if (rs.length) why = { cls: 'staff', txt: `Switched off on Rista by ${rs.map(r => escHtml(r.user || '?') + (r.reason ? ': ' + escHtml(r.reason) : '')).join('; ')}` };
-          else if (note) why = { cls: 'part', txt: `Paused by ${pl}: ${escHtml(note.note)}` };
-          else if (b.kind === 'power_unconfirmed') why = { cls: 'part', txt: 'Power-off reported, no Power On filed' };
-          else if (b.kind === 'outlet') why = { cls: 'staff', txt: 'Switched off by the outlet on ' + pl };
-          else why = { cls: 'bad', txt: '❓ No reason — no power-off report, not switched off on Rista' };
-          const ev = evs.find(e => e.date === t.date && overlaps(e, b));
-          if (ev) { ev.ch.push(`${pl} ${b.start}–${b.end}`); if (toMin(b.start) < toMin(ev.start)) ev.start = b.start; ev.mins = Math.max(ev.mins, b.mins);
-                    if (ev.why.cls === 'bad') ev.why = why; }
-          else evs.push({ date: t.date, start: b.start, end: b.end, mins: b.mins, ch: [`${pl} ${b.start}–${b.end}`], why });
+          let ev = evs.find(e => e.date === t.date && e.start && overlaps(e, bk));
+          if (!ev) { ev = { date: t.date, start: bk.start, end: bk.end, mins: 0, plat: {}, rista: [], power: [], notes: [], kinds: [], t }; evs.push(ev); }
+          if (toMin(bk.start) < toMin(ev.start)) ev.start = bk.start;
+          if (toMin(bk.end) > toMin(ev.end)) ev.end = bk.end;
+          ev.mins = Math.max(ev.mins, bk.mins);
+          ev.plat[pl] = `${bk.start}–${bk.end}`;
+          ev.kinds.push(bk.kind);
+          t.power.filter(p => overlaps(p, bk)).forEach(p => { const x = p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`; if (!ev.power.includes(x)) ev.power.push(x); });
+          (c.rista || []).filter(r => (!r.date || r.date === t.date) && overlaps({ start: r.start, end: r.end || '23:59' }, bk))
+            .forEach(r => { const x = `${r.start}–${r.end || 'close'} <b>${escHtml(r.user || '?')}</b>${r.reason ? ' · ' + escHtml(r.reason) : ''}`; if (!ev.rista.includes(x)) ev.rista.push(x); });
+          (c.rista_notes || []).filter(n => n.time && !/menu/i.test(n.note || '') && overlaps({ start: n.time, end: n.time }, { start: hmAdd(bk.start, -10), end: hmAdd(bk.end, 1) }))
+            .forEach(n => { const x = `${pl} notice ${n.time}: ${escHtml(n.note)}`; if (!ev.notes.includes(x)) ev.notes.push(x); });
         }));
-        if (!any && c.offline_mins) extra.push({ ch: [`${pl} ~${fmtM(c.offline_mins)} total`],
-          why: (c.rista || []).length ? { cls: 'staff', txt: `Switched off on Rista: ${(c.rista || []).map(r => `${r.start}–${r.end || 'close'} ${escHtml(r.user || '')}${r.reason ? ' · ' + escHtml(r.reason) : ''}`).join('; ')}` }
-             : c.power_off_mins ? { cls: 'pw', txt: `⚡ Power-off reports ${fmtM(c.power_off_mins)}` }
-             : { cls: 'part', txt: `${pl}'s own figure — our 2-min check never saw it offline, ${pl} gives no times` } });
+        if (!any && c.offline_mins) evs.push({ total: true, mins: c.offline_mins, plat: { [pl]: `~${fmtM(c.offline_mins)} (no times)` },
+          rista: (c.rista || []).map(r => `${r.start}–${r.end || 'close'} <b>${escHtml(r.user || '?')}</b>${r.reason ? ' · ' + escHtml(r.reason) : ''}`),
+          power: c.power_off_mins ? [`${fmtM(c.power_off_mins)} total`] : [], notes: [], kinds: [] });
       });
-      const all = [...evs.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)), ...extra];
-      all.forEach((e, i) => rows.push(`<tr class="${i === 0 ? 'db2-grp' : ''}">
-        ${i === 0 ? `<td rowspan="${all.length}"><b>${escHtml(o)}</b><div style="margin-top:3px">${pcts}</div></td>` : ''}
-        ${isRange ? `<td>${e.date ? fmtDay(e.date) : ''}</td>` : ''}
-        <td class="mono">${e.start ? `${e.start}–${e.end}` : '—'}</td>
-        <td class="mono">${e.mins != null ? fmtM(e.mins) : ''}</td>
-        <td>${e.ch.map(x => `<div class="mono" style="font-size:11px">${x}</div>`).join('')}</td>
-        <td><span class="db2-verdict ${e.why.cls}" style="white-space:normal">${e.why.txt}</span></td></tr>`));
+      evs.sort((x, y) => ((x.date || '9') + (x.start || '')).localeCompare((y.date || '9') + (y.start || '')));
+      evs.forEach((e, i) => {
+        const openHm = e.t && e.t.open ? e.t.open.slice(11, 16) : '', closeHm = e.t && e.t.close ? e.t.close.slice(11, 16) : '';
+        let v;
+        if (e.kinds.includes('power') || (e.power.length && !e.power.every(x => /no Power On/.test(x)))) v = ['pw', '⚡ Power cut'];
+        else if (e.rista.length) v = ['staff', 'Switched off on Rista'];
+        else if (e.notes.length) v = ['part', 'Paused by platform'];
+        else if (e.power.length) v = ['part', 'Power off, no Power On'];
+        else if (e.start && e.start === openHm) v = ['staff', 'Opened late'];
+        else if (e.end && e.end === closeHm) v = ['staff', 'Closed early'];
+        else if (e.total) v = ['part', 'Platform figure only'];
+        else v = ['bad', '❓ No reason'];
+        rows.push(`<tr class="${i === 0 ? 'db2-grp' : ''}">
+          ${i === 0 ? `<td rowspan="${evs.length}"><b>${escHtml(o)}</b>${plats.map(pl => { const x = pctOf(pl); return x == null ? '' : `<div class="db2-pct ${x < 90 ? 'red' : x < th ? 'amber' : 'green'}" style="margin-top:3px;display:inline-block;margin-right:4px">${pl[0]} ${x}%</div>`; }).join('')}</td>` : ''}
+          ${isRange ? `<td>${e.date ? fmtDay(e.date) : '—'}</td>` : ''}
+          <td class="mono">${e.start ? `${e.start}–${e.end}` : '—'}</td>
+          <td class="mono"><b>${fmtM(e.mins || 0)}</b></td>
+          ${plats.map(pl => `<td>${cellOff(e.plat[pl])}</td>`).join('')}
+          <td style="font-size:12px">${e.rista.length ? e.rista.map(x => `<div>${x}</div>`).join('') : '<span style="color:var(--ink-3)">not switched off</span>'}${e.notes.map(n => `<div class="db2-sub">${n}</div>`).join('')}</td>
+          <td class="mono" style="font-size:12px">${e.power.length ? e.power.map(x => `<div>${x}</div>`).join('') : '<span style="color:var(--ink-3)">none</span>'}</td>
+          <td><span class="db2-verdict ${v[0]}">${v[1]}</span></td></tr>`);
+      });
     });
-    return `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th>${isRange ? '<th>Date</th>' : ''}<th>Off</th><th>For</th><th>Channels</th><th>Why</th></tr></thead>
+    return `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th>${isRange ? '<th>Date</th>' : ''}<th>Off</th><th>For</th>${plats.map(pl => `<th>${pl}</th>`).join('')}<th>Rista (who switched off · why)</th><th>Power report</th><th>Verdict</th></tr></thead>
       <tbody>${rows.join('')}</tbody></table></div>
-      <div class="db2-legend">❓ No reason = the outlet was off with no power-off report and nobody switched it off on Rista. These are the ones to ask about.</div>`;
+      <div class="db2-legend">One row per time the outlet was off. ❓ No reason = off on the platform, but no power report and nobody switched it off on Rista — ask the outlet.</div>`;
   }
 
   let avBody;
