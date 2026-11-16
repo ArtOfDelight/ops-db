@@ -8169,6 +8169,55 @@ function renderBriefResult(data) {
           ${it.note ? `<span class="db2-sub">${it.note}</span>` : ''}</td>
       ${i === 0 ? `<td rowspan="${items.length}" class="db2-rista">${ristaCell(c)}</td>` : ''}</tr>`));
   }));
+  // Simple view: one row per time the outlet was off — when, which channels, and why
+  function avEventsHtml() {
+    const rows = [];
+    [...outlets].sort((a, b) => worst(a) - worst(b)).forEach(o => {
+      const pcts = plats.map(pl => { const v = ((P[pl] || {}).outlets || {})[o];
+        return v == null ? '' : `<span class="db2-pct ${v < 90 ? 'red' : v < th ? 'amber' : 'green'}" style="margin-right:4px">${pl} ${v}%</span>`; }).join('');
+      const evs = [], extra = [];
+      plats.forEach(pl => {
+        const v = ((P[pl] || {}).outlets || {})[o];
+        if (v == null || v >= th) return;
+        const c = ((av.checks || {})[pl] || {})[o] || {};
+        const tls = c.timelines || [];
+        let any = false;
+        tls.forEach(t => t.offline.forEach(b => {
+          any = true;
+          const pw = t.power.filter(p => overlaps(p, b));
+          const rs = (c.rista || []).filter(r => (!r.date || r.date === t.date) && overlaps({ start: r.start, end: r.end || '23:59' }, b));
+          const note = (c.rista_notes || []).find(n => n.time && !/menu/i.test(n.note || '') && overlaps({ start: n.time, end: n.time }, { start: hmAdd(b.start, -10), end: hmAdd(b.end, 1) }));
+          let why;
+          if (b.kind === 'power') why = { cls: 'pw', txt: `⚡ Power cut — reported ${pw.map(p => p.no_power_on ? p.start + ' (no Power On)' : p.start + '–' + p.end).join(', ')}` };
+          else if (rs.length) why = { cls: 'staff', txt: `Switched off on Rista by ${rs.map(r => escHtml(r.user || '?') + (r.reason ? ': ' + escHtml(r.reason) : '')).join('; ')}` };
+          else if (note) why = { cls: 'part', txt: `Paused by ${pl}: ${escHtml(note.note)}` };
+          else if (b.kind === 'power_unconfirmed') why = { cls: 'part', txt: 'Power-off reported, no Power On filed' };
+          else if (b.kind === 'outlet') why = { cls: 'staff', txt: `Switched off by outlet${b.reason ? ': ' + escHtml(b.reason) : ''}` };
+          else why = { cls: 'bad', txt: '❓ No reason — no power-off report, not switched off on Rista' };
+          const ev = evs.find(e => e.date === t.date && overlaps(e, b));
+          if (ev) { ev.ch.push(`${pl} ${b.start}–${b.end}`); if (toMin(b.start) < toMin(ev.start)) ev.start = b.start; ev.mins = Math.max(ev.mins, b.mins);
+                    if (ev.why.cls === 'bad') ev.why = why; }
+          else evs.push({ date: t.date, start: b.start, end: b.end, mins: b.mins, ch: [`${pl} ${b.start}–${b.end}`], why });
+        }));
+        if (!any && c.offline_mins) extra.push({ ch: [`${pl} ~${fmtM(c.offline_mins)} total`],
+          why: (c.rista || []).length ? { cls: 'staff', txt: `Switched off on Rista: ${(c.rista || []).map(r => `${r.start}–${r.end || 'close'} ${escHtml(r.user || '')}${r.reason ? ' · ' + escHtml(r.reason) : ''}`).join('; ')}` }
+             : c.power_off_mins ? { cls: 'pw', txt: `⚡ Power-off reports ${fmtM(c.power_off_mins)}` }
+             : { cls: 'part', txt: `${pl}'s own figure — our 2-min check never saw it offline, ${pl} gives no times` } });
+      });
+      const all = [...evs.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)), ...extra];
+      all.forEach((e, i) => rows.push(`<tr class="${i === 0 ? 'db2-grp' : ''}">
+        ${i === 0 ? `<td rowspan="${all.length}"><b>${escHtml(o)}</b><div style="margin-top:3px">${pcts}</div></td>` : ''}
+        ${isRange ? `<td>${e.date ? fmtDay(e.date) : ''}</td>` : ''}
+        <td class="mono">${e.start ? `${e.start}–${e.end}` : '—'}</td>
+        <td class="mono">${e.mins != null ? fmtM(e.mins) : ''}</td>
+        <td>${e.ch.map(x => `<div class="mono" style="font-size:11px">${x}</div>`).join('')}</td>
+        <td><span class="db2-verdict ${e.why.cls}" style="white-space:normal">${e.why.txt}</span></td></tr>`));
+    });
+    return `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th>${isRange ? '<th>Date</th>' : ''}<th>Off</th><th>For</th><th>Channels</th><th>Why</th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table></div>
+      <div class="db2-legend">❓ No reason = the outlet was off with no power-off report and nobody switched it off on Rista. These are the ones to ask about.</div>`;
+  }
+
   let avBody;
   // A platform with no data for the date is an error, but the other platform's rows still show
   // Platform hasn't published that day yet (normal lag) → amber note; anything else → real error
@@ -8179,8 +8228,9 @@ function renderBriefResult(data) {
   const avHave = plats.some(pl => (P[pl] || {}).date);
   if (avErr && !avHave) avBody = avErr;
   else if (!avRows.length) avBody = avErr + `<div class="db2-ok">✓ All ${avErr ? 'loaded ' : ''}outlets online ${th}% or more</div>`;
-  else avBody = avErr + `<div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off report</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th><th>Rista log</th></tr></thead>
-    <tbody>${avRows.join('')}</tbody></table></div>
+  else avBody = avErr + avEventsHtml() + `<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;font-weight:600">Full detail (per platform, power-off minutes, Rista log)</summary>
+    <div class="db2-scroll"><table class="db2-tbl db2-av"><thead><tr><th>Outlet</th><th>Platform</th><th>Online${isRange ? ' (avg)' : ''}</th>${isRange ? '<th>Date</th>' : ''}<th>Offline</th><th>Duration</th><th>Power-off report</th><th>Power off</th><th title="Offline minus power off">Delta</th><th>Cause</th><th>Rista log</th></tr></thead>
+    <tbody>${avRows.join('')}</tbody></table></div></details>
     <div class="db2-legend"><span class="db2-pct red">below 90%</span><span class="db2-pct amber">90–${th}%</span></div>
     <div class="db2-legend">Delta = offline − power off: <span class="db2-delta bad">+</span> offline longer than the power cut, <span class="db2-delta neg">−</span> power cut longer than the platform was offline.</div>
     <div class="db2-legend">Online % is from Swiggy/Zomato. Offline periods come from the 2-minute live monitor (last 7 days) and are matched to power-off reports by time. Rista log = who switched the outlet off on Rista and why.</div>`;
@@ -17847,6 +17897,7 @@ async function ctDelete(id, cid) {
 .db2-verdict.pw { background:var(--bg);color:var(--ink-2);border:1px solid var(--border-2); }
 .db2-verdict.part { background:var(--amber-dim);color:var(--amber); }
 .db2-verdict.staff { background:var(--red-dim);color:var(--red); }
+.db2-verdict.bad { background:var(--red);color:#fff;font-weight:700; }
 .db2-card.wide { grid-column:1 / -1; }
 .db2-tbl td .db2-sub { white-space:nowrap; }
 .db2-tbl td .db2-verdict { margin-left:6px; }
