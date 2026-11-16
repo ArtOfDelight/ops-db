@@ -8006,7 +8006,8 @@ function renderBriefResult(data) {
                     no_power_on_form: ['part', 'no power-on report'], outlet_off: ['staff', 'switched off by outlet'],
                     rista_outlet_off: ['staff', 'switched off on Rista'], rista_power: ['part', '⚡ power cut on Rista, no report'] };
   const KIND = { power: ['pw', '⚡ power cut'], outlet: ['out', 'switched off by outlet'],
-                 power_unconfirmed: ['unc', 'power-off, no power-on'], unexplained: ['bad', 'unexplained'] };
+                 power_unconfirmed: ['unc', 'power-off, no power-on'], unexplained: ['bad', 'unexplained'],
+                 platform: ['unc', 'paused by platform'] };
   const fmtM = n => n >= 60 ? `${Math.floor(n / 60)}h ${n % 60}m` : `${n}m`;
   const cell = (pl, o) => {
     const v = ((P[pl] || {}).outlets || {})[o];
@@ -8022,6 +8023,7 @@ function renderBriefResult(data) {
   const overlaps = (a, b) => { const off = t => (t - 300 + 1440) % 1440;  // trading day starts 05:00
     return off(toMin(a.start)) < off(toMin(b.end)) && off(toMin(b.start)) < off(toMin(a.end)); };
   const pDur = p => (toMin(p.end) - toMin(p.start) + 1440) % 1440;
+  const hmAdd = (hm, d) => { const t = (toMin(hm) + d + 1440) % 1440; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
   const NO_FORM = 'No power-off report';
   // Rista activity log: who switched it off on Rista and why, Zomato/Swiggy notices, failed pushes
   const ristaCell = c => {
@@ -8046,7 +8048,13 @@ function renderBriefResult(data) {
     tls.forEach(t => {
       t.offline.forEach(b => {
         const pw = t.power.filter(p => overlaps(p, b));
-        items.push({ date: t.date, when: `${b.start}–${b.end}`, mins: b.mins, kind: b.kind,
+        // Rista notice (e.g. Zomato "high rejections") just before/inside the block = platform auto-pause, not a switch-off
+        let kind = b.kind, pnote = '';
+        if (kind === 'unexplained') {
+          const n = (c.rista_notes || []).find(n => n.time && !/menu/i.test(n.note || '') && overlaps({ start: n.time, end: n.time }, { start: hmAdd(b.start, -10), end: hmAdd(b.end, 1) }));
+          if (n) { kind = 'platform'; pnote = n.note; }
+        }
+        items.push({ date: t.date, when: `${b.start}–${b.end}`, mins: b.mins, kind, note: pnote,
           power: pw.length ? pw.map(p => p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`).join(', ') : NO_FORM,
           pmins: pw.some(p => p.no_power_on) ? null : pw.reduce((n, p) => n + pDur(p), 0) });
       });
@@ -8054,10 +8062,15 @@ function renderBriefResult(data) {
         items.push({ date: t.date, when: '—', mins: 0, kind: null, power: p.no_power_on ? `${p.start} → no Power On` : `${p.start}–${p.end}`,
           pmins: p.no_power_on ? null : pDur(p), note: 'power off, platform stayed online' }));
     });
-    if (!items.length)  // no live-monitor data (older than 7 days or outlet not monitored): totals only
-      items.push({ when: `~${fmtM(c.offline_mins || 0)} total`, mins: null, kind: null,
+    if (!items.length) {  // no offline block in the live monitor: totals only
+      // Monitor ran but saw the platform online all day: the dip is on the platform's side
+      // (its own Online % calc), not the outlet switching off — say so instead of "not power"
+      const sideOnly = tls.length && !c.power_off_mins && !(c.rista || []).length;
+      items.push({ when: `~${fmtM(c.offline_mins || 0)} total`, mins: null, kind: sideOnly ? 'platform' : null,
         power: c.power_off_mins ? 'reports (total)' : NO_FORM, tmins: c.offline_mins || 0, pmins: c.power_off_mins || 0,
-        verdict: c.verdict, note: tls.length ? '' : 'no live-monitor data' });
+        verdict: c.verdict, note: !tls.length ? 'no live-monitor data'
+          : sideOnly ? `${pl}-side only — our 2-min check saw it online all day, no times from ${pl}` : '' });
+    }
     // Offline periods that match the same power cut share one Power off / Delta cell
     items.forEach((it, i) => { it.span = 0; const prev = items[i - 1];
       if (prev && it.power !== NO_FORM && it.power === prev.power && it.date === prev.date) { (prev.lead || prev).span++; it.lead = prev.lead || prev; }
