@@ -3123,7 +3123,7 @@ function orRenderTable(outlets, el) {
     return `<tr>
       ${tdL(o.outlet_code + fsFlag(o.outlet_code))}
       ${td(o.high_rate_pct + '%', highCls)}
-      ${td(o.error_rate_pct + '%', errCls)}
+      ${td(`<a href="javascript:void(0)" onclick="orOpenMistakes('${o.outlet_code}')" title="Show this outlet's low ratings and complaints for this range" style="color:inherit;text-decoration:underline dotted">${o.error_rate_pct}%</a>`, errCls)}
       ${td(o.net_pct + '%', netCls)}
       ${td(o.swiggy_impressions != null ? o.swiggy_impressions.toLocaleString('en-IN') : '—')} ${td(o.swiggy_i2m != null ? o.swiggy_i2m + '%' : '—')} ${td(o.swiggy_m2o != null ? o.swiggy_m2o + '%' : '—')}
       ${td(o.zomato_impressions != null ? o.zomato_impressions.toLocaleString('en-IN') : '—')} ${td(o.zomato_i2m != null ? o.zomato_i2m + '%' : '—')} ${td(o.zomato_m2o != null ? o.zomato_m2o + '%' : '—')}
@@ -8247,6 +8247,14 @@ let _rvOutletFilter = '';
 let _rvStaffFilter = '';
 let _rvSentiment = 'all';   // all | pos | neg
 let _rvAll = [];
+let _rvJump = null;          // {outlet, start, end} set by orOpenMistakes()
+
+function orOpenMistakes(code) {
+  const start = document.getElementById('or-start')?.value, end = document.getElementById('or-end')?.value;
+  if (!start || !end) return;
+  _rvJump = { outlet: code, start, end };
+  navTo('reviews');
+}
 
 function rvIsPositive(r) {
   const n = parseInt(r.rating, 10);
@@ -8347,6 +8355,17 @@ function renderReviewsPage() {
   rvSyncMysteryBtn();
   const mysteryCard = document.getElementById('rvMysteryCard');
   if (mysteryCard) mysteryCard.style.display = 'none';
+  if (_rvJump) {  // opened from Outlet Performance → Error %: that outlet + range, negatives only
+    _rvCustom = { start: _rvJump.start, end: _rvJump.end };
+    const cs = document.getElementById('rvCustomStart'), ce = document.getElementById('rvCustomEnd');
+    if (cs) cs.value = _rvJump.start;
+    if (ce) ce.value = _rvJump.end;
+    const of = document.getElementById('rvOutletFilter');
+    if (of) of.value = _rvJump.outlet;
+    _rvOutletFilter = _rvJump.outlet.toUpperCase();
+    rvSetWindow('custom');
+    return;
+  }
   rvSetWindow(28);
 }
 
@@ -8430,7 +8449,8 @@ async function rvLoad() {
     _rvAll = d.reviews || [];
     rvPopulateStaffFilter(d.staff || []);
     if (statusEl) statusEl.textContent = `${_rvAll.length} reviews (${_rvAll.filter(x => x.text).length} with comments) · ${start} to ${end}`;
-    rvSetSentiment('all');
+    rvSetSentiment(_rvJump ? 'neg' : 'all');
+    _rvJump = null;
   } catch {
     if (statusEl) statusEl.textContent = 'Failed to load.';
     contentEl.innerHTML = '<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Connection error</div></div>';
