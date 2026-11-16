@@ -1757,13 +1757,15 @@ function ohRender() {
       <td>${o.check}</td>
       <td class="oh-fc" style="text-align:center">${chk(o.fc)}</td>
       <td class="oh-ownly" style="text-align:center">${chk(o.ownly)}</td>
+      <td class="oh-tipplr" style="text-align:center">${chk(o.tipplr)}</td>
+      <td class="oh-swish" style="text-align:center">${chk(o.swish)}</td>
       <td class="oh-active" style="text-align:center">${chk(o.active)}</td>
       <td style="font-size:10px;color:var(--ink-3);max-width:200px">${apiBy[o.code] || ''}</td>
       <td><button class="ptab" onclick="ohSave('${o.code}')" style="padding:4px 10px;font-size:11px">Save</button></td>
     </tr>`).join('');
   el.innerHTML = `
     <div style="overflow-x:auto"><table class="pm-table" style="width:100%">
-      <thead><tr><th>Code</th><th>Branch Name</th><th>Opening</th><th>Closing</th><th>Override Status</th><th>Check</th><th>FC?</th><th>Ownly</th><th>Active</th><th>Last keep-alive</th><th></th></tr></thead>
+      <thead><tr><th>Code</th><th>Branch Name</th><th>Opening</th><th>Closing</th><th>Override Status</th><th>Check</th><th>FC?</th><th>Ownly</th><th>Flipkart (Tipplr)</th><th>Swish</th><th>Active</th><th>Last keep-alive</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600;font-size:12px">+ Add outlet</summary>
@@ -1775,6 +1777,8 @@ function ohRender() {
         <label>Closing<br><input id="ohN-close" type="time" value="01:45"></label>
         <label><input id="ohN-fc" type="checkbox"> FC</label>
         <label><input id="ohN-ownly" type="checkbox" checked> Ownly</label>
+        <label><input id="ohN-tipplr" type="checkbox"> Flipkart (Tipplr)</label>
+        <label><input id="ohN-swish" type="checkbox"> Swish</label>
         <button class="ptab active" onclick="ohAdd()" style="padding:5px 14px">Add</button>
       </div>
       <div style="font-size:10px;color:var(--ink-3)">Roster code must match the outlet code staff are rostered at, or they won't see the power buttons. Rista branch code must match Rista exactly, or the keep-alive fails.</div>
@@ -1792,6 +1796,7 @@ async function ohSave(code) {
   const body = {
     open: tr.querySelector('.oh-open').value, close: tr.querySelector('.oh-close').value,
     fc: tr.querySelector('.oh-fc input').checked, ownly: tr.querySelector('.oh-ownly input').checked,
+    tipplr: tr.querySelector('.oh-tipplr input').checked, swish: tr.querySelector('.oh-swish input').checked,
     active: tr.querySelector('.oh-active input').checked,
   };
   try { await ohSend('PUT', '/' + code, body); await ohLoad(); }
@@ -1800,7 +1805,8 @@ async function ohSave(code) {
 async function ohAdd() {
   const v = id => document.getElementById(id).value.trim();
   const body = { code: v('ohN-code'), name: v('ohN-name'), rista_branch: v('ohN-branch'), open: v('ohN-open'), close: v('ohN-close'),
-    fc: document.getElementById('ohN-fc').checked, ownly: document.getElementById('ohN-ownly').checked };
+    fc: document.getElementById('ohN-fc').checked, ownly: document.getElementById('ohN-ownly').checked,
+    tipplr: document.getElementById('ohN-tipplr').checked, swish: document.getElementById('ohN-swish').checked };
   try { await ohSend('POST', '', body); await ohLoad(); }
   catch (e) { document.getElementById('ohMeta').textContent = 'Add failed: ' + (e.message || e); }
 }
