@@ -8254,8 +8254,30 @@ function renderBriefResult(data) {
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
     ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
     ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
+    <div class="db2-card good" id="db2Shrink"><div class="db2-card-h"><span class="db2-ic">🗑️</span><div><div class="db2-card-t">Shrinkage (not jars)</div><div class="db2-sub">${fmtDay(m.date_to)}</div></div></div><div class="db2-loading">Loading…</div></div>
     ${card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>`, 'Swiggy & Zomato online % · checked against power-off reports and the Rista log', outlets.size + (avErr ? 1 : 0), avBody, true)}
   </div>`;
+  briefLoadShrinkage(m.date_to);
+}
+
+async function briefLoadShrinkage(day) {
+  const el = document.getElementById('db2Shrink');
+  if (!el) return;
+  let d;
+  try {
+    d = await fetch(`${API}/api/ops/shrinkage?date=${day}`, { headers: { Authorization: `Bearer ${_lsToken}` } }).then(r => r.json());
+  } catch { d = null; }
+  const box = document.getElementById('db2Shrink');
+  if (!box) return;
+  const head = `<div class="db2-card-h"><span class="db2-ic">🗑️</span><div><div class="db2-card-t">Shrinkage (not jars)</div><div class="db2-sub">${new Date(day + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}${d && d.total ? ' · ₹' + Math.round(d.total).toLocaleString('en-IN') : ''}</div></div>
+    <span class="sp"></span><span class="db2-count ${d && d.entries.length ? 'bad' : 'good'}">${d && d.entries.length ? d.entries.reduce((n, e) => n + e.items.length, 0) : '✓'}</span></div>`;
+  let inner;
+  if (!d || !d.entries) inner = '<div class="db2-err">Couldn\'t load shrinkage</div>';
+  else if (!d.entries.length) inner = '<div class="db2-ok">✓ No shrinkage other than jars</div>';
+  else inner = `<div class="db2-list">${d.entries.map(e => e.items.map(i => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(e.outlet)}</b><span class="db2-sub">${escHtml(i.name)} · ${i.qty} ${escHtml(i.unit || '')}${i.reason ? ' · ' + escHtml(i.reason) : ''}</span><span class="sp"></span><span class="db2-tag">₹${Math.round(i.amount)}</span></div>`).join('')).join('')}</div>`;
+  if (d && d.failed && d.failed.length) inner += `<div class="db2-sub">Couldn't read: ${d.failed.join(', ')}</div>`;
+  box.className = `db2-card ${d && d.entries && d.entries.length ? 'bad' : 'good'}`;
+  box.innerHTML = head + inner;
 }
 
 /* ── BRIEF CHATBOT ── */
