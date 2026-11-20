@@ -1397,6 +1397,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-orderaudit" onclick="navTo('orderaudit')">
         <span class="sb-icon">📦</span> Order Audit
       </button>
+      <button class="sb-item" id="sbitem-ristaprices" onclick="navTo('ristaprices')">
+        <span class="sb-icon">🏷️</span> Price Changes
+      </button>
     </div>
   </div>
 
@@ -1478,12 +1481,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','catalogue','missinginfo'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1539,6 +1542,7 @@ function navTo(page) {
   if (page === 'access')      renderAccessPage();
   if (page === 'pestcontrol') renderPestControlPage();
   if (page === 'orderaudit') renderOrderAuditPage();
+  if (page === 'ristaprices') renderRistaPricesPage();
   // Accounting / Supply Chain get the full width; ☰ brings the menu back.
   setSidebarCollapsed(!!EMBED_PAGES[page]);
 }
@@ -18411,6 +18415,257 @@ async function oaSaveAll() {
   }
   oaUpdateDirty();
   oaSetMsg([done.length ? `Saved ${done.length} categor${done.length === 1 ? 'y' : 'ies'}` : '', failed.length ? `Not saved — ${failed.join('; ')}` : ''].filter(Boolean).join(' · '));
+}
+
+/* ════════════════ RISTA PRICE CHANGES ════════════════
+   Backend: /api/admin/rista-prices (rista_prices.py) → Rista /items/price + /catalog/sync. */
+const RP_CHANNELS = ['Dine In', 'Swiggy', 'Zomato', 'Ownly', 'Take Away'];   // suggestions; type any Rista channel name
+const _rp = { tab: 'edit', branches: null, branch: '', channel: '', priceBook: '', items: [], edits: {}, q: '',
+              msg: '', review: false, result: null, history: [], probe: null, loadedKey: '' };
+const rpLS = (k, v) => { try { if (v === undefined) return localStorage.getItem('rp_' + k) || ''; localStorage.setItem('rp_' + k, v); } catch (e) { return ''; } };
+
+async function rpApi(method, path, body) {
+  const r = await fetch(`${API}/api/admin/rista-prices${path}`, {
+    method, headers: { Authorization: `Bearer ${_lsToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
+  return d;
+}
+
+async function renderRistaPricesPage() {
+  const body = document.getElementById('pageBody');
+  if (!_rp.branch) { _rp.branch = rpLS('branch'); _rp.channel = rpLS('channel'); }
+  if (!_rp.priceBook) _rp.priceBook = rpLS(`pb_${_rp.branch}_${_rp.channel}`);
+  if (!_rp.branches) {
+    body.innerHTML = '<div class="ex-empty">Loading Rista branches…</div>';
+    try { _rp.branches = (await rpApi('GET', '/branches')).branches; }
+    catch (e) { if (_currentPage === 'ristaprices') body.innerHTML = errBox(pcEsc(e.message)); return; }
+  }
+  if (_rp.tab === 'history') {
+    try { _rp.history = (await rpApi('GET', '/history')).history; } catch (e) { _rp.msg = e.message; }
+  }
+  rpRender();
+}
+
+function rpGo(tab) { _rp.tab = tab; _rp.msg = ''; renderRistaPricesPage(); }
+
+function rpRender() {
+  const body = document.getElementById('pageBody');
+  if (!body || _currentPage !== 'ristaprices') return;
+  const tab = (k, l) => `<button class="cmp-ftab ${_rp.tab === k ? 'active' : ''}" onclick="rpGo('${k}')">${l}</button>`;
+  body.innerHTML = `
+    <div class="ex-bar"><div class="cmp-ftabs pc-tabs" style="margin:0">${tab('edit', 'Change prices')}${tab('history', 'History')}${tab('check', 'API check')}</div>
+      <span class="sp"></span><span class="pc-muted" id="rpMsg">${pcEsc(_rp.msg)}</span></div>
+    ${_rp.tab === 'edit' ? rpEditHtml() : _rp.tab === 'history' ? rpHistoryHtml() : rpCheckHtml()}`;
+}
+
+/* ── pickers ── */
+function rpPickersHtml() {
+  const bOpts = (_rp.branches || []).map(b => `<option value="${pcEsc(b.code)}"${b.code === _rp.branch ? ' selected' : ''}>${pcEsc(b.code)} — ${pcEsc(b.name || '')}</option>`).join('');
+  return `<div class="ex-fields" style="margin-bottom:12px">
+      <label>Outlet (Rista branch)<select class="ex-sel" id="rpBranch"><option value="">Pick…</option>${bOpts}</select></label>
+      <label>Channel<input class="ex-in" id="rpChannel" list="rpChList" value="${pcEsc(_rp.channel)}" placeholder="e.g. Swiggy">
+        <datalist id="rpChList">${RP_CHANNELS.map(c => `<option value="${c}">`).join('')}</datalist></label>
+      <label>Price book<input class="ex-in" id="rpPB" value="${pcEsc(_rp.priceBook)}" placeholder="Rista price book name"></label>
+      <label>&nbsp;<button class="ex-btn pri" onclick="rpLoad()">Load menu</button></label>
+    </div>`;
+}
+
+function rpReadPickers() {
+  _rp.branch = document.getElementById('rpBranch').value;
+  _rp.channel = document.getElementById('rpChannel').value.trim();
+  _rp.priceBook = document.getElementById('rpPB').value.trim();
+  rpLS('branch', _rp.branch); rpLS('channel', _rp.channel);
+  if (_rp.priceBook) rpLS(`pb_${_rp.branch}_${_rp.channel}`, _rp.priceBook);
+}
+
+async function rpLoad() {
+  rpReadPickers();
+  if (!_rp.branch || !_rp.channel) { rpSetMsg('Pick an outlet and a channel'); return; }
+  if (Object.keys(_rp.edits).length && !confirm('Discard your unsaved price edits?')) return;
+  _rp.edits = {}; _rp.review = false; _rp.result = null;
+  rpSetMsg('Loading menu from Rista…');
+  try {
+    _rp.items = (await rpApi('GET', `/catalog?branch=${encodeURIComponent(_rp.branch)}&channel=${encodeURIComponent(_rp.channel)}`)).items;
+    _rp.loadedKey = `${_rp.branch}|${_rp.channel}`;
+    _rp.msg = `${_rp.items.length} items loaded`;
+  } catch (e) { _rp.items = []; _rp.msg = e.message; }
+  rpRender();
+}
+
+function rpSetMsg(m) { _rp.msg = m; const el = document.getElementById('rpMsg'); if (el) el.textContent = m; }
+
+/* ── edit table ── */
+function rpVisible() {
+  const q = _rp.q.toLowerCase();
+  return _rp.items.filter(i => !q || `${i.name} ${i.sku} ${i.category} ${i.variant}`.toLowerCase().includes(q));
+}
+
+function rpChanged() {
+  return _rp.items.filter(i => _rp.edits[i.sku] != null && +_rp.edits[i.sku] !== +i.price)
+    .map(i => ({ sku: i.sku, name: i.name + (i.variant ? ` (${i.variant})` : ''), old: i.price, new: +_rp.edits[i.sku] }));
+}
+
+function rpEditHtml() {
+  if (_rp.result) return rpPickersHtml() + rpResultHtml();
+  if (_rp.review) return rpPickersHtml() + rpReviewHtml();
+  const ch = rpChanged();
+  if (!_rp.items.length) return rpPickersHtml() + `<div class="ex-empty">Pick an outlet and channel, then <b>Load menu</b>.<br><span class="pc-muted">Price book: the Rista price book these prices belong to (see the API check tab if unsure).</span></div>`;
+  const rows = rpVisible().map(i => {
+    const v = _rp.edits[i.sku];
+    const diff = v != null && v !== '' && +v !== +i.price;
+    return `<tr${diff ? ' style="background:var(--amber-dim)"' : ''}>
+      <td style="text-align:left">${pcEsc(i.name)}${i.variant ? ` <span class="pc-muted">(${pcEsc(i.variant)})</span>` : ''}${i.status === 'Inactive' ? ' <span class="pc-badge pc-b-failed">Inactive</span>' : ''}</td>
+      <td class="pc-muted" style="text-align:left">${pcEsc(i.category)}</td>
+      <td class="pc-muted" style="text-align:left">${pcEsc(i.sku)}</td>
+      <td>₹${i.price ?? '—'}</td>
+      <td><input class="ex-in" style="width:90px;text-align:right" type="number" min="0" step="0.01" data-sku="${pcEsc(i.sku)}"
+           value="${v ?? ''}" placeholder="${i.price ?? ''}" oninput="rpEdit(this)"></td>
+      <td>${diff && i.price ? `<span class="pc-muted">${((+v - i.price) / i.price * 100).toFixed(1)}%</span>` : ''}</td></tr>`;
+  }).join('');
+  return rpPickersHtml() + `
+    <div class="ex-bar">
+      <input class="ex-in" style="min-width:220px" placeholder="Search item, SKU, category" value="${pcEsc(_rp.q)}" oninput="_rp.q=this.value;rpRefreshTable()">
+      <span class="ex-lbl">Bulk on shown items:</span>
+      <input class="ex-in" id="rpPct" type="number" step="0.1" style="width:80px" placeholder="%">
+      <button class="ex-btn" onclick="rpBulkPct()">Apply %</button>
+      <label class="ex-btn" style="cursor:pointer">Upload CSV<input type="file" accept=".csv" style="display:none" onchange="rpCsv(this)"></label>
+      <button class="ex-btn" onclick="rpClear()">Clear edits</button>
+      <span class="sp"></span>
+      <button class="ex-btn pri" ${ch.length ? '' : 'disabled'} onclick="rpReview()">Review ${ch.length} change${ch.length === 1 ? '' : 's'} →</button>
+    </div>
+    <div class="pc-muted" style="margin-bottom:8px">CSV format: <code>sku,price</code> (header optional). Rounded to whole rupees by bulk %.</div>
+    <div class="pc-wrap" id="rpTableWrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th style="text-align:left">Category</th><th style="text-align:left">SKU</th><th>Current</th><th>New</th><th>Δ</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="6" class="ex-empty">No matching items</td></tr>'}</tbody></table></div>`;
+}
+
+let _rpTblTimer;
+function rpRefreshTable() { clearTimeout(_rpTblTimer); _rpTblTimer = setTimeout(() => { rpRender(); const s = document.querySelector('#pageBody input[placeholder^="Search item"]'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }, 250); }
+
+function rpEdit(el) {
+  const sku = el.dataset.sku;
+  if (el.value === '') delete _rp.edits[sku]; else _rp.edits[sku] = el.value;
+  const item = _rp.items.find(i => i.sku === sku);
+  el.closest('tr').style.background = el.value !== '' && item && +el.value !== +item.price ? 'var(--amber-dim)' : '';
+  const n = rpChanged().length;
+  const btn = [...document.querySelectorAll('#pageBody button.pri')].find(b => b.textContent.startsWith('Review'));
+  if (btn) { btn.disabled = !n; btn.textContent = `Review ${n} change${n === 1 ? '' : 's'} →`; }
+}
+
+function rpBulkPct() {
+  const pct = parseFloat(document.getElementById('rpPct').value);
+  if (isNaN(pct)) { rpSetMsg('Enter a % (e.g. 5 or -10)'); return; }
+  rpVisible().forEach(i => { if (i.price != null) _rp.edits[i.sku] = String(Math.round(i.price * (1 + pct / 100))); });
+  rpRender();
+}
+
+function rpCsv(input) {
+  const f = input.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const known = new Set(_rp.items.map(i => i.sku)); let ok = 0; const miss = [];
+    rd.result.split(/\r?\n/).forEach(line => {
+      const [sku, price] = line.split(',').map(s => (s || '').trim().replace(/^"|"$/g, ''));
+      if (!sku || isNaN(parseFloat(price))) return;
+      if (known.has(sku)) { _rp.edits[sku] = price; ok++; } else miss.push(sku);
+    });
+    _rp.msg = `CSV: ${ok} prices set` + (miss.length ? ` · ${miss.length} SKUs not on this menu: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? '…' : ''}` : '');
+    rpRender();
+  };
+  rd.readAsText(f);
+}
+
+function rpClear() { _rp.edits = {}; rpRender(); }
+
+/* ── review + apply ── */
+function rpReview() {
+  rpReadPickers();
+  if (`${_rp.branch}|${_rp.channel}` !== _rp.loadedKey) { rpSetMsg('Outlet/channel changed since loading. Load the menu again.'); return; }
+  if (!_rp.priceBook) { rpSetMsg('Enter the Rista price book name first'); return; }
+  _rp.review = true; rpRender();
+}
+
+function rpReviewHtml() {
+  const ch = rpChanged();
+  const big = ch.filter(c => c.old && Math.abs(c.new - c.old) / c.old > 0.3);
+  return `<div class="ex-card">
+    <h3>Review: ${ch.length} price change${ch.length === 1 ? '' : 's'} · ${pcEsc(_rp.branch)} · ${pcEsc(_rp.channel)} · price book “${pcEsc(_rp.priceBook)}”</h3>
+    ${big.length ? `<div class="ex-banner">⚠️ ${big.length} item${big.length === 1 ? '' : 's'} change by more than 30%. Double-check before applying.</div>` : ''}
+    <div class="pc-wrap" style="max-height:420px;overflow:auto"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th>Old</th><th>New</th><th>Δ</th></tr></thead><tbody>
+      ${ch.map(c => `<tr${big.includes(c) ? ' style="background:var(--red-dim)"' : ''}><td style="text-align:left">${pcEsc(c.name)} <span class="pc-muted">${pcEsc(c.sku)}</span></td><td>₹${c.old ?? '—'}</td><td><b>₹${c.new}</b></td><td class="pc-muted">${c.old ? ((c.new - c.old) / c.old * 100).toFixed(1) + '%' : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="ex-bar" style="margin-top:12px">
+      <label class="ex-lbl" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rpSync" checked> Push menu to aggregators after saving (catalog sync)</label>
+      <span class="sp"></span>
+      <button class="ex-btn" onclick="_rp.review=false;rpRender()">← Back</button>
+      <button class="ex-btn pri" id="rpApplyBtn" onclick="rpApply()">Apply ${ch.length} change${ch.length === 1 ? '' : 's'} on Rista</button>
+    </div></div>`;
+}
+
+async function rpApply() {
+  const btn = document.getElementById('rpApplyBtn'); btn.disabled = true; btn.textContent = 'Applying…';
+  try {
+    _rp.result = await rpApi('POST', '/apply', { branch: _rp.branch, channel: _rp.channel, price_book: _rp.priceBook,
+      changes: rpChanged(), sync: document.getElementById('rpSync').checked });
+    _rp.review = false;
+    // reflect successful prices locally so the table is current
+    (_rp.result.changes || []).forEach(c => { if (c.ok) { const it = _rp.items.find(i => i.sku === c.sku); if (it) it.price = c.new; delete _rp.edits[c.sku]; } });
+    rpRender();
+    const rid = _rp.result.sync && (_rp.result.sync.requestId || _rp.result.sync.request_id);
+    if (rid) rpPollSync(rid, 0);
+  } catch (e) { btn.disabled = false; btn.textContent = 'Retry apply'; rpSetMsg(e.message); }
+}
+
+async function rpPollSync(rid, n) {
+  if (!_rp.result || n > 24) return;
+  try {
+    const s = await rpApi('GET', `/sync-status?request_id=${encodeURIComponent(rid)}`);
+    _rp.result.syncStatus = s; rpRender();
+    if (['Success', 'Failure'].includes(s.status)) return;
+  } catch (e) { _rp.result.syncStatus = { status: 'Unknown', errorMessage: e.message }; rpRender(); }
+  setTimeout(() => rpPollSync(rid, n + 1), 5000);
+}
+
+function rpResultHtml() {
+  const r = _rp.result, total = (r.changes || []).length;
+  const ss = r.syncStatus, sync = r.sync;
+  const syncLine = !sync ? 'Not pushed to aggregators.'
+    : sync.error ? `Sync request failed: ${pcEsc(sync.error)}`
+    : `Aggregator sync: <span class="pc-badge ${ss?.status === 'Success' ? 'pc-b-verified' : ss?.status === 'Failure' ? 'pc-b-failed' : 'pc-b-processing'}">${pcEsc(ss?.status || 'Queued')}</span> ${ss?.errorMessage ? pcEsc(ss.errorMessage) : ''}`;
+  return `<div class="ex-card">
+    <h3>${r.ok_count === total ? '✅' : '⚠️'} ${r.ok_count} of ${total} prices updated on Rista</h3>
+    <div style="margin-bottom:10px">${syncLine}</div>
+    ${r.failed?.length ? `<div class="ex-banner">Failed: ${r.failed.map(f => `${pcEsc(f.sku)} (${pcEsc(f.error)})`).join(', ')}</div>` : ''}
+    <div class="ex-bar"><span class="sp"></span><button class="ex-btn" onclick="_rp.result=null;rpRender()">Back to menu</button>
+      <button class="ex-btn pri" onclick="_rp.result=null;rpLoad()">Reload from Rista</button></div></div>`;
+}
+
+/* ── history ── */
+function rpHistoryHtml() {
+  if (!_rp.history.length) return '<div class="ex-empty">No price changes yet.</div>';
+  return `<div class="pc-wrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">When</th><th>By</th><th>Outlet</th><th>Channel</th><th>Price book</th><th>Updated</th><th style="text-align:left">Changes</th></tr></thead><tbody>
+    ${_rp.history.map(h => `<tr><td style="text-align:left">${pcEsc((h.at || '').slice(0, 16).replace('T', ' '))}</td><td>${pcEsc(h.by_name || h.by || '')}</td>
+      <td>${pcEsc(h.branch)}</td><td>${pcEsc(h.channel)}</td><td>${pcEsc(h.price_book)}</td>
+      <td>${h.ok_count}/${(h.changes || []).length}${h.failed?.length ? ' <span class="pc-badge pc-b-failed">failed</span>' : ''}</td>
+      <td style="text-align:left;font-size:11px">${(h.changes || []).slice(0, 6).map(c => `${pcEsc(c.name || c.sku)}: ₹${c.old ?? '—'}→₹${c.new}${c.ok ? '' : ' ✗'}`).join('<br>')}${(h.changes || []).length > 6 ? `<br><span class="pc-muted">+${h.changes.length - 6} more</span>` : ''}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+/* ── API check (read-only) ── */
+function rpCheckHtml() {
+  return `<div class="ex-card"><h3>Rista API check (read-only, changes nothing)</h3>
+    <div class="pc-muted" style="margin-bottom:10px">Confirms the API key works, shows how Rista describes a branch (look for price book / channel names), and reads one menu.</div>
+    ${rpPickersHtml().replace('onclick="rpLoad()">Load menu', 'onclick="rpRunProbe()">Run check')}
+    ${_rp.probe ? `<pre style="font-size:11px;max-height:480px;overflow:auto;background:var(--bg);padding:10px;border-radius:var(--r)">${pcEsc(JSON.stringify(_rp.probe, null, 2))}</pre>` : ''}</div>`;
+}
+
+async function rpRunProbe() {
+  rpReadPickers(); rpSetMsg('Checking…');
+  try { _rp.probe = await rpApi('GET', `/probe?branch=${encodeURIComponent(_rp.branch)}&channel=${encodeURIComponent(_rp.channel)}`); _rp.msg = ''; }
+  catch (e) { _rp.probe = null; _rp.msg = e.message; }
+  rpRender();
 }
 </script>
 </body>
