@@ -18580,12 +18580,12 @@ function rpEditHtml() {
     const cur = tks.map(tk => `<div style="${line}">${multi ? `<span class="pc-muted">${pcEsc(rpTkLabel(tk))}</span>` : ''}<b>₹${i.prices[rpKey(tk)] ?? '—'}</b></div>`).join('');
     const nw = tks.map(tk => {
       const k = rpKey(tk), old = i.prices[k], v = _rp.edits[rpEK(i.sku, k)], diff = v != null && v !== '' && +v !== +old;
-      return `<div style="${line}"><input class="ex-in" style="width:84px;text-align:right${diff ? ';border-color:var(--amber);background:var(--amber-dim)' : ''}" type="number" min="0" step="0.01"
+      return `<div style="${line}">${multi ? `<span class="pc-muted">${pcEsc(rpTkLabel(tk))}</span>` : ''}<input class="ex-in" style="width:96px;text-align:right${diff ? ';border-color:var(--amber);background:var(--amber-dim)' : ''}" type="number" min="0" step="0.01"
           data-sku="${pcEsc(i.sku)}" data-k="${pcEsc(k)}" value="${v ?? ''}" placeholder="${old ?? ''}" oninput="rpEdit(this)">
         <span class="pc-muted" style="width:44px;text-align:left">${diff && old ? ((+v - old) / old * 100).toFixed(1) + '%' : ''}</span></div>`;
     }).join('');
-    const all = multi ? `<div style="${line};border-top:1px dashed var(--border);margin-top:2px"><span class="pc-muted">all</span><input class="ex-in" style="width:84px;text-align:right" type="number" min="0" step="0.01"
-          data-sku="${pcEsc(i.sku)}" placeholder="same for all" oninput="rpEditAll(this)"><span style="width:44px"></span></div>` : '';
+    const all = multi ? `<div style="${line};border-top:1px dashed var(--border);margin-top:2px"><span class="pc-muted">All channels</span><input class="ex-in" style="width:96px;text-align:right" type="number" min="0" step="0.01"
+          data-sku="${pcEsc(i.sku)}" placeholder="₹ for all" title="Sets the same price on every channel above" oninput="rpEditAll(this)"><span style="width:44px"></span></div>` : '';
     return `<tr${any ? ' style="background:var(--amber-dim)"' : ''}>
       <td style="text-align:left">${pcEsc(i.name)}${i.variant ? ` <span class="pc-muted">(${pcEsc(i.variant)})</span>` : ''}${i.status === 'Inactive' ? ' <span class="pc-badge pc-b-failed">Inactive</span>' : ''}
         <div class="pc-muted">${pcEsc(i.category)} · ${pcEsc(i.sku)}</div></td>
