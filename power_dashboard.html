@@ -17810,7 +17810,7 @@ async function renderMissingInfoPage() {
   body.innerHTML = `<div style="padding:16px">
     <div style="color:var(--ink-2);margin-bottom:12px;font-size:13px">Staff can add these themselves in the app: <b>My Profile</b> (photo of PAN / Aadhaar / passbook). PAN + bank are optional at signup for now.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      ${['PAN','Aadhaar','Bank account','IFSC','Date of birth'].map(f => pill(`${f}: ${count(f)}`, '#b45309')).join('')}
+      ${['PAN','Aadhaar','Bank account','IFSC','Date of birth','PF number'].map(f => pill(`${f}: ${count(f)}`, '#b45309')).join('')}
       ${pill(`To review: ${rows.filter(r => r.kyc_needs_review).length}`, '#2563eb')}
     </div>
     ${rows.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--surface)">
