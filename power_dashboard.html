@@ -18418,9 +18418,11 @@ async function oaSaveAll() {
 }
 
 /* ════════════════ RISTA PRICE CHANGES ════════════════
-   Backend: /api/admin/rista-prices (rista_prices.py) → Rista /items/price + /catalog/sync. */
-const _rp = { tab: 'edit', branches: null, branch: '', channel: '', priceBook: '', items: [], edits: {}, q: '',
-              msg: '', review: false, result: null, history: [], probe: null, loadedKey: '' };
+   Backend: /api/admin/rista-prices (rista_prices.py) → Rista /items/price + /catalog/sync.
+   Prices live on price book + channel. Pick any number of each; a change is
+   applied to every ticked price book × channel pair that exists in Rista. */
+const _rp = { tab: 'edit', branches: null, pbs: new Set(), chs: new Set(), items: [], edits: {}, q: '',
+              msg: '', review: false, result: null, history: [], probe: null, loadedKey: '', ref: null };
 const rpLS = (k, v) => { try { if (v === undefined) return localStorage.getItem('rp_' + k) || ''; localStorage.setItem('rp_' + k, v); } catch (e) { return ''; } };
 
 async function rpApi(method, path, body) {
@@ -18433,14 +18435,36 @@ async function rpApi(method, path, body) {
   return d;
 }
 
+/* price book → { channels:Set, branches:[codes] } from the branch list */
+function rpBooks() {
+  const m = {};
+  (_rp.branches || []).forEach(b => {
+    const raw = b.raw || {}, pb = raw.priceBook; if (!pb) return;
+    const e = m[pb] || (m[pb] = { channels: new Set(), branches: [] });
+    e.branches.push(b.code);
+    (raw.channels || []).forEach(c => c.name && e.channels.add(c.name));
+  });
+  return m;
+}
+// pairs that actually exist (some price books don't have every ticked channel)
+function rpTargets() {
+  const books = rpBooks(), out = [];
+  [..._rp.pbs].sort().forEach(pb => [..._rp.chs].sort().forEach(ch => { if (books[pb]?.channels.has(ch)) out.push({ price_book: pb, channel: ch }); }));
+  return out;
+}
+function rpRefBranch(pb, ch) {
+  return (_rp.branches || []).find(b => (b.raw || {}).priceBook === pb && ((b.raw || {}).channels || []).some(c => c.name === ch));
+}
+
 async function renderRistaPricesPage() {
   const body = document.getElementById('pageBody');
-  if (!_rp.branch) { _rp.branch = rpLS('branch'); _rp.channel = rpLS('channel'); }
-  if (!_rp.priceBook) _rp.priceBook = rpLS(`pb_${_rp.branch}_${_rp.channel}`);
+  if (!_rp.pbs.size) { try { JSON.parse(rpLS('pbs') || '[]').forEach(x => _rp.pbs.add(x)); JSON.parse(rpLS('chs') || '[]').forEach(x => _rp.chs.add(x)); } catch (e) {} }
   if (!_rp.branches) {
-    body.innerHTML = '<div class="ex-empty">Loading Rista branches…</div>';
+    body.innerHTML = '<div class="ex-empty">Loading price books from Rista…</div>';
     try { _rp.branches = (await rpApi('GET', '/branches')).branches; }
     catch (e) { if (_currentPage === 'ristaprices') body.innerHTML = errBox(pcEsc(e.message)); return; }
+    const books = rpBooks();   // forget saved picks that no longer exist
+    [..._rp.pbs].forEach(pb => { if (!books[pb]) _rp.pbs.delete(pb); });
   }
   if (_rp.tab === 'history') {
     try { _rp.history = (await rpApi('GET', '/history')).history; } catch (e) { _rp.msg = e.message; }
@@ -18459,88 +18483,73 @@ function rpRender() {
       <span class="sp"></span><span class="pc-muted" id="rpMsg">${pcEsc(_rp.msg)}</span></div>
     ${_rp.tab === 'edit' ? rpEditHtml() : _rp.tab === 'history' ? rpHistoryHtml() : rpCheckHtml()}`;
 }
+function rpSetMsg(m) { _rp.msg = m; const el = document.getElementById('rpMsg'); if (el) el.textContent = m; }
 
-/* ── pickers ── */
-// Each Rista branch lists its own channels and its price book.
-const rpBranchRaw = code => ((_rp.branches || []).find(b => b.code === code) || {}).raw || {};
-const rpBranchChannels = code => (rpBranchRaw(code).channels || []).map(c => c.name).filter(Boolean);
-// Rista prices live on price book + channel, so a change hits every outlet sharing both.
-const rpAffected = (pb, ch) => (_rp.branches || []).filter(b => (b.raw || {}).priceBook === pb && (!ch || rpBranchChannels(b.code).includes(ch))).map(b => b.code);
-function rpAffectedHtml(pb, ch) {
-  if (!pb) return '';
-  const out = rpAffected(pb, ch);
-  return `<div class="ex-banner" id="rpAffected">⚠️ Price book “${pcEsc(pb)}”${ch ? ` · ${pcEsc(ch)}` : ''}: changes apply at <b>${out.length} outlet${out.length === 1 ? '' : 's'}</b>: ${out.map(pcEsc).join(', ') || '—'}</div>`;
-}
-function rpUpdateAffected() {
-  const el = document.getElementById('rpAffected'), pb = document.getElementById('rpPB').value.trim(), ch = document.getElementById('rpChannel').value;
-  const html = rpAffectedHtml(pb, ch);
-  if (el) el.outerHTML = html || '<div id="rpAffected"></div>';
-}
-
-function rpBranchPicked(sel) {
-  const raw = rpBranchRaw(sel.value), chs = rpBranchChannels(sel.value);
-  const chSel = document.getElementById('rpChannel');
-  chSel.innerHTML = '<option value="">Pick…</option>' + chs.map(c => `<option value="${pcEsc(c)}">${pcEsc(c)}</option>`).join('');
-  if (chs.includes(_rp.channel)) chSel.value = _rp.channel;
-  document.getElementById('rpPB').value = raw.priceBook || '';
-  rpUpdateAffected();
-}
-
+/* ── price book + channel checkboxes ── */
 function rpPickersHtml() {
-  const bOpts = (_rp.branches || []).map(b => `<option value="${pcEsc(b.code)}"${b.code === _rp.branch ? ' selected' : ''}>${pcEsc(b.code)} — ${pcEsc(b.name || '')}</option>`).join('');
-  const chs = rpBranchChannels(_rp.branch);
-  if (_rp.branch && !_rp.priceBook) _rp.priceBook = rpBranchRaw(_rp.branch).priceBook || '';
-  return `<div class="ex-fields" style="margin-bottom:12px">
-      <label>Outlet (Rista branch)<select class="ex-sel" id="rpBranch" onchange="rpBranchPicked(this)"><option value="">Pick…</option>${bOpts}</select></label>
-      <label>Channel<select class="ex-sel" id="rpChannel" onchange="rpUpdateAffected()"><option value="">Pick…</option>${chs.map(c => `<option value="${pcEsc(c)}"${c === _rp.channel ? ' selected' : ''}>${pcEsc(c)}</option>`).join('')}</select></label>
-      <label>Price book<input class="ex-in" id="rpPB" value="${pcEsc(_rp.priceBook)}" placeholder="from Rista branch" oninput="rpUpdateAffected()"></label>
-      <label>&nbsp;<button class="ex-btn pri" onclick="rpLoad()">Load menu</button></label>
-    </div>${rpAffectedHtml(_rp.priceBook, _rp.channel) || '<div id="rpAffected"></div>'}`;
+  const books = rpBooks(), names = Object.keys(books).sort();
+  const chAvail = new Set(); [..._rp.pbs].forEach(pb => books[pb]?.channels.forEach(c => chAvail.add(c)));
+  [..._rp.chs].forEach(c => { if (!chAvail.has(c)) _rp.chs.delete(c); });
+  const box = (kind, v, on, sub) => `<label style="display:flex;gap:6px;align-items:flex-start;font-size:12px;padding:3px 0;cursor:pointer">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="rpTick('${kind}', this.dataset.v, this.checked)" data-v="${pcEsc(v)}">
+      <span>${pcEsc(v)}${sub ? `<br><span class="pc-muted">${sub}</span>` : ''}</span></label>`;
+  const all = (kind, on) => `<button class="ex-link" onclick="rpTickAll('${kind}', ${on})">${on ? 'All' : 'None'}</button>`;
+  const t = rpTargets();
+  return `<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px">
+      <div class="ex-card" style="margin:0"><h3>Price books <span class="pc-muted">${_rp.pbs.size}/${names.length}</span> ${all('pb', true)} · ${all('pb', false)}</h3>
+        <div style="max-height:260px;overflow:auto">${names.map(pb => box('pb', pb, _rp.pbs.has(pb), `${books[pb].branches.length} outlet${books[pb].branches.length === 1 ? '' : 's'}: ${books[pb].branches.map(pcEsc).join(', ')}`)).join('')}</div></div>
+      <div class="ex-card" style="margin:0"><h3>Channels <span class="pc-muted">${_rp.chs.size}/${chAvail.size}</span> ${chAvail.size ? `${all('ch', true)} · ${all('ch', false)}` : ''}</h3>
+        <div style="max-height:260px;overflow:auto">${chAvail.size ? [...chAvail].sort().map(c => box('ch', c, _rp.chs.has(c))).join('') : '<div class="pc-muted">Tick a price book first</div>'}</div></div>
+    </div>
+    <div class="ex-bar"><span class="ex-lbl">${t.length} price book × channel combination${t.length === 1 ? '' : 's'} selected</span><span class="sp"></span>
+      <button class="ex-btn pri" ${t.length ? '' : 'disabled'} onclick="rpLoad()">Load menu</button></div>`;
 }
 
-function rpReadPickers() {
-  _rp.branch = document.getElementById('rpBranch').value;
-  _rp.channel = document.getElementById('rpChannel').value.trim();
-  _rp.priceBook = document.getElementById('rpPB').value.trim();
-  rpLS('branch', _rp.branch); rpLS('channel', _rp.channel);
-  if (_rp.priceBook) rpLS(`pb_${_rp.branch}_${_rp.channel}`, _rp.priceBook);
+function rpTick(kind, v, on) {
+  const s = kind === 'pb' ? _rp.pbs : _rp.chs; on ? s.add(v) : s.delete(v);
+  rpSavePicks(); rpRender();
 }
+function rpTickAll(kind, on) {
+  const books = rpBooks();
+  if (kind === 'pb') { _rp.pbs = new Set(on ? Object.keys(books) : []); }
+  else { const a = new Set(); [..._rp.pbs].forEach(pb => books[pb]?.channels.forEach(c => a.add(c))); _rp.chs = on ? a : new Set(); }
+  rpSavePicks(); rpRender();
+}
+function rpSavePicks() { rpLS('pbs', JSON.stringify([..._rp.pbs])); rpLS('chs', JSON.stringify([..._rp.chs])); }
 
 async function rpLoad() {
-  rpReadPickers();
-  if (!_rp.branch || !_rp.channel) { rpSetMsg('Pick an outlet and a channel'); return; }
+  const t = rpTargets(); if (!t.length) { rpSetMsg('Tick at least one price book and channel'); return; }
   if (Object.keys(_rp.edits).length && !confirm('Discard your unsaved price edits?')) return;
-  _rp.edits = {}; _rp.review = false; _rp.result = null;
-  rpSetMsg('Loading menu from Rista…');
+  const ref = t[0], br = rpRefBranch(ref.price_book, ref.channel);
+  if (!br) { rpSetMsg('No outlet found for that price book + channel'); return; }
+  _rp.edits = {}; _rp.review = false; _rp.result = null; rpSetMsg('Loading menu from Rista…');
   try {
-    _rp.items = (await rpApi('GET', `/catalog?branch=${encodeURIComponent(_rp.branch)}&channel=${encodeURIComponent(_rp.channel)}`)).items;
-    _rp.loadedKey = `${_rp.branch}|${_rp.channel}`;
+    _rp.items = (await rpApi('GET', `/catalog?branch=${encodeURIComponent(br.code)}&channel=${encodeURIComponent(ref.channel)}`)).items;
+    _rp.ref = ref; _rp.loadedKey = JSON.stringify(t);
     _rp.msg = `${_rp.items.length} items loaded`;
   } catch (e) { _rp.items = []; _rp.msg = e.message; }
   rpRender();
 }
-
-function rpSetMsg(m) { _rp.msg = m; const el = document.getElementById('rpMsg'); if (el) el.textContent = m; }
 
 /* ── edit table ── */
 function rpVisible() {
   const q = _rp.q.toLowerCase();
   return _rp.items.filter(i => !q || `${i.name} ${i.sku} ${i.category} ${i.variant}`.toLowerCase().includes(q));
 }
-
 function rpChanged() {
   return _rp.items.filter(i => _rp.edits[i.sku] != null && +_rp.edits[i.sku] !== +i.price)
     .map(i => ({ sku: i.sku, name: i.name + (i.variant ? ` (${i.variant})` : ''), old: i.price, new: +_rp.edits[i.sku] }));
 }
 
 function rpEditHtml() {
-  if (_rp.result) return rpPickersHtml() + rpResultHtml();
-  if (_rp.review) return rpPickersHtml() + rpReviewHtml();
+  if (_rp.result) return rpResultHtml();
+  if (_rp.review) return rpReviewHtml();
+  const picks = rpPickersHtml();
+  if (!_rp.items.length) return picks + `<div class="ex-empty">Tick price books and channels, then <b>Load menu</b>.</div>`;
+  const stale = _rp.loadedKey !== JSON.stringify(rpTargets());
   const ch = rpChanged();
-  if (!_rp.items.length) return rpPickersHtml() + `<div class="ex-empty">Pick an outlet and channel, then <b>Load menu</b>.<br><span class="pc-muted">Price book: the Rista price book these prices belong to (see the API check tab if unsure).</span></div>`;
   const rows = rpVisible().map(i => {
-    const v = _rp.edits[i.sku];
-    const diff = v != null && v !== '' && +v !== +i.price;
+    const v = _rp.edits[i.sku], diff = v != null && v !== '' && +v !== +i.price;
     return `<tr${diff ? ' style="background:var(--amber-dim)"' : ''}>
       <td style="text-align:left">${pcEsc(i.name)}${i.variant ? ` <span class="pc-muted">(${pcEsc(i.variant)})</span>` : ''}${i.status === 'Inactive' ? ' <span class="pc-badge pc-b-failed">Inactive</span>' : ''}</td>
       <td class="pc-muted" style="text-align:left">${pcEsc(i.category)}</td>
@@ -18550,7 +18559,9 @@ function rpEditHtml() {
            value="${v ?? ''}" placeholder="${i.price ?? ''}" oninput="rpEdit(this)"></td>
       <td>${diff && i.price ? `<span class="pc-muted">${((+v - i.price) / i.price * 100).toFixed(1)}%</span>` : ''}</td></tr>`;
   }).join('');
-  return rpPickersHtml() + `
+  return picks + `
+    ${stale ? '<div class="ex-banner">Selection changed since the menu was loaded. Press <b>Load menu</b> again before reviewing.</div>' : ''}
+    <div class="pc-muted" style="margin-bottom:8px">Current prices shown from <b>${pcEsc(_rp.ref.price_book)}</b> · ${pcEsc(_rp.ref.channel)}. Other ticked price books may differ today; the new price is set on all of them.</div>
     <div class="ex-bar">
       <input class="ex-in" style="min-width:220px" placeholder="Search item, SKU, category" value="${pcEsc(_rp.q)}" oninput="_rp.q=this.value;rpRefreshTable()">
       <span class="ex-lbl">Bulk on shown items:</span>
@@ -18559,10 +18570,10 @@ function rpEditHtml() {
       <label class="ex-btn" style="cursor:pointer">Upload CSV<input type="file" accept=".csv" style="display:none" onchange="rpCsv(this)"></label>
       <button class="ex-btn" onclick="rpClear()">Clear edits</button>
       <span class="sp"></span>
-      <button class="ex-btn pri" ${ch.length ? '' : 'disabled'} onclick="rpReview()">Review ${ch.length} change${ch.length === 1 ? '' : 's'} →</button>
+      <button class="ex-btn pri" id="rpReviewBtn" ${ch.length && !stale ? '' : 'disabled'} onclick="rpReview()">Review ${ch.length} change${ch.length === 1 ? '' : 's'} →</button>
     </div>
-    <div class="pc-muted" style="margin-bottom:8px">CSV format: <code>sku,price</code> (header optional). Rounded to whole rupees by bulk %.</div>
-    <div class="pc-wrap" id="rpTableWrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th style="text-align:left">Category</th><th style="text-align:left">SKU</th><th>Current</th><th>New</th><th>Δ</th></tr></thead>
+    <div class="pc-muted" style="margin-bottom:8px">CSV format: <code>sku,price</code> (header optional). Bulk % rounds to whole rupees.</div>
+    <div class="pc-wrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th style="text-align:left">Category</th><th style="text-align:left">SKU</th><th>Current</th><th>New</th><th>Δ</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="6" class="ex-empty">No matching items</td></tr>'}</tbody></table></div>`;
 }
 
@@ -18574,9 +18585,8 @@ function rpEdit(el) {
   if (el.value === '') delete _rp.edits[sku]; else _rp.edits[sku] = el.value;
   const item = _rp.items.find(i => i.sku === sku);
   el.closest('tr').style.background = el.value !== '' && item && +el.value !== +item.price ? 'var(--amber-dim)' : '';
-  const n = rpChanged().length;
-  const btn = [...document.querySelectorAll('#pageBody button.pri')].find(b => b.textContent.startsWith('Review'));
-  if (btn) { btn.disabled = !n; btn.textContent = `Review ${n} change${n === 1 ? '' : 's'} →`; }
+  const n = rpChanged().length, btn = document.getElementById('rpReviewBtn');
+  if (btn) { btn.disabled = !n || _rp.loadedKey !== JSON.stringify(rpTargets()); btn.textContent = `Review ${n} change${n === 1 ? '' : 's'} →`; }
 }
 
 function rpBulkPct() {
@@ -18601,95 +18611,100 @@ function rpCsv(input) {
   };
   rd.readAsText(f);
 }
-
 function rpClear() { _rp.edits = {}; rpRender(); }
 
 /* ── review + apply ── */
-function rpReview() {
-  rpReadPickers();
-  if (`${_rp.branch}|${_rp.channel}` !== _rp.loadedKey) { rpSetMsg('Outlet/channel changed since loading. Load the menu again.'); return; }
-  if (!_rp.priceBook) { rpSetMsg('Enter the Rista price book name first'); return; }
-  _rp.review = true; rpRender();
-}
+function rpReview() { _rp.review = true; rpRender(); }
 
 function rpReviewHtml() {
-  const ch = rpChanged();
+  const ch = rpChanged(), t = rpTargets(), books = rpBooks();
+  const outlets = [...new Set(t.flatMap(x => books[x.price_book]?.branches || []))];
   const big = ch.filter(c => c.old && Math.abs(c.new - c.old) / c.old > 0.3);
   return `<div class="ex-card">
-    <h3>Review: ${ch.length} price change${ch.length === 1 ? '' : 's'} · ${pcEsc(_rp.branch)} · ${pcEsc(_rp.channel)} · price book “${pcEsc(_rp.priceBook)}”</h3>
-    <div class="ex-banner">This updates price book “${pcEsc(_rp.priceBook)}” on ${pcEsc(_rp.channel)} at <b>every</b> outlet using it: ${rpAffected(_rp.priceBook, _rp.channel).map(pcEsc).join(', ') || '—'}</div>
+    <h3>Review: ${ch.length} item${ch.length === 1 ? '' : 's'} × ${t.length} price book/channel combination${t.length === 1 ? '' : 's'}</h3>
+    <div class="ex-banner" style="max-height:140px;overflow:auto">Sets these prices on:<br>${t.map(x => `• <b>${pcEsc(x.price_book)}</b> · ${pcEsc(x.channel)}`).join('<br>')}
+      <br><span class="pc-muted">Outlets on these price books (${outlets.length}): ${outlets.map(pcEsc).join(', ')}</span></div>
     ${big.length ? `<div class="ex-banner">⚠️ ${big.length} item${big.length === 1 ? '' : 's'} change by more than 30%. Double-check before applying.</div>` : ''}
+    <div class="pc-muted" style="margin:6px 0">“Old” is from ${pcEsc(_rp.ref.price_book)} · ${pcEsc(_rp.ref.channel)}.</div>
     <div class="pc-wrap" style="max-height:420px;overflow:auto"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th>Old</th><th>New</th><th>Δ</th></tr></thead><tbody>
       ${ch.map(c => `<tr${big.includes(c) ? ' style="background:var(--red-dim)"' : ''}><td style="text-align:left">${pcEsc(c.name)} <span class="pc-muted">${pcEsc(c.sku)}</span></td><td>₹${c.old ?? '—'}</td><td><b>₹${c.new}</b></td><td class="pc-muted">${c.old ? ((c.new - c.old) / c.old * 100).toFixed(1) + '%' : ''}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="ex-bar" style="margin-top:12px">
-      <label class="ex-lbl" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rpSync" checked> Push menu to aggregators after saving (catalog sync)</label>
+      <label class="ex-lbl" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rpSync" checked> Push menus to aggregators after saving (catalog sync)</label>
       <span class="sp"></span>
       <button class="ex-btn" onclick="_rp.review=false;rpRender()">← Back</button>
-      <button class="ex-btn pri" id="rpApplyBtn" onclick="rpApply()">Apply ${ch.length} change${ch.length === 1 ? '' : 's'} on Rista</button>
+      <button class="ex-btn pri" id="rpApplyBtn" onclick="rpApply()">Apply on Rista</button>
     </div></div>`;
 }
 
 async function rpApply() {
-  const btn = document.getElementById('rpApplyBtn'); btn.disabled = true; btn.textContent = 'Applying…';
+  const btn = document.getElementById('rpApplyBtn'); btn.disabled = true; btn.textContent = 'Applying… (can take a minute)';
   try {
-    _rp.result = await rpApi('POST', '/apply', { branch: _rp.branch, channel: _rp.channel, price_book: _rp.priceBook,
-      changes: rpChanged(), sync: document.getElementById('rpSync').checked });
+    _rp.result = await rpApi('POST', '/apply', { targets: rpTargets(), changes: rpChanged(), sync: document.getElementById('rpSync').checked });
     _rp.review = false;
-    // reflect successful prices locally so the table is current
-    (_rp.result.changes || []).forEach(c => { if (c.ok) { const it = _rp.items.find(i => i.sku === c.sku); if (it) it.price = c.new; delete _rp.edits[c.sku]; } });
+    // the reference price book's prices are now the new ones, unless it failed there
+    const refRes = (_rp.result.results || []).find(r => r.price_book === _rp.ref.price_book && r.channel === _rp.ref.channel);
+    const refFailed = new Set((refRes?.failed || []).map(f => f.sku));
+    (_rp.result.changes || []).forEach(c => { if (!refFailed.has(c.sku)) { const it = _rp.items.find(i => i.sku === c.sku); if (it) it.price = c.new; delete _rp.edits[c.sku]; } });
     rpRender();
-    const rid = _rp.result.sync && (_rp.result.sync.requestId || _rp.result.sync.request_id);
-    if (rid) rpPollSync(rid, 0);
+    (_rp.result.syncs || []).forEach((s, i) => { const rid = s.requestId || s.request_id; if (rid) rpPollSync(i, rid, 0); });
   } catch (e) { btn.disabled = false; btn.textContent = 'Retry apply'; rpSetMsg(e.message); }
 }
 
-async function rpPollSync(rid, n) {
+async function rpPollSync(i, rid, n) {
   if (!_rp.result || n > 24) return;
+  const s = _rp.result.syncs[i];
   try {
-    const s = await rpApi('GET', `/sync-status?request_id=${encodeURIComponent(rid)}`);
-    _rp.result.syncStatus = s; rpRender();
-    if (['Success', 'Failure'].includes(s.status)) return;
-  } catch (e) { _rp.result.syncStatus = { status: 'Unknown', errorMessage: e.message }; rpRender(); }
-  setTimeout(() => rpPollSync(rid, n + 1), 5000);
+    const st = await rpApi('GET', `/sync-status?request_id=${encodeURIComponent(rid)}`);
+    s.status = st.status; s.errorMessage = st.errorMessage; rpRender();
+    if (['Success', 'Failure'].includes(st.status)) return;
+  } catch (e) { s.status = 'Unknown'; s.errorMessage = e.message; rpRender(); }
+  setTimeout(() => rpPollSync(i, rid, n + 1), 5000);
 }
 
 function rpResultHtml() {
-  const r = _rp.result, total = (r.changes || []).length;
-  const ss = r.syncStatus, sync = r.sync;
-  const syncLine = !sync ? 'Not pushed to aggregators.'
-    : sync.error ? `Sync request failed: ${pcEsc(sync.error)}`
-    : `Aggregator sync: <span class="pc-badge ${ss?.status === 'Success' ? 'pc-b-verified' : ss?.status === 'Failure' ? 'pc-b-failed' : 'pc-b-processing'}">${pcEsc(ss?.status || 'Queued')}</span> ${ss?.errorMessage ? pcEsc(ss.errorMessage) : ''}`;
+  const r = _rp.result;
+  const badge = st => `<span class="pc-badge ${st === 'Success' ? 'pc-b-verified' : st === 'Failure' || st === 'Error' ? 'pc-b-failed' : 'pc-b-processing'}">${pcEsc(st || 'Queued')}</span>`;
   return `<div class="ex-card">
-    <h3>${r.ok_count === total ? '✅' : '⚠️'} ${r.ok_count} of ${total} prices updated on Rista</h3>
-    <div style="margin-bottom:10px">${syncLine}</div>
-    ${r.failed?.length ? `<div class="ex-banner">Failed: ${r.failed.map(f => `${pcEsc(f.sku)} (${pcEsc(f.error)})`).join(', ')}</div>` : ''}
-    <div class="ex-bar"><span class="sp"></span><button class="ex-btn" onclick="_rp.result=null;rpRender()">Back to menu</button>
+    <h3>${r.ok_count === r.total ? '✅' : '⚠️'} ${r.ok_count} of ${r.total} price updates done on Rista</h3>
+    <table class="pc-tbl" style="margin-bottom:10px"><thead><tr><th style="text-align:left">Price book</th><th>Channel</th><th>Updated</th><th style="text-align:left">Failed</th></tr></thead><tbody>
+      ${(r.results || []).map(x => `<tr><td style="text-align:left">${pcEsc(x.price_book)}</td><td>${pcEsc(x.channel)}</td><td>${x.ok_count}/${r.changes.length}</td>
+        <td style="text-align:left;font-size:11px">${x.failed.map(f => `${pcEsc(f.sku)} (${pcEsc(f.error)})`).join(', ')}</td></tr>`).join('')}
+    </tbody></table>
+    ${(r.syncs || []).length ? `<details><summary class="ex-lbl" style="cursor:pointer">Aggregator sync: ${r.syncs.filter(s => s.status === 'Success').length}/${r.syncs.length} done</summary>
+      <div style="font-size:11px;margin-top:6px">${r.syncs.map(s => `${pcEsc(s.branch)} · ${pcEsc(s.channel)}: ${s.error ? badge('Error') + ' ' + pcEsc(s.error) : badge(s.status) + ' ' + pcEsc(s.errorMessage || '')}`).join('<br>')}</div></details>` : '<div class="pc-muted">Not pushed to aggregators.</div>'}
+    <div class="ex-bar" style="margin-top:10px"><span class="sp"></span><button class="ex-btn" onclick="_rp.result=null;rpRender()">Back to menu</button>
       <button class="ex-btn pri" onclick="_rp.result=null;rpLoad()">Reload from Rista</button></div></div>`;
 }
 
 /* ── history ── */
 function rpHistoryHtml() {
   if (!_rp.history.length) return '<div class="ex-empty">No price changes yet.</div>';
-  return `<div class="pc-wrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">When</th><th>By</th><th>Outlet</th><th>Channel</th><th>Price book</th><th>Updated</th><th style="text-align:left">Changes</th></tr></thead><tbody>
-    ${_rp.history.map(h => `<tr><td style="text-align:left">${pcEsc((h.at || '').slice(0, 16).replace('T', ' '))}</td><td>${pcEsc(h.by_name || h.by || '')}</td>
-      <td>${pcEsc(h.branch)}</td><td>${pcEsc(h.channel)}</td><td>${pcEsc(h.price_book)}</td>
-      <td>${h.ok_count}/${(h.changes || []).length}${h.failed?.length ? ' <span class="pc-badge pc-b-failed">failed</span>' : ''}</td>
-      <td style="text-align:left;font-size:11px">${(h.changes || []).slice(0, 6).map(c => `${pcEsc(c.name || c.sku)}: ₹${c.old ?? '—'}→₹${c.new}${c.ok ? '' : ' ✗'}`).join('<br>')}${(h.changes || []).length > 6 ? `<br><span class="pc-muted">+${h.changes.length - 6} more</span>` : ''}</td></tr>`).join('')}
+  return `<div class="pc-wrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">When</th><th>By</th><th style="text-align:left">Price books · channels</th><th>Updated</th><th style="text-align:left">Changes</th></tr></thead><tbody>
+    ${_rp.history.map(h => {
+      const tg = h.targets || (h.price_book ? [{ price_book: h.price_book, channel: h.channel }] : []);
+      const bad = (h.results || []).some(x => x.failed?.length) || h.failed?.length;
+      return `<tr><td style="text-align:left">${pcEsc((h.at || '').slice(0, 16).replace('T', ' '))}</td><td>${pcEsc(h.by_name || h.by || '')}</td>
+      <td style="text-align:left;font-size:11px">${tg.map(t => `${pcEsc(t.price_book)} · ${pcEsc(t.channel)}`).join('<br>')}</td>
+      <td>${h.ok_count}/${h.total ?? (h.changes || []).length}${bad ? ' <span class="pc-badge pc-b-failed">failed</span>' : ''}</td>
+      <td style="text-align:left;font-size:11px">${(h.changes || []).slice(0, 6).map(c => `${pcEsc(c.name || c.sku)}: ₹${c.old ?? '—'}→₹${c.new}`).join('<br>')}${(h.changes || []).length > 6 ? `<br><span class="pc-muted">+${h.changes.length - 6} more</span>` : ''}</td></tr>`;
+    }).join('')}
   </tbody></table></div>`;
 }
 
 /* ── API check (read-only) ── */
 function rpCheckHtml() {
+  const t = rpTargets(), br = t[0] && rpRefBranch(t[0].price_book, t[0].channel);
   return `<div class="ex-card"><h3>Rista API check (read-only, changes nothing)</h3>
-    <div class="pc-muted" style="margin-bottom:10px">Confirms the API key works, shows how Rista describes a branch (look for price book / channel names), and reads one menu.</div>
-    ${rpPickersHtml().replace('onclick="rpLoad()">Load menu', 'onclick="rpRunProbe()">Run check')}
-    ${_rp.probe ? `<pre style="font-size:11px;max-height:480px;overflow:auto;background:var(--bg);padding:10px;border-radius:var(--r)">${pcEsc(JSON.stringify(_rp.probe, null, 2))}</pre>` : ''}</div>`;
+    <div class="pc-muted" style="margin-bottom:10px">Confirms the API key works, lists branches with their price books and channels${br ? `, and reads the menu for ${pcEsc(t[0].price_book)} · ${pcEsc(t[0].channel)}` : ' (tick a price book + channel on Change prices to also test a menu read)'}.</div>
+    <button class="ex-btn pri" onclick="rpRunProbe()">Run check</button>
+    ${_rp.probe ? `<pre style="font-size:11px;max-height:480px;overflow:auto;background:var(--bg);padding:10px;border-radius:var(--r);margin-top:10px">${pcEsc(JSON.stringify(_rp.probe, null, 2))}</pre>` : ''}</div>`;
 }
 
 async function rpRunProbe() {
-  rpReadPickers(); rpSetMsg('Checking…');
-  try { _rp.probe = await rpApi('GET', `/probe?branch=${encodeURIComponent(_rp.branch)}&channel=${encodeURIComponent(_rp.channel)}`); _rp.msg = ''; }
+  const t = rpTargets(), br = t[0] && rpRefBranch(t[0].price_book, t[0].channel);
+  rpSetMsg('Checking…');
+  try { _rp.probe = await rpApi('GET', `/probe?branch=${encodeURIComponent(br ? br.code : '')}&channel=${encodeURIComponent(br ? t[0].channel : '')}`); _rp.msg = ''; }
   catch (e) { _rp.probe = null; _rp.msg = e.message; }
   rpRender();
 }
