@@ -18422,7 +18422,7 @@ async function oaSaveAll() {
    Prices live on price book + channel. Pick any number of each; a change is
    applied to every ticked price book × channel pair that exists in Rista. */
 const _rp = { tab: 'edit', branches: null, pbs: new Set(), chs: new Set(), items: [], edits: {}, q: '',
-              msg: '', review: false, result: null, history: [], probe: null, loadedKey: '', ref: null };
+              msg: '', review: false, result: null, history: [], probe: null, loadedKey: '', tks: [] };
 const rpLS = (k, v) => { try { if (v === undefined) return localStorage.getItem('rp_' + k) || ''; localStorage.setItem('rp_' + k, v); } catch (e) { return ''; } };
 
 async function rpApi(method, path, body) {
@@ -18517,17 +18517,35 @@ function rpTickAll(kind, on) {
 }
 function rpSavePicks() { rpLS('pbs', JSON.stringify([..._rp.pbs])); rpLS('chs', JSON.stringify([..._rp.chs])); }
 
+const rpKey = t => `${t.price_book}\u0001${t.channel}`;
+const rpEK = (sku, k) => `${sku}\u0002${k}`;
+const rpTkLabel = t => _rp.pbs.size > 1 ? `${t.channel} · ${t.price_book}` : t.channel;
+
+// Reads every ticked price book · channel (4 at a time) and merges by SKU.
 async function rpLoad() {
   const t = rpTargets(); if (!t.length) { rpSetMsg('Tick at least one price book and channel'); return; }
   if (Object.keys(_rp.edits).length && !confirm('Discard your unsaved price edits?')) return;
-  const ref = t[0], br = rpRefBranch(ref.price_book, ref.channel);
-  if (!br) { rpSetMsg('No outlet found for that price book + channel'); return; }
-  _rp.edits = {}; _rp.review = false; _rp.result = null; rpSetMsg('Loading menu from Rista…');
-  try {
-    _rp.items = (await rpApi('GET', `/catalog?branch=${encodeURIComponent(br.code)}&channel=${encodeURIComponent(ref.channel)}`)).items;
-    _rp.ref = ref; _rp.loadedKey = JSON.stringify(t);
-    _rp.msg = `${_rp.items.length} items loaded`;
-  } catch (e) { _rp.items = []; _rp.msg = e.message; }
+  _rp.edits = {}; _rp.review = false; _rp.result = null;
+  const bySku = {}, errs = [], tks = [];
+  let done = 0;
+  const one = async tk => {
+    const br = rpRefBranch(tk.price_book, tk.channel);
+    if (!br) { errs.push(`${rpTkLabel(tk)}: no outlet`); return; }
+    try {
+      const items = (await rpApi('GET', `/catalog?branch=${encodeURIComponent(br.code)}&channel=${encodeURIComponent(tk.channel)}`)).items;
+      tks.push(tk);
+      items.forEach(i => { const e = bySku[i.sku] || (bySku[i.sku] = { ...i, prices: {} }); e.prices[rpKey(tk)] = i.price; });
+    } catch (e) { errs.push(`${rpTkLabel(tk)}: ${e.message}`); }
+    rpSetMsg(`Loading menus from Rista… ${++done}/${t.length}`);
+  };
+  rpSetMsg(`Loading menus from Rista… 0/${t.length}`);
+  const queue = [...t];
+  await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => { while (queue.length) await one(queue.shift()); }));
+  const order = t.map(rpKey);
+  _rp.tks = tks.sort((a, b) => order.indexOf(rpKey(a)) - order.indexOf(rpKey(b)));
+  _rp.items = Object.values(bySku).sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''));
+  _rp.loadedKey = JSON.stringify(t);
+  _rp.msg = `${_rp.items.length} items · ${_rp.tks.length} price book/channel line${_rp.tks.length === 1 ? '' : 's'} loaded` + (errs.length ? ` · not loaded: ${errs.join('; ')}` : '');
   rpRender();
 }
 
@@ -18536,9 +18554,15 @@ function rpVisible() {
   const q = _rp.q.toLowerCase();
   return _rp.items.filter(i => !q || `${i.name} ${i.sku} ${i.category} ${i.variant}`.toLowerCase().includes(q));
 }
+// one entry per item × price book · channel whose new price differs from its own current price
 function rpChanged() {
-  return _rp.items.filter(i => _rp.edits[i.sku] != null && +_rp.edits[i.sku] !== +i.price)
-    .map(i => ({ sku: i.sku, name: i.name + (i.variant ? ` (${i.variant})` : ''), old: i.price, new: +_rp.edits[i.sku] }));
+  const out = [];
+  _rp.items.forEach(i => _rp.tks.forEach(tk => {
+    const k = rpKey(tk), v = _rp.edits[rpEK(i.sku, k)];
+    if (v == null || v === '' || !(k in i.prices) || +v === +i.prices[k]) return;
+    out.push({ sku: i.sku, name: i.name + (i.variant ? ` (${i.variant})` : ''), price_book: tk.price_book, channel: tk.channel, old: i.prices[k], new: +v });
+  }));
+  return out;
 }
 
 function rpEditHtml() {
@@ -18548,20 +18572,28 @@ function rpEditHtml() {
   if (!_rp.items.length) return picks + `<div class="ex-empty">Tick price books and channels, then <b>Load menu</b>.</div>`;
   const stale = _rp.loadedKey !== JSON.stringify(rpTargets());
   const ch = rpChanged();
+  const multi = _rp.tks.length > 1;
+  const line = 'display:flex;align-items:center;gap:6px;justify-content:flex-end;min-height:30px';
   const rows = rpVisible().map(i => {
-    const v = _rp.edits[i.sku], diff = v != null && v !== '' && +v !== +i.price;
-    return `<tr${diff ? ' style="background:var(--amber-dim)"' : ''}>
-      <td style="text-align:left">${pcEsc(i.name)}${i.variant ? ` <span class="pc-muted">(${pcEsc(i.variant)})</span>` : ''}${i.status === 'Inactive' ? ' <span class="pc-badge pc-b-failed">Inactive</span>' : ''}</td>
-      <td class="pc-muted" style="text-align:left">${pcEsc(i.category)}</td>
-      <td class="pc-muted" style="text-align:left">${pcEsc(i.sku)}</td>
-      <td>₹${i.price ?? '—'}</td>
-      <td><input class="ex-in" style="width:90px;text-align:right" type="number" min="0" step="0.01" data-sku="${pcEsc(i.sku)}"
-           value="${v ?? ''}" placeholder="${i.price ?? ''}" oninput="rpEdit(this)"></td>
-      <td>${diff && i.price ? `<span class="pc-muted">${((+v - i.price) / i.price * 100).toFixed(1)}%</span>` : ''}</td></tr>`;
+    const tks = _rp.tks.filter(tk => rpKey(tk) in i.prices);
+    const any = tks.some(tk => { const v = _rp.edits[rpEK(i.sku, rpKey(tk))]; return v != null && v !== '' && +v !== +i.prices[rpKey(tk)]; });
+    const cur = tks.map(tk => `<div style="${line}">${multi ? `<span class="pc-muted">${pcEsc(rpTkLabel(tk))}</span>` : ''}<b>₹${i.prices[rpKey(tk)] ?? '—'}</b></div>`).join('');
+    const nw = tks.map(tk => {
+      const k = rpKey(tk), old = i.prices[k], v = _rp.edits[rpEK(i.sku, k)], diff = v != null && v !== '' && +v !== +old;
+      return `<div style="${line}"><input class="ex-in" style="width:84px;text-align:right${diff ? ';border-color:var(--amber);background:var(--amber-dim)' : ''}" type="number" min="0" step="0.01"
+          data-sku="${pcEsc(i.sku)}" data-k="${pcEsc(k)}" value="${v ?? ''}" placeholder="${old ?? ''}" oninput="rpEdit(this)">
+        <span class="pc-muted" style="width:44px;text-align:left">${diff && old ? ((+v - old) / old * 100).toFixed(1) + '%' : ''}</span></div>`;
+    }).join('');
+    const all = multi ? `<div style="${line};border-top:1px dashed var(--border);margin-top:2px"><span class="pc-muted">all</span><input class="ex-in" style="width:84px;text-align:right" type="number" min="0" step="0.01"
+          data-sku="${pcEsc(i.sku)}" placeholder="same for all" oninput="rpEditAll(this)"><span style="width:44px"></span></div>` : '';
+    return `<tr${any ? ' style="background:var(--amber-dim)"' : ''}>
+      <td style="text-align:left">${pcEsc(i.name)}${i.variant ? ` <span class="pc-muted">(${pcEsc(i.variant)})</span>` : ''}${i.status === 'Inactive' ? ' <span class="pc-badge pc-b-failed">Inactive</span>' : ''}
+        <div class="pc-muted">${pcEsc(i.category)} · ${pcEsc(i.sku)}</div></td>
+      <td>${cur}</td><td>${nw}${all}</td></tr>`;
   }).join('');
   return picks + `
     ${stale ? '<div class="ex-banner">Selection changed since the menu was loaded. Press <b>Load menu</b> again before reviewing.</div>' : ''}
-    <div class="pc-muted" style="margin-bottom:8px">Current prices shown from <b>${pcEsc(_rp.ref.price_book)}</b> · ${pcEsc(_rp.ref.channel)}. Other ticked price books may differ today; the new price is set on all of them.</div>
+    <div class="pc-muted" style="margin-bottom:8px">Each line is one ${_rp.pbs.size > 1 ? 'channel · price book' : 'channel'} with its own current price. Leave a box empty to keep that price.${multi ? ' “all” fills every line of that item.' : ''}</div>
     <div class="ex-bar">
       <input class="ex-in" style="min-width:220px" placeholder="Search item, SKU, category" value="${pcEsc(_rp.q)}" oninput="_rp.q=this.value;rpRefreshTable()">
       <span class="ex-lbl">Bulk on shown items:</span>
@@ -18572,41 +18604,60 @@ function rpEditHtml() {
       <span class="sp"></span>
       <button class="ex-btn pri" id="rpReviewBtn" ${ch.length && !stale ? '' : 'disabled'} onclick="rpReview()">Review ${ch.length} change${ch.length === 1 ? '' : 's'} →</button>
     </div>
-    <div class="pc-muted" style="margin-bottom:8px">CSV format: <code>sku,price</code> (header optional). Bulk % rounds to whole rupees.</div>
-    <div class="pc-wrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th style="text-align:left">Category</th><th style="text-align:left">SKU</th><th>Current</th><th>New</th><th>Δ</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" class="ex-empty">No matching items</td></tr>'}</tbody></table></div>`;
+    <div class="pc-muted" style="margin-bottom:8px">CSV: <code>sku,price</code> sets every line · <code>sku,price,channel</code> sets just that channel${_rp.pbs.size > 1 ? ' · <code>sku,price,channel,price book</code> just that pair' : ''}. Bulk % uses each line's own current price, rounded to whole rupees.</div>
+    <div class="pc-wrap"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th style="text-align:right">Current</th><th style="text-align:right">New</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="3" class="ex-empty">No matching items</td></tr>'}</tbody></table></div>`;
 }
 
 let _rpTblTimer;
 function rpRefreshTable() { clearTimeout(_rpTblTimer); _rpTblTimer = setTimeout(() => { rpRender(); const s = document.querySelector('#pageBody input[placeholder^="Search item"]'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }, 250); }
 
-function rpEdit(el) {
-  const sku = el.dataset.sku;
-  if (el.value === '') delete _rp.edits[sku]; else _rp.edits[sku] = el.value;
-  const item = _rp.items.find(i => i.sku === sku);
-  el.closest('tr').style.background = el.value !== '' && item && +el.value !== +item.price ? 'var(--amber-dim)' : '';
+function rpSetEdit(sku, k, val) { const ek = rpEK(sku, k); if (val === '' || val == null) delete _rp.edits[ek]; else _rp.edits[ek] = String(val); }
+
+function rpUpdateCount() {
   const n = rpChanged().length, btn = document.getElementById('rpReviewBtn');
   if (btn) { btn.disabled = !n || _rp.loadedKey !== JSON.stringify(rpTargets()); btn.textContent = `Review ${n} change${n === 1 ? '' : 's'} →`; }
+}
+
+function rpEdit(el) {
+  const { sku, k } = el.dataset, item = _rp.items.find(i => i.sku === sku);
+  rpSetEdit(sku, k, el.value);
+  const diff = el.value !== '' && item && +el.value !== +item.prices[k];
+  el.style.borderColor = diff ? 'var(--amber)' : ''; el.style.background = diff ? 'var(--amber-dim)' : '';
+  const pct = el.nextElementSibling; if (pct) pct.textContent = diff && item.prices[k] ? ((+el.value - item.prices[k]) / item.prices[k] * 100).toFixed(1) + '%' : '';
+  const tr = el.closest('tr'), anyDiff = [...tr.querySelectorAll('input[data-k]')].some(x => x.value !== '' && +x.value !== +item.prices[x.dataset.k]);
+  tr.style.background = anyDiff ? 'var(--amber-dim)' : '';
+  rpUpdateCount();
+}
+
+// "all" box: copies its value into every line of that item
+function rpEditAll(el) {
+  el.closest('tr').querySelectorAll('input[data-k]').forEach(x => { x.value = el.value; rpEdit(x); });
 }
 
 function rpBulkPct() {
   const pct = parseFloat(document.getElementById('rpPct').value);
   if (isNaN(pct)) { rpSetMsg('Enter a % (e.g. 5 or -10)'); return; }
-  rpVisible().forEach(i => { if (i.price != null) _rp.edits[i.sku] = String(Math.round(i.price * (1 + pct / 100))); });
+  rpVisible().forEach(i => Object.entries(i.prices).forEach(([k, p]) => { if (p != null) rpSetEdit(i.sku, k, Math.round(p * (1 + pct / 100))); }));
   rpRender();
 }
 
+// sku,price[,channel[,price book]] — blank channel/price book = every loaded line
 function rpCsv(input) {
   const f = input.files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => {
-    const known = new Set(_rp.items.map(i => i.sku)); let ok = 0; const miss = [];
+    const bySku = Object.fromEntries(_rp.items.map(i => [i.sku, i])); let ok = 0; const miss = [], noLine = [];
     rd.result.split(/\r?\n/).forEach(line => {
-      const [sku, price] = line.split(',').map(s => (s || '').trim().replace(/^"|"$/g, ''));
+      const [sku, price, ch, pb] = line.split(',').map(s => (s || '').trim().replace(/^"|"$/g, ''));
       if (!sku || isNaN(parseFloat(price))) return;
-      if (known.has(sku)) { _rp.edits[sku] = price; ok++; } else miss.push(sku);
+      const it = bySku[sku]; if (!it) { miss.push(sku); return; }
+      const hits = _rp.tks.filter(tk => (rpKey(tk) in it.prices) && (!ch || tk.channel.toLowerCase() === ch.toLowerCase()) && (!pb || tk.price_book.toLowerCase() === pb.toLowerCase()));
+      if (!hits.length) { noLine.push(`${sku}${ch ? ' / ' + ch : ''}`); return; }
+      hits.forEach(tk => { rpSetEdit(sku, rpKey(tk), price); ok++; });
     });
-    _rp.msg = `CSV: ${ok} prices set` + (miss.length ? ` · ${miss.length} SKUs not on this menu: ${miss.slice(0, 5).join(', ')}${miss.length > 5 ? '…' : ''}` : '');
+    const cut = a => a.slice(0, 5).join(', ') + (a.length > 5 ? '…' : '');
+    _rp.msg = `CSV: ${ok} prices set` + (miss.length ? ` · ${miss.length} SKUs not on menu: ${cut(miss)}` : '') + (noLine.length ? ` · ${noLine.length} rows with a channel/price book not loaded: ${cut(noLine)}` : '');
     rpRender();
   };
   rd.readAsText(f);
@@ -18617,17 +18668,17 @@ function rpClear() { _rp.edits = {}; rpRender(); }
 function rpReview() { _rp.review = true; rpRender(); }
 
 function rpReviewHtml() {
-  const ch = rpChanged(), t = rpTargets(), books = rpBooks();
-  const outlets = [...new Set(t.flatMap(x => books[x.price_book]?.branches || []))];
+  const ch = rpChanged(), books = rpBooks();
+  const pairs = [...new Set(ch.map(c => rpKey(c)))].map(k => { const [price_book, channel] = k.split('\u0001'); return { price_book, channel, n: ch.filter(c => rpKey(c) === k).length }; });
+  const outlets = [...new Set(pairs.flatMap(x => books[x.price_book]?.branches || []))];
   const big = ch.filter(c => c.old && Math.abs(c.new - c.old) / c.old > 0.3);
   return `<div class="ex-card">
-    <h3>Review: ${ch.length} item${ch.length === 1 ? '' : 's'} × ${t.length} price book/channel combination${t.length === 1 ? '' : 's'}</h3>
-    <div class="ex-banner" style="max-height:140px;overflow:auto">Sets these prices on:<br>${t.map(x => `• <b>${pcEsc(x.price_book)}</b> · ${pcEsc(x.channel)}`).join('<br>')}
+    <h3>Review: ${ch.length} price change${ch.length === 1 ? '' : 's'} across ${pairs.length} price book/channel combination${pairs.length === 1 ? '' : 's'}</h3>
+    <div class="ex-banner" style="max-height:140px;overflow:auto">${pairs.map(x => `• <b>${pcEsc(x.price_book)}</b> · ${pcEsc(x.channel)}: ${x.n} item${x.n === 1 ? '' : 's'}`).join('<br>')}
       <br><span class="pc-muted">Outlets on these price books (${outlets.length}): ${outlets.map(pcEsc).join(', ')}</span></div>
-    ${big.length ? `<div class="ex-banner">⚠️ ${big.length} item${big.length === 1 ? '' : 's'} change by more than 30%. Double-check before applying.</div>` : ''}
-    <div class="pc-muted" style="margin:6px 0">“Old” is from ${pcEsc(_rp.ref.price_book)} · ${pcEsc(_rp.ref.channel)}.</div>
-    <div class="pc-wrap" style="max-height:420px;overflow:auto"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th>Old</th><th>New</th><th>Δ</th></tr></thead><tbody>
-      ${ch.map(c => `<tr${big.includes(c) ? ' style="background:var(--red-dim)"' : ''}><td style="text-align:left">${pcEsc(c.name)} <span class="pc-muted">${pcEsc(c.sku)}</span></td><td>₹${c.old ?? '—'}</td><td><b>₹${c.new}</b></td><td class="pc-muted">${c.old ? ((c.new - c.old) / c.old * 100).toFixed(1) + '%' : ''}</td></tr>`).join('')}
+    ${big.length ? `<div class="ex-banner">⚠️ ${big.length} change${big.length === 1 ? '' : 's'} by more than 30%. Double-check before applying.</div>` : ''}
+    <div class="pc-wrap" style="max-height:420px;overflow:auto"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th style="text-align:left">Channel${_rp.pbs.size > 1 ? ' · price book' : ''}</th><th>Old</th><th>New</th><th>Δ</th></tr></thead><tbody>
+      ${ch.map(c => `<tr${big.includes(c) ? ' style="background:var(--red-dim)"' : ''}><td style="text-align:left">${pcEsc(c.name)} <span class="pc-muted">${pcEsc(c.sku)}</span></td><td style="text-align:left">${pcEsc(rpTkLabel(c))}</td><td>₹${c.old ?? '—'}</td><td><b>₹${c.new}</b></td><td class="pc-muted">${c.old ? ((c.new - c.old) / c.old * 100).toFixed(1) + '%' : ''}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="ex-bar" style="margin-top:12px">
       <label class="ex-lbl" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="rpSync" checked> Push menus to aggregators after saving (catalog sync)</label>
@@ -18640,12 +18691,14 @@ function rpReviewHtml() {
 async function rpApply() {
   const btn = document.getElementById('rpApplyBtn'); btn.disabled = true; btn.textContent = 'Applying… (can take a minute)';
   try {
-    _rp.result = await rpApi('POST', '/apply', { targets: rpTargets(), changes: rpChanged(), sync: document.getElementById('rpSync').checked });
+    _rp.result = await rpApi('POST', '/apply', { changes: rpChanged(), sync: document.getElementById('rpSync').checked });
     _rp.review = false;
-    // the reference price book's prices are now the new ones, unless it failed there
-    const refRes = (_rp.result.results || []).find(r => r.price_book === _rp.ref.price_book && r.channel === _rp.ref.channel);
-    const refFailed = new Set((refRes?.failed || []).map(f => f.sku));
-    (_rp.result.changes || []).forEach(c => { if (!refFailed.has(c.sku)) { const it = _rp.items.find(i => i.sku === c.sku); if (it) it.price = c.new; delete _rp.edits[c.sku]; } });
+    // successful lines now hold the new price; failed ones keep the edit for a retry
+    const failed = new Set((_rp.result.results || []).flatMap(r => r.failed.map(f => rpEK(f.sku, rpKey(r)))));
+    (_rp.result.changes || []).forEach(c => {
+      const k = rpKey(c), ek = rpEK(c.sku, k); if (failed.has(ek)) return;
+      const it = _rp.items.find(i => i.sku === c.sku); if (it) it.prices[k] = c.new; delete _rp.edits[ek];
+    });
     rpRender();
     (_rp.result.syncs || []).forEach((s, i) => { const rid = s.requestId || s.request_id; if (rid) rpPollSync(i, rid, 0); });
   } catch (e) { btn.disabled = false; btn.textContent = 'Retry apply'; rpSetMsg(e.message); }
@@ -18668,7 +18721,7 @@ function rpResultHtml() {
   return `<div class="ex-card">
     <h3>${r.ok_count === r.total ? '✅' : '⚠️'} ${r.ok_count} of ${r.total} price updates done on Rista</h3>
     <table class="pc-tbl" style="margin-bottom:10px"><thead><tr><th style="text-align:left">Price book</th><th>Channel</th><th>Updated</th><th style="text-align:left">Failed</th></tr></thead><tbody>
-      ${(r.results || []).map(x => `<tr><td style="text-align:left">${pcEsc(x.price_book)}</td><td>${pcEsc(x.channel)}</td><td>${x.ok_count}/${r.changes.length}</td>
+      ${(r.results || []).map(x => `<tr><td style="text-align:left">${pcEsc(x.price_book)}</td><td>${pcEsc(x.channel)}</td><td>${x.ok_count}/${x.count}</td>
         <td style="text-align:left;font-size:11px">${x.failed.map(f => `${pcEsc(f.sku)} (${pcEsc(f.error)})`).join(', ')}</td></tr>`).join('')}
     </tbody></table>
     ${(r.syncs || []).length ? `<details><summary class="ex-lbl" style="cursor:pointer">Aggregator sync: ${r.syncs.filter(s => s.status === 'Success').length}/${r.syncs.length} done</summary>
