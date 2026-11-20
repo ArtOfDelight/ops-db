@@ -18419,7 +18419,6 @@ async function oaSaveAll() {
 
 /* ════════════════ RISTA PRICE CHANGES ════════════════
    Backend: /api/admin/rista-prices (rista_prices.py) → Rista /items/price + /catalog/sync. */
-const RP_CHANNELS = ['Dine In', 'Swiggy', 'Zomato', 'Ownly', 'Take Away'];   // suggestions; type any Rista channel name
 const _rp = { tab: 'edit', branches: null, branch: '', channel: '', priceBook: '', items: [], edits: {}, q: '',
               msg: '', review: false, result: null, history: [], probe: null, loadedKey: '' };
 const rpLS = (k, v) => { try { if (v === undefined) return localStorage.getItem('rp_' + k) || ''; localStorage.setItem('rp_' + k, v); } catch (e) { return ''; } };
@@ -18462,15 +18461,41 @@ function rpRender() {
 }
 
 /* ── pickers ── */
+// Each Rista branch lists its own channels and its price book.
+const rpBranchRaw = code => ((_rp.branches || []).find(b => b.code === code) || {}).raw || {};
+const rpBranchChannels = code => (rpBranchRaw(code).channels || []).map(c => c.name).filter(Boolean);
+// Rista prices live on price book + channel, so a change hits every outlet sharing both.
+const rpAffected = (pb, ch) => (_rp.branches || []).filter(b => (b.raw || {}).priceBook === pb && (!ch || rpBranchChannels(b.code).includes(ch))).map(b => b.code);
+function rpAffectedHtml(pb, ch) {
+  if (!pb) return '';
+  const out = rpAffected(pb, ch);
+  return `<div class="ex-banner" id="rpAffected">⚠️ Price book “${pcEsc(pb)}”${ch ? ` · ${pcEsc(ch)}` : ''}: changes apply at <b>${out.length} outlet${out.length === 1 ? '' : 's'}</b>: ${out.map(pcEsc).join(', ') || '—'}</div>`;
+}
+function rpUpdateAffected() {
+  const el = document.getElementById('rpAffected'), pb = document.getElementById('rpPB').value.trim(), ch = document.getElementById('rpChannel').value;
+  const html = rpAffectedHtml(pb, ch);
+  if (el) el.outerHTML = html || '<div id="rpAffected"></div>';
+}
+
+function rpBranchPicked(sel) {
+  const raw = rpBranchRaw(sel.value), chs = rpBranchChannels(sel.value);
+  const chSel = document.getElementById('rpChannel');
+  chSel.innerHTML = '<option value="">Pick…</option>' + chs.map(c => `<option value="${pcEsc(c)}">${pcEsc(c)}</option>`).join('');
+  if (chs.includes(_rp.channel)) chSel.value = _rp.channel;
+  document.getElementById('rpPB').value = raw.priceBook || '';
+  rpUpdateAffected();
+}
+
 function rpPickersHtml() {
   const bOpts = (_rp.branches || []).map(b => `<option value="${pcEsc(b.code)}"${b.code === _rp.branch ? ' selected' : ''}>${pcEsc(b.code)} — ${pcEsc(b.name || '')}</option>`).join('');
+  const chs = rpBranchChannels(_rp.branch);
+  if (_rp.branch && !_rp.priceBook) _rp.priceBook = rpBranchRaw(_rp.branch).priceBook || '';
   return `<div class="ex-fields" style="margin-bottom:12px">
-      <label>Outlet (Rista branch)<select class="ex-sel" id="rpBranch"><option value="">Pick…</option>${bOpts}</select></label>
-      <label>Channel<input class="ex-in" id="rpChannel" list="rpChList" value="${pcEsc(_rp.channel)}" placeholder="e.g. Swiggy">
-        <datalist id="rpChList">${RP_CHANNELS.map(c => `<option value="${c}">`).join('')}</datalist></label>
-      <label>Price book<input class="ex-in" id="rpPB" value="${pcEsc(_rp.priceBook)}" placeholder="Rista price book name"></label>
+      <label>Outlet (Rista branch)<select class="ex-sel" id="rpBranch" onchange="rpBranchPicked(this)"><option value="">Pick…</option>${bOpts}</select></label>
+      <label>Channel<select class="ex-sel" id="rpChannel" onchange="rpUpdateAffected()"><option value="">Pick…</option>${chs.map(c => `<option value="${pcEsc(c)}"${c === _rp.channel ? ' selected' : ''}>${pcEsc(c)}</option>`).join('')}</select></label>
+      <label>Price book<input class="ex-in" id="rpPB" value="${pcEsc(_rp.priceBook)}" placeholder="from Rista branch" oninput="rpUpdateAffected()"></label>
       <label>&nbsp;<button class="ex-btn pri" onclick="rpLoad()">Load menu</button></label>
-    </div>`;
+    </div>${rpAffectedHtml(_rp.priceBook, _rp.channel) || '<div id="rpAffected"></div>'}`;
 }
 
 function rpReadPickers() {
@@ -18592,6 +18617,7 @@ function rpReviewHtml() {
   const big = ch.filter(c => c.old && Math.abs(c.new - c.old) / c.old > 0.3);
   return `<div class="ex-card">
     <h3>Review: ${ch.length} price change${ch.length === 1 ? '' : 's'} · ${pcEsc(_rp.branch)} · ${pcEsc(_rp.channel)} · price book “${pcEsc(_rp.priceBook)}”</h3>
+    <div class="ex-banner">This updates price book “${pcEsc(_rp.priceBook)}” on ${pcEsc(_rp.channel)} at <b>every</b> outlet using it: ${rpAffected(_rp.priceBook, _rp.channel).map(pcEsc).join(', ') || '—'}</div>
     ${big.length ? `<div class="ex-banner">⚠️ ${big.length} item${big.length === 1 ? '' : 's'} change by more than 30%. Double-check before applying.</div>` : ''}
     <div class="pc-wrap" style="max-height:420px;overflow:auto"><table class="pc-tbl"><thead><tr><th style="text-align:left">Item</th><th>Old</th><th>New</th><th>Δ</th></tr></thead><tbody>
       ${ch.map(c => `<tr${big.includes(c) ? ' style="background:var(--red-dim)"' : ''}><td style="text-align:left">${pcEsc(c.name)} <span class="pc-muted">${pcEsc(c.sku)}</span></td><td>₹${c.old ?? '—'}</td><td><b>₹${c.new}</b></td><td class="pc-muted">${c.old ? ((c.new - c.old) / c.old * 100).toFixed(1) + '%' : ''}</td></tr>`).join('')}
