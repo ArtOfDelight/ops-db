@@ -17803,7 +17803,7 @@ async function renderMissingInfoPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = '<div style="padding:20px">Loading…</div>';
   let rows;
-  try { rows = (await sfFetch('/api/admin/staff-missing-info')).employees || []; }
+  try { rows = _mi.rows = (await sfFetch('/api/admin/staff-missing-info')).employees || []; }
   catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
   const pill = (t, c) => `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:999px;font-size:12px;font-weight:600;background:${c}22;color:${c}">${sfEsc(t)}</span>`;
   const count = f => rows.filter(r => r.missing.includes(f)).length;
@@ -17824,9 +17824,45 @@ async function renderMissingInfoPage() {
         <td style="padding:8px">${sfEsc(r.department)}</td>
         <td style="padding:8px">${r.missing.map(m => pill(m, '#b45309')).join('') || '<span style="color:#059669">✓ complete</span>'}</td>
         <td style="padding:8px;max-width:340px">${r.kyc_flags.map(f => `<div style="font-size:12px;color:#1d4ed8">⚠️ ${sfEsc(f)}</div>`).join('')}${r.profile_updated_at ? `<div style="font-size:11px;color:var(--ink-3)">self-updated ${sfEsc(r.profile_updated_at.slice(0,10))}</div>` : ''}</td>
-        <td style="padding:8px">${r.kyc_needs_review ? `<button onclick="miReviewed('${sfEsc(r.employee_id)}')" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:var(--surface);cursor:pointer;white-space:nowrap">✓ Reviewed</button>` : ''}</td>
+        <td style="padding:8px;white-space:nowrap"><button onclick="miEdit('${sfEsc(r.employee_id)}')" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:var(--surface);cursor:pointer;margin-right:6px">✏️ Edit</button>${r.kyc_needs_review ? `<button onclick="miReviewed('${sfEsc(r.employee_id)}')" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:var(--surface);cursor:pointer;white-space:nowrap">✓ Reviewed</button>` : ''}</td>
       </tr>`).join('')}</tbody></table></div>` : '<div style="color:#059669">✓ Everyone has complete details.</div>'}
-  </div>`;
+  </div><div id="miModal"></div>`;
+}
+let _mi = { rows: [] };
+const MI_FIELDS = [['pan','PAN'],['aadhaar','Aadhaar'],['bank_account_number','Bank account'],['ifsc_code','IFSC'],
+  ['proxy_bank_account_name','Proxy account name (if not own)'],['date_of_birth','Date of birth'],['pf_number','PF number'],['esi_number','ESI number']];
+function miEdit(id) {
+  const r = _mi.rows.find(x => x.employee_id === id); if (!r) return;
+  document.getElementById('miModal').innerHTML = `<div onclick="if(event.target===this)this.parentNode.innerHTML=''" style="position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;z-index:999;padding:16px">
+    <div style="background:var(--surface);border-radius:12px;padding:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto">
+      <div style="font-weight:700;font-size:16px;margin-bottom:12px">${sfEsc(r.employee_id)} · ${sfEsc(r.full_name || r.short_name)}</div>
+      ${MI_FIELDS.map(([k, l]) => `<label style="display:block;font-size:12px;font-weight:600;margin:8px 0 3px">${l}</label>
+        <input id="mi_${k}" value="${sfEsc(r.values?.[k] || '')}" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #d1d5db;border-radius:6px;background:var(--surface);color:inherit">`).join('')}
+      <div id="miErr" style="color:#b91c1c;font-size:12px;margin-top:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button onclick="document.getElementById('miModal').innerHTML=''" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:var(--surface);cursor:pointer">Cancel</button>
+        <button id="miSave" onclick="miSave('${sfEsc(id)}')" style="padding:8px 14px;border-radius:8px;border:0;background:#111827;color:#fff;font-weight:600;cursor:pointer">Save</button>
+      </div></div></div>`;
+}
+async function miSave(id) {
+  const r = _mi.rows.find(x => x.employee_id === id), body = {};
+  for (const [k] of MI_FIELDS) {
+    let v = document.getElementById('mi_' + k).value.trim();
+    if (k === 'pan' || k === 'ifsc_code') v = v.toUpperCase();
+    if (k === 'aadhaar' || k === 'bank_account_number') v = v.replace(/\s/g, '');
+    if (v !== (r.values?.[k] || '')) body[k] = v;
+  }
+  const err = document.getElementById('miErr');
+  if (body.pan && !/^[A-Z]{5}\d{4}[A-Z]$/.test(body.pan)) { err.textContent = 'PAN looks wrong (ABCDE1234F)'; return; }
+  if (body.ifsc_code && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(body.ifsc_code)) { err.textContent = 'IFSC looks wrong'; return; }
+  if (body.aadhaar && !/^\d{12}$/.test(body.aadhaar)) { err.textContent = 'Aadhaar must be 12 digits'; return; }
+  if (body.bank_account_number && !/^\d{9,18}$/.test(body.bank_account_number)) { err.textContent = 'Bank account must be 9–18 digits'; return; }
+  if (!Object.keys(body).length) { document.getElementById('miModal').innerHTML = ''; return; }
+  document.getElementById('miSave').disabled = true;
+  try {
+    await sfFetch(`/api/admin/employees/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) });
+    renderMissingInfoPage();
+  } catch (e) { err.textContent = e.message; document.getElementById('miSave').disabled = false; }
 }
 async function miReviewed(id) {
   try { await sfFetch(`/api/admin/employees/${encodeURIComponent(id)}/kyc-reviewed`, { method: 'POST' }); renderMissingInfoPage(); }
