@@ -1423,6 +1423,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-expansion" onclick="navTo('expansion')">
         <span class="sb-icon">🚀</span> Expansion
       </button>
+      <button class="sb-item" id="sbitem-missinginfo" onclick="navTo('missinginfo')">
+        <span class="sb-icon">🪪</span> Missing Staff Info
+      </button>
       <button class="sb-item" id="sbitem-catalogue" onclick="navTo('catalogue')">
         <span class="sb-icon">🖼️</span> Catalogue
       </button>
@@ -1475,12 +1478,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','catalogue'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','catalogue','missinginfo'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1530,6 +1533,7 @@ function navTo(page) {
   if (page === 'broadcast')   renderBroadcastPage();
   if (page === 'expansion')   renderExpansionPage();
   if (page === 'catalogue')   renderCataloguePage();
+  if (page === 'missinginfo') renderMissingInfoPage();
   if (page === 'tasks')       renderTasksPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
   if (page === 'access')      renderAccessPage();
@@ -17792,6 +17796,43 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDetai
 </script>
 
 <script>
+/* ── MISSING STAFF INFO ── active staff without PAN / Aadhaar / bank / DOB, and
+   KYC flags (name mismatch, staff-changed bank account) to review. Staff fill
+   these in themselves from App → My Profile. Backend: /api/admin/staff-missing-info */
+async function renderMissingInfoPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading…</div>';
+  let rows;
+  try { rows = (await sfFetch('/api/admin/staff-missing-info')).employees || []; }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  const pill = (t, c) => `<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:999px;font-size:12px;font-weight:600;background:${c}22;color:${c}">${sfEsc(t)}</span>`;
+  const count = f => rows.filter(r => r.missing.includes(f)).length;
+  body.innerHTML = `<div style="padding:16px">
+    <div style="color:var(--ink-2);margin-bottom:12px;font-size:13px">Staff can add these themselves in the app: <b>My Profile</b> (photo of PAN / Aadhaar / passbook). PAN + bank are optional at signup for now.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      ${['PAN','Aadhaar','Bank account','IFSC','Date of birth'].map(f => pill(`${f}: ${count(f)}`, '#b45309')).join('')}
+      ${pill(`To review: ${rows.filter(r => r.kyc_needs_review).length}`, '#2563eb')}
+    </div>
+    ${rows.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--surface)">
+      <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
+        <th style="padding:8px">ID</th><th style="padding:8px">Name</th><th style="padding:8px">Phone</th><th style="padding:8px">Dept</th>
+        <th style="padding:8px">Missing</th><th style="padding:8px">Flags</th><th style="padding:8px"></th></tr></thead>
+      <tbody>${rows.map(r => `<tr style="border-bottom:1px solid var(--border);vertical-align:top">
+        <td style="padding:8px;white-space:nowrap">${sfEsc(r.employee_id)}${r.self_registered ? ' <span title="Self signup">🆕</span>' : ''}</td>
+        <td style="padding:8px">${sfEsc(r.full_name || r.short_name)}<div style="color:var(--ink-3);font-size:11px">${sfEsc(r.short_name)}${r.date_of_joining ? ' · joined ' + sfEsc(r.date_of_joining) : ''}</div></td>
+        <td style="padding:8px;white-space:nowrap">${sfEsc(r.phone)}</td>
+        <td style="padding:8px">${sfEsc(r.department)}</td>
+        <td style="padding:8px">${r.missing.map(m => pill(m, '#b45309')).join('') || '<span style="color:#059669">✓ complete</span>'}</td>
+        <td style="padding:8px;max-width:340px">${r.kyc_flags.map(f => `<div style="font-size:12px;color:#1d4ed8">⚠️ ${sfEsc(f)}</div>`).join('')}${r.profile_updated_at ? `<div style="font-size:11px;color:var(--ink-3)">self-updated ${sfEsc(r.profile_updated_at.slice(0,10))}</div>` : ''}</td>
+        <td style="padding:8px">${r.kyc_needs_review ? `<button onclick="miReviewed('${sfEsc(r.employee_id)}')" style="padding:6px 10px;border-radius:6px;border:1px solid #d1d5db;background:var(--surface);cursor:pointer;white-space:nowrap">✓ Reviewed</button>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>` : '<div style="color:#059669">✓ Everyone has complete details.</div>'}
+  </div>`;
+}
+async function miReviewed(id) {
+  try { await sfFetch(`/api/admin/employees/${encodeURIComponent(id)}/kyc-reviewed`, { method: 'POST' }); renderMissingInfoPage(); }
+  catch (e) { alert(e.message); }
+}
+
 /* ── CATALOGUE ── final product photos (Drive: Catalogue/<category>/), with
    comments per photo. Backend: /api/admin/catalogue */
 let _ct = { items: [], cat: '', open: null };
