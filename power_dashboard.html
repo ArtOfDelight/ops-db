@@ -17810,7 +17810,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDetai
 /* ── CHECKLIST EDITOR ── questions (slot, frequency, photo, critical, checklists) + outlet → checklist */
 const CE_SLOTS = ['Morning', 'Mid Day', 'Closing', 'Housekeeping Closing', 'Monthly'];
 const CE_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const _ce = { questions: [], types: [], outlets: [], type: 'all', slot: 'all', freq: 'all', q: '', edit: null };
+const _ce = { tab: 'ops', questions: [], types: [], type: 'all', slot: 'all', freq: 'all', q: '', edit: null };
 
 function ceDays(q) {
   // days is 'All', '', 'Monday,Tuesday', a list, or a stringified list -> [] means every day
@@ -17829,44 +17829,36 @@ async function renderChecklistEditorPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = '<div style="padding:20px">Loading checklists…</div>';
   try {
-    const [qs, os] = await Promise.all([sfFetch('/api/admin/checklist/questions'), sfFetch('/api/admin/checklist/outlets')]);
-    _ce.questions = qs.questions || [];
-    _ce.outlets = os.outlets || [];
-    const types = new Set(qs.checklist_types || []);
-    _ce.questions.forEach(q => ceTypesOf(q).forEach(t => types.add(t)));
-    _ce.types = [..._ce.types.filter(t => !types.has(t)), ...types].sort();  // keep just-created empty ones
+    if ((_ce.tab || 'ops') === 'ops') {
+      const qs = await sfFetch('/api/admin/checklist/questions');
+      _ce.questions = qs.questions || [];
+      const types = new Set(qs.checklist_types || []);
+      _ce.questions.forEach(q => ceTypesOf(q).forEach(t => types.add(t)));
+      _ce.types = [...types].sort();
+    } else {
+      const d = await sfFetch('/api/admin/outlet-visit-checklists');
+      _cv.lists = d.lists || {}; _cv.outlets = d.outlets || [];
+      if (!_cv.lists[_cv.list]) _cv.list = Object.keys(_cv.lists)[0];
+    }
   } catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
   ceDraw();
 }
 
+function ceTabsHtml() {
+  const t = (k, label) => `<button onclick="_ce.tab='${k}';renderChecklistEditorPage()" style="padding:7px 22px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;background:${(_ce.tab || 'ops') === k ? '#fff' : 'transparent'};color:${(_ce.tab || 'ops') === k ? 'var(--ink)' : 'var(--ink-3)'};box-shadow:${(_ce.tab || 'ops') === k ? '0 1px 4px rgba(0,0,0,.1)' : 'none'}">${label}</button>`;
+  return `<div style="display:flex;gap:4px;margin-bottom:16px;background:var(--border);border-radius:10px;padding:4px;width:fit-content">${t('ops', '✅ Operations Checklist')}${t('visit', '🏪 Outlet Visit Checklist')}</div>`;
+}
+const CE_BTN = 'padding:6px 12px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600';
+const CE_SEL = 'padding:7px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:13px;background:#fff';
+const ceChip = (t, c) => `<span style="display:inline-block;padding:2px 8px;margin:1px;border-radius:999px;font-size:11px;font-weight:600;background:${c}1f;color:${c}">${sfEsc(t)}</span>`;
+function ceSearchInput() {
+  return `<input placeholder="Search…" value="${sfEsc(_ce.q)}" style="${CE_SEL}" id="ceSearch" oninput="_ce.q=this.value;clearTimeout(_ce.t);_ce.t=setTimeout(()=>{ceDraw();const i=document.getElementById('ceSearch');i.focus();i.setSelectionRange(i.value.length,i.value.length)},300)">`;
+}
+
 function ceDraw() {
+  if ((_ce.tab || 'ops') === 'visit') return cvDraw();
   const body = document.getElementById('pageBody');
-  const btn = 'padding:6px 12px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600';
-  const sel = 'padding:7px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:13px;background:#fff';
-  const chip = (t, c) => `<span style="display:inline-block;padding:2px 8px;margin:1px;border-radius:999px;font-size:11px;font-weight:600;background:${c}1f;color:${c}">${sfEsc(t)}</span>`;
-
-  // checklist cards
-  const cards = _ce.types.map(t => {
-    const n = _ce.questions.filter(q => q.outlet_applicability?.[t]).length;
-    const outs = _ce.outlets.filter(o => o.applicable_checklist === t).map(o => o.outlet_name);
-    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;min-width:200px;flex:1">
-      <div style="font-weight:700;font-size:15px">${sfEsc(t)}</div>
-      <div style="font-size:12px;color:var(--ink-3);margin:4px 0">${n} questions · ${outs.length} outlet${outs.length === 1 ? '' : 's'}</div>
-      <div style="font-size:12px;color:var(--ink-2);margin-bottom:8px">${outs.map(sfEsc).join(', ') || '<i>No outlet uses this</i>'}</div>
-      <button style="${btn}" onclick="_ce.type=${sfEsc(JSON.stringify(t))};ceDraw()">View questions</button>
-      <button style="${btn}" onclick="ceCopyChecklist(${sfEsc(JSON.stringify(t))})">Copy into…</button>
-    </div>`;
-  }).join('');
-
-  // outlet assignment
-  const outletRows = _ce.outlets.map(o => `<tr>
-      <td style="padding:6px 8px">${sfEsc(o.outlet_name)} <span style="color:var(--ink-3);font-size:11px">${sfEsc(o.outlet_code)}</span></td>
-      <td style="padding:6px 8px"><select style="${sel}" onchange="ceSetOutlet(${sfEsc(JSON.stringify(o.id))}, this.value)">
-        <option value="">— No checklist —</option>
-        ${_ce.types.map(t => `<option ${t === o.applicable_checklist ? 'selected' : ''}>${sfEsc(t)}</option>`).join('')}
-      </select></td></tr>`).join('');
-
-  // questions
+  const btn = CE_BTN, sel = CE_SEL, chip = ceChip;
   const q = _ce.q.toLowerCase();
   const rows = _ce.questions.filter(x =>
     (_ce.type === 'all' || (_ce.type === 'none' ? !ceTypesOf(x).length : x.outlet_applicability?.[_ce.type])) &&
@@ -17889,19 +17881,8 @@ function ceDraw() {
     </div>`).join('')}`).join('') || '<div style="padding:20px;color:var(--ink-3)">No questions match.</div>';
 
   body.innerHTML = `<div style="padding:16px;max-width:1100px;margin:0 auto">
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <div style="font-weight:700;font-size:16px">Checklists</div>
-      <input id="ceNewType" placeholder="New checklist name" style="${sel};margin-left:auto">
-      <button style="${btn}" onclick="ceNewChecklist()">➕ New checklist</button>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>
-
-    <details style="margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:10px;background:#fff">
-      <summary style="font-weight:700;cursor:pointer">🏬 Which outlet fills which checklist</summary>
-      <table style="margin-top:8px;border-collapse:collapse;font-size:13px">${outletRows}</table>
-    </details>
-
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:22px">
+    ${ceTabsHtml()}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <div style="font-weight:700;font-size:16px;margin-right:8px">Questions (${rows.length})</div>
       <select style="${sel}" onchange="_ce.type=this.value;ceDraw()">
         <option value="all">All checklists</option>
@@ -17915,7 +17896,7 @@ function ceDraw() {
       <select style="${sel}" onchange="_ce.freq=this.value;ceDraw()">
         ${['all', 'Daily', 'Weekly', 'Monthly'].map(f => `<option value="${f}" ${_ce.freq === f ? 'selected' : ''}>${f === 'all' ? 'Any frequency' : f}</option>`).join('')}
       </select>
-      <input placeholder="Search…" value="${sfEsc(_ce.q)}" style="${sel}" oninput="_ce.q=this.value;clearTimeout(_ce.t);_ce.t=setTimeout(()=>{ceDraw();const i=document.getElementById('ceSearch');i.focus();i.setSelectionRange(i.value.length,i.value.length)},300)" id="ceSearch">
+      ${ceSearchInput()}
       <button style="${btn};margin-left:auto;background:#15803d;color:#fff;border-color:#15803d" onclick="ceOpenEdit(null)">➕ Add question</button>
     </div>
     ${qHtml}
@@ -18000,36 +17981,137 @@ async function ceDelete(id) {
   catch (e) { alert('Delete failed: ' + e.message); }
 }
 
-async function ceSetOutlet(outletId, checklist) {
-  try {
-    await sfFetch(`/api/admin/checklist/outlets/${encodeURIComponent(outletId)}`, { method: 'PUT', body: JSON.stringify({ applicable_checklist: checklist }) });
-    const o = _ce.outlets.find(o => o.id === outletId); if (o) o.applicable_checklist = checklist;
-    ceDraw();
-  } catch (e) { alert('Could not change outlet: ' + e.message); renderChecklistEditorPage(); }
+/* ── Outlet Visit checklist lists (RR / KOR / FH / CLOUD), saved whole list at a time ── */
+const _cv = { lists: {}, outlets: [], list: 'RR', section: 'all', edit: null };
+const CV_TYPES = { '': 'Yes / No', single_select: 'Pick one option', multi_select: 'Pick several options', date_input: 'Date', temp_input: 'Temperatures' };
+
+function cvDraw() {
+  const body = document.getElementById('pageBody');
+  const items = _cv.lists[_cv.list] || [];
+  const q = _ce.q.toLowerCase();
+  const sections = [...new Set(items.map(i => i.section || 'General'))];
+  const shown = items.map((it, idx) => ({ it, idx })).filter(({ it }) =>
+    (_cv.section === 'all' || (it.section || 'General') === _cv.section) && (!q || (it.text || '').toLowerCase().includes(q)));
+  const groups = {};
+  shown.forEach(r => (groups[r.it.section || 'General'] ||= []).push(r));
+  const qHtml = Object.keys(groups).map(s => `
+    <div style="margin-top:16px;font-weight:700;font-size:14px">${sfEsc(s)} <span style="color:var(--ink-3);font-weight:500">(${groups[s].length})</span></div>
+    ${groups[s].map(({ it, idx }) => `<div style="display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:8px;margin-top:6px;background:#fff">
+      <div style="color:var(--ink-3);font-size:11px;min-width:36px">${sfEsc(it.id)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px">${sfEsc(it.text)}</div>
+        <div style="margin-top:4px">${ceChip(CV_TYPES[it.type || ''] || it.type, '#2563eb')}${(it.options || []).length ? ceChip(it.options.join(' / '), '#475569') : ''}${it.image_upload ? ceChip('📷 Photo', '#7c3aed') : ''}${it.weight_input ? ceChip('⚖ Weight', '#0e7490') : ''}${it.actionable ? ceChip('🛠 Creates task if No', '#b45309') : ''}</div>
+      </div>
+      <button style="${CE_BTN}" title="Move up" onclick="cvMove(${idx},-1)">↑</button>
+      <button style="${CE_BTN}" title="Move down" onclick="cvMove(${idx},1)">↓</button>
+      <button style="${CE_BTN}" onclick="cvOpenEdit(${idx})">Edit</button>
+      <button style="${CE_BTN};color:#b91c1c" onclick="cvDelete(${idx})">Delete</button>
+    </div>`).join('')}`).join('') || '<div style="padding:20px;color:var(--ink-3)">No questions match.</div>';
+  const usedBy = _cv.outlets.filter(o => o.list === _cv.list).map(o => o.outlet_name);
+  body.innerHTML = `<div style="padding:16px;max-width:1100px;margin:0 auto">
+    ${ceTabsHtml()}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="font-weight:700;font-size:16px;margin-right:8px">Questions (${shown.length})</div>
+      <select style="${CE_SEL}" onchange="_cv.list=this.value;_cv.section='all';ceDraw()">
+        ${Object.keys(_cv.lists).map(n => `<option ${n === _cv.list ? 'selected' : ''} value="${sfEsc(n)}">${sfEsc(n === 'CLOUD' ? 'Cloud kitchens' : n)}</option>`).join('')}
+      </select>
+      <select style="${CE_SEL}" onchange="_cv.section=this.value;ceDraw()">
+        <option value="all">All sections</option>
+        ${sections.map(s => `<option ${_cv.section === s ? 'selected' : ''}>${sfEsc(s)}</option>`).join('')}
+      </select>
+      ${ceSearchInput()}
+      <button style="${CE_BTN};margin-left:auto;background:#15803d;color:#fff;border-color:#15803d" onclick="cvOpenEdit(null)">➕ Add question</button>
+    </div>
+    <div style="font-size:12px;color:var(--ink-3);margin-top:6px">Used for: ${usedBy.map(sfEsc).join(', ') || '—'}</div>
+    ${qHtml}
+  </div>
+  <div id="ceModal"></div>`;
 }
 
-function ceNewChecklist() {
-  const name = document.getElementById('ceNewType').value.trim();
-  if (!name) return;
-  if (!_ce.types.includes(name)) _ce.types = [..._ce.types, name].sort();
-  _ce.type = name;
-  ceDraw();
+async function cvSave(items) {
+  await sfFetch(`/api/admin/outlet-visit-checklists/${encodeURIComponent(_cv.list)}`, { method: 'PUT', body: JSON.stringify({ items }) });
+  _cv.lists[_cv.list] = items;
+}
+async function cvMove(idx, dir) {
+  const items = [...(_cv.lists[_cv.list] || [])], j = idx + dir;
+  if (j < 0 || j >= items.length) return;
+  [items[idx], items[j]] = [items[j], items[idx]];
+  try { await cvSave(items); ceDraw(); } catch (e) { alert('Move failed: ' + e.message); }
+}
+async function cvDelete(idx) {
+  const items = [...(_cv.lists[_cv.list] || [])];
+  if (!confirm(`Delete this question from ${_cv.list}?\n\n"${items[idx].text}"`)) return;
+  items.splice(idx, 1);
+  try { await cvSave(items); ceDraw(); } catch (e) { alert('Delete failed: ' + e.message); }
 }
 
-async function ceCopyChecklist(from) {
-  const to = (prompt(`Copy every "${from}" question into which checklist? (existing or new name)`) || '').trim();
-  if (!to || to === from) return;
-  const list = _ce.questions.filter(q => q.outlet_applicability?.[from] && !q.outlet_applicability?.[to]);
-  if (!confirm(`Add ${list.length} questions from "${from}" to "${to}"?`)) return;
-  let done = 0;
-  for (const q of list) {
-    await sfFetch(`/api/admin/checklist/questions/${encodeURIComponent(q.id)}`, { method: 'PUT', body: JSON.stringify({ outlet_applicability: { ...q.outlet_applicability, [to]: true } }) });
-    done++;
+function cvOpenEdit(idx) {
+  const items = _cv.lists[_cv.list] || [];
+  const it = idx === null ? { text: '', section: _cv.section !== 'all' ? _cv.section : (items[items.length - 1]?.section || 'General') } : items[idx];
+  _cv.edit = idx;
+  const sections = [...new Set(items.map(i => i.section || 'General'))];
+  const lab = 'display:block;font-size:12px;font-weight:700;color:var(--ink-2);margin:12px 0 4px';
+  const inp = 'width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)';
+  const t = it.type || '';
+  const typeOpts = Object.entries(CV_TYPES).filter(([k]) => ['', 'single_select', 'multi_select'].includes(k) || k === t);
+  document.getElementById('ceModal').innerHTML = `
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)ceClose()">
+    <div style="background:#fff;border-radius:12px;padding:18px;width:100%;max-width:520px;max-height:90vh;overflow:auto">
+      <div style="font-weight:700;font-size:16px">${idx === null ? 'Add' : 'Edit'} visit question · ${sfEsc(_cv.list)}</div>
+      <label style="${lab}">Question</label>
+      <textarea id="cvText" rows="3" style="${inp}">${sfEsc(it.text)}</textarea>
+      <label style="${lab}">Section</label>
+      <input id="cvSection" list="cvSections" value="${sfEsc(it.section || '')}" style="${inp}">
+      <datalist id="cvSections">${sections.map(s => `<option value="${sfEsc(s)}">`).join('')}</datalist>
+      <label style="${lab}">Answer type</label>
+      <select id="cvType" style="${inp}" onchange="document.getElementById('cvOptBox').style.display=this.value.endsWith('select')?'':'none'">
+        ${typeOpts.map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>
+      <div id="cvOptBox" style="display:${t.endsWith('select') ? '' : 'none'}">
+        <label style="${lab}">Options (comma separated)</label>
+        <input id="cvOptions" value="${sfEsc((it.options || []).join(', '))}" style="${inp}">
+      </div>
+      <label style="${lab}">Options</label>
+      <label style="display:inline-block;margin-right:14px"><input type="checkbox" id="cvImg" ${it.image_upload ? 'checked' : ''}> 📷 Photo</label>
+      <label style="display:inline-block;margin-right:14px"><input type="checkbox" id="cvWeight" ${it.weight_input ? 'checked' : ''}> ⚖ Weight (g)</label>
+      <label style="display:inline-block"><input type="checkbox" id="cvAct" ${it.actionable ? 'checked' : ''}> 🛠 Creates task if No</label>
+      <div id="ceErr" style="color:#b91c1c;font-size:13px;margin-top:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button onclick="ceClose()" style="padding:8px 16px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;cursor:pointer">Cancel</button>
+        <button id="ceSaveBtn" onclick="cvSaveEdit()" style="padding:8px 20px;border:none;border-radius:8px;background:#15803d;color:#fff;font-weight:700;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function cvSaveEdit() {
+  const err = document.getElementById('ceErr'), b = document.getElementById('ceSaveBtn');
+  const text = document.getElementById('cvText').value.trim();
+  if (!text) { err.textContent = 'Write the question.'; return; }
+  const type = document.getElementById('cvType').value;
+  const options = document.getElementById('cvOptions').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (type.endsWith('select') && options.length < 2) { err.textContent = 'Add at least two options.'; return; }
+  const items = [...(_cv.lists[_cv.list] || [])];
+  const allIds = new Set(Object.values(_cv.lists).flat().map(i => i.id));
+  let n = 1; while (allIds.has('v' + n)) n++;
+  const it = _cv.edit === null ? { id: 'v' + n } : { ...items[_cv.edit] };
+  it.text = text;
+  it.section = document.getElementById('cvSection').value.trim() || 'General';
+  if (type) it.type = type; else delete it.type;
+  if (type.endsWith('select')) it.options = options; else delete it.options;
+  for (const [k, id] of [['image_upload', 'cvImg'], ['weight_input', 'cvWeight'], ['actionable', 'cvAct']]) {
+    if (document.getElementById(id).checked) it[k] = true; else delete it[k];
   }
-  if (!_ce.types.includes(to)) _ce.types.push(to);
-  alert(`Copied ${done} questions into "${to}".`);
-  renderChecklistEditorPage();
+  if (_cv.edit === null) {
+    // new question goes at the end of its section
+    let at = -1; items.forEach((x, i) => { if ((x.section || 'General') === it.section) at = i; });
+    items.splice(at < 0 ? items.length : at + 1, 0, it);
+  } else items[_cv.edit] = it;
+  b.disabled = true; b.textContent = 'Saving…';
+  try { await cvSave(items); ceClose(); ceDraw(); }
+  catch (e) { err.textContent = e.message; b.disabled = false; b.textContent = 'Save'; }
 }
+
 
 async function renderMissingInfoPage() {
   const body = document.getElementById('pageBody');
