@@ -1382,6 +1382,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
         <span class="sb-icon">✅</span> Checklist Status
       </button>
+      <button class="sb-item" id="sbitem-checklisteditor" onclick="navTo('checklisteditor')">
+        <span class="sb-icon">📝</span> Checklist Editor
+      </button>
       <button class="sb-item" id="sbitem-opsreview" onclick="navTo('opsreview')">
         <span class="sb-icon">🗒️</span> Daily Review Status
       </button>
@@ -1481,12 +1484,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1537,6 +1540,7 @@ function navTo(page) {
   if (page === 'expansion')   renderExpansionPage();
   if (page === 'catalogue')   renderCataloguePage();
   if (page === 'missinginfo') renderMissingInfoPage();
+  if (page === 'checklisteditor') renderChecklistEditorPage();
   if (page === 'tasks')       renderTasksPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
   if (page === 'access')      renderAccessPage();
@@ -17803,6 +17807,230 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') pcCloseDetai
 /* ── MISSING STAFF INFO ── active staff without PAN / Aadhaar / bank / DOB, and
    KYC flags (name mismatch, staff-changed bank account) to review. Staff fill
    these in themselves from App → My Profile. Backend: /api/admin/staff-missing-info */
+/* ── CHECKLIST EDITOR ── questions (slot, frequency, photo, critical, checklists) + outlet → checklist */
+const CE_SLOTS = ['Morning', 'Mid Day', 'Closing', 'Housekeeping Closing', 'Monthly'];
+const CE_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const _ce = { questions: [], types: [], outlets: [], type: 'all', slot: 'all', freq: 'all', q: '', edit: null };
+
+function ceDays(q) {
+  // days is 'All', '', 'Monday,Tuesday', a list, or a stringified list -> [] means every day
+  const raw = Array.isArray(q.days) ? q.days.join(',') : String(q.days || '');
+  if (!raw.trim() || raw.trim().toLowerCase() === 'all') return [];
+  return CE_DAYS.filter(d => raw.includes(d));
+}
+function ceFreqLabel(q) {
+  if (q.time_slot === 'Monthly') return 'Monthly';
+  const d = ceDays(q);
+  return d.length ? 'Weekly: ' + d.map(x => x.slice(0, 3)).join(', ') : 'Daily';
+}
+function ceTypesOf(q) { return Object.keys(q.outlet_applicability || {}).filter(k => q.outlet_applicability[k]); }
+
+async function renderChecklistEditorPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading checklists…</div>';
+  try {
+    const [qs, os] = await Promise.all([sfFetch('/api/admin/checklist/questions'), sfFetch('/api/admin/checklist/outlets')]);
+    _ce.questions = qs.questions || [];
+    _ce.outlets = os.outlets || [];
+    const types = new Set(qs.checklist_types || []);
+    _ce.questions.forEach(q => ceTypesOf(q).forEach(t => types.add(t)));
+    _ce.types = [..._ce.types.filter(t => !types.has(t)), ...types].sort();  // keep just-created empty ones
+  } catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  ceDraw();
+}
+
+function ceDraw() {
+  const body = document.getElementById('pageBody');
+  const btn = 'padding:6px 12px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-weight:600';
+  const sel = 'padding:7px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:13px;background:#fff';
+  const chip = (t, c) => `<span style="display:inline-block;padding:2px 8px;margin:1px;border-radius:999px;font-size:11px;font-weight:600;background:${c}1f;color:${c}">${sfEsc(t)}</span>`;
+
+  // checklist cards
+  const cards = _ce.types.map(t => {
+    const n = _ce.questions.filter(q => q.outlet_applicability?.[t]).length;
+    const outs = _ce.outlets.filter(o => o.applicable_checklist === t).map(o => o.outlet_name);
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;min-width:200px;flex:1">
+      <div style="font-weight:700;font-size:15px">${sfEsc(t)}</div>
+      <div style="font-size:12px;color:var(--ink-3);margin:4px 0">${n} questions · ${outs.length} outlet${outs.length === 1 ? '' : 's'}</div>
+      <div style="font-size:12px;color:var(--ink-2);margin-bottom:8px">${outs.map(sfEsc).join(', ') || '<i>No outlet uses this</i>'}</div>
+      <button style="${btn}" onclick="_ce.type=${sfEsc(JSON.stringify(t))};ceDraw()">View questions</button>
+      <button style="${btn}" onclick="ceCopyChecklist(${sfEsc(JSON.stringify(t))})">Copy into…</button>
+    </div>`;
+  }).join('');
+
+  // outlet assignment
+  const outletRows = _ce.outlets.map(o => `<tr>
+      <td style="padding:6px 8px">${sfEsc(o.outlet_name)} <span style="color:var(--ink-3);font-size:11px">${sfEsc(o.outlet_code)}</span></td>
+      <td style="padding:6px 8px"><select style="${sel}" onchange="ceSetOutlet(${sfEsc(JSON.stringify(o.id))}, this.value)">
+        <option value="">— No checklist —</option>
+        ${_ce.types.map(t => `<option ${t === o.applicable_checklist ? 'selected' : ''}>${sfEsc(t)}</option>`).join('')}
+      </select></td></tr>`).join('');
+
+  // questions
+  const q = _ce.q.toLowerCase();
+  const rows = _ce.questions.filter(x =>
+    (_ce.type === 'all' || (_ce.type === 'none' ? !ceTypesOf(x).length : x.outlet_applicability?.[_ce.type])) &&
+    (_ce.slot === 'all' || (x.time_slot || '') === _ce.slot) &&
+    (_ce.freq === 'all' || ceFreqLabel(x).startsWith(_ce.freq)) &&
+    (!q || (x.question_text || '').toLowerCase().includes(q)));
+  const groups = {};
+  rows.forEach(x => (groups[x.time_slot || '(no slot)'] ||= []).push(x));
+  const order = [...CE_SLOTS, '(no slot)'].filter(s => groups[s]);
+  const qHtml = order.map(s => `
+    <div style="margin-top:16px;font-weight:700;font-size:14px">${sfEsc(s)} <span style="color:var(--ink-3);font-weight:500">(${groups[s].length})</span></div>
+    ${groups[s].map(x => `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--border);border-radius:8px;margin-top:6px;background:#fff">
+      <div style="color:var(--ink-3);font-size:11px;min-width:36px">#${x.order}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px">${sfEsc(x.question_text)}</div>
+        <div style="margin-top:4px">${chip(ceFreqLabel(x), '#2563eb')}${x.image_required ? chip('📷 Photo', '#7c3aed') : ''}${x.is_critical ? chip('⚠ Critical', '#b91c1c') : ''}${ceTypesOf(x).map(t => chip(t, '#15803d')).join('') || chip('Not on any checklist', '#b45309')}</div>
+      </div>
+      <button style="${btn}" onclick="ceOpenEdit(${sfEsc(JSON.stringify(x.id))})">Edit</button>
+      <button style="${btn};color:#b91c1c" onclick="ceDelete(${sfEsc(JSON.stringify(x.id))})">Delete</button>
+    </div>`).join('')}`).join('') || '<div style="padding:20px;color:var(--ink-3)">No questions match.</div>';
+
+  body.innerHTML = `<div style="padding:16px;max-width:1100px;margin:0 auto">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <div style="font-weight:700;font-size:16px">Checklists</div>
+      <input id="ceNewType" placeholder="New checklist name" style="${sel};margin-left:auto">
+      <button style="${btn}" onclick="ceNewChecklist()">➕ New checklist</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${cards}</div>
+
+    <details style="margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:10px;background:#fff">
+      <summary style="font-weight:700;cursor:pointer">🏬 Which outlet fills which checklist</summary>
+      <table style="margin-top:8px;border-collapse:collapse;font-size:13px">${outletRows}</table>
+    </details>
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:22px">
+      <div style="font-weight:700;font-size:16px;margin-right:8px">Questions (${rows.length})</div>
+      <select style="${sel}" onchange="_ce.type=this.value;ceDraw()">
+        <option value="all">All checklists</option>
+        ${_ce.types.map(t => `<option ${_ce.type === t ? 'selected' : ''} value="${sfEsc(t)}">${sfEsc(t)}</option>`).join('')}
+        <option value="none" ${_ce.type === 'none' ? 'selected' : ''}>Not on any checklist</option>
+      </select>
+      <select style="${sel}" onchange="_ce.slot=this.value;ceDraw()">
+        <option value="all">All slots</option>
+        ${CE_SLOTS.map(s => `<option ${_ce.slot === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select>
+      <select style="${sel}" onchange="_ce.freq=this.value;ceDraw()">
+        ${['all', 'Daily', 'Weekly', 'Monthly'].map(f => `<option value="${f}" ${_ce.freq === f ? 'selected' : ''}>${f === 'all' ? 'Any frequency' : f}</option>`).join('')}
+      </select>
+      <input placeholder="Search…" value="${sfEsc(_ce.q)}" style="${sel}" oninput="_ce.q=this.value;clearTimeout(_ce.t);_ce.t=setTimeout(()=>{ceDraw();const i=document.getElementById('ceSearch');i.focus();i.setSelectionRange(i.value.length,i.value.length)},300)" id="ceSearch">
+      <button style="${btn};margin-left:auto;background:#15803d;color:#fff;border-color:#15803d" onclick="ceOpenEdit(null)">➕ Add question</button>
+    </div>
+    ${qHtml}
+  </div>
+  <div id="ceModal"></div>`;
+}
+
+function ceOpenEdit(id) {
+  const x = id ? _ce.questions.find(q => q.id === id) : {
+    question_text: '', time_slot: _ce.slot !== 'all' ? _ce.slot : 'Morning', days: 'All', image_required: false, is_critical: false,
+    order: Math.max(0, ..._ce.questions.map(q => q.order || 0)) + 1,
+    outlet_applicability: _ce.type !== 'all' && _ce.type !== 'none' ? { [_ce.type]: true } : {},
+  };
+  _ce.edit = id;
+  const days = ceDays(x);
+  const lab = 'display:block;font-size:12px;font-weight:700;color:var(--ink-2);margin:12px 0 4px';
+  const inp = 'width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)';
+  document.getElementById('ceModal').innerHTML = `
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)ceClose()">
+    <div style="background:#fff;border-radius:12px;padding:18px;width:100%;max-width:520px;max-height:90vh;overflow:auto">
+      <div style="font-weight:700;font-size:16px">${id ? 'Edit question' : 'Add question'}</div>
+      <label style="${lab}">Question</label>
+      <textarea id="ceText" rows="3" style="${inp}">${sfEsc(x.question_text)}</textarea>
+      <div style="display:flex;gap:10px">
+        <div style="flex:2"><label style="${lab}">Slot</label>
+          <select id="ceSlot" style="${inp}" onchange="document.getElementById('ceFreqBox').style.display=this.value==='Monthly'?'none':''">
+            ${CE_SLOTS.map(s => `<option ${x.time_slot === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select></div>
+        <div style="flex:1"><label style="${lab}">Order</label><input id="ceOrder" type="number" value="${x.order ?? 999}" style="${inp}"></div>
+      </div>
+      <div id="ceFreqBox" style="display:${x.time_slot === 'Monthly' ? 'none' : ''}">
+        <label style="${lab}">Frequency</label>
+        <label style="margin-right:14px"><input type="radio" name="ceFreq" value="daily" ${days.length ? '' : 'checked'} onchange="document.getElementById('ceDays').style.display='none'"> Daily</label>
+        <label><input type="radio" name="ceFreq" value="weekly" ${days.length ? 'checked' : ''} onchange="document.getElementById('ceDays').style.display=''"> Weekly / some days</label>
+        <div id="ceDays" style="display:${days.length ? '' : 'none'};margin-top:6px">
+          ${CE_DAYS.map(d => `<label style="display:inline-block;margin:3px 10px 3px 0"><input type="checkbox" value="${d}" ${days.includes(d) ? 'checked' : ''}> ${d.slice(0, 3)}</label>`).join('')}
+        </div>
+      </div>
+      <label style="${lab}">Options</label>
+      <label style="margin-right:14px"><input type="checkbox" id="ceImg" ${x.image_required ? 'checked' : ''}> 📷 Photo required</label>
+      <label><input type="checkbox" id="ceCrit" ${x.is_critical ? 'checked' : ''}> ⚠ Critical</label>
+      <label style="${lab}">On these checklists</label>
+      <div id="ceTypes">${_ce.types.map(t => `<label style="display:inline-block;margin:3px 12px 3px 0"><input type="checkbox" value="${sfEsc(t)}" ${x.outlet_applicability?.[t] ? 'checked' : ''}> ${sfEsc(t)}</label>`).join('')}</div>
+      <div id="ceErr" style="color:#b91c1c;font-size:13px;margin-top:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button onclick="ceClose()" style="padding:8px 16px;border:1.5px solid var(--border-2);border-radius:8px;background:#fff;cursor:pointer">Cancel</button>
+        <button id="ceSaveBtn" onclick="ceSave()" style="padding:8px 20px;border:none;border-radius:8px;background:#15803d;color:#fff;font-weight:700;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>`;
+}
+function ceClose() { document.getElementById('ceModal').innerHTML = ''; }
+
+async function ceSave() {
+  const err = document.getElementById('ceErr'), b = document.getElementById('ceSaveBtn');
+  const text = document.getElementById('ceText').value.trim();
+  if (!text) { err.textContent = 'Write the question.'; return; }
+  const slot = document.getElementById('ceSlot').value;
+  const weekly = slot !== 'Monthly' && document.querySelector('input[name=ceFreq]:checked').value === 'weekly';
+  const days = [...document.querySelectorAll('#ceDays input:checked')].map(i => i.value);
+  if (weekly && !days.length) { err.textContent = 'Pick at least one day.'; return; }
+  const appl = {};
+  _ce.types.forEach(t => appl[t] = false);
+  document.querySelectorAll('#ceTypes input:checked').forEach(i => appl[i.value] = true);
+  const payload = {
+    question_text: text, time_slot: slot, days: weekly ? days.join(',') : 'All',
+    image_required: document.getElementById('ceImg').checked, is_critical: document.getElementById('ceCrit').checked,
+    order: parseInt(document.getElementById('ceOrder').value) || 999, outlet_applicability: appl,
+  };
+  b.disabled = true; b.textContent = 'Saving…';
+  try {
+    if (_ce.edit) await sfFetch(`/api/admin/checklist/questions/${encodeURIComponent(_ce.edit)}`, { method: 'PUT', body: JSON.stringify(payload) });
+    else await sfFetch('/api/admin/checklist/questions', { method: 'POST', body: JSON.stringify(payload) });
+    ceClose(); renderChecklistEditorPage();
+  } catch (e) { err.textContent = e.message; b.disabled = false; b.textContent = 'Save'; }
+}
+
+async function ceDelete(id) {
+  const x = _ce.questions.find(q => q.id === id);
+  if (!confirm(`Delete this question?\n\n"${x.question_text}"`)) return;
+  try { await sfFetch(`/api/admin/checklist/questions/${encodeURIComponent(id)}`, { method: 'DELETE' }); renderChecklistEditorPage(); }
+  catch (e) { alert('Delete failed: ' + e.message); }
+}
+
+async function ceSetOutlet(outletId, checklist) {
+  try {
+    await sfFetch(`/api/admin/checklist/outlets/${encodeURIComponent(outletId)}`, { method: 'PUT', body: JSON.stringify({ applicable_checklist: checklist }) });
+    const o = _ce.outlets.find(o => o.id === outletId); if (o) o.applicable_checklist = checklist;
+    ceDraw();
+  } catch (e) { alert('Could not change outlet: ' + e.message); renderChecklistEditorPage(); }
+}
+
+function ceNewChecklist() {
+  const name = document.getElementById('ceNewType').value.trim();
+  if (!name) return;
+  if (!_ce.types.includes(name)) _ce.types = [..._ce.types, name].sort();
+  _ce.type = name;
+  ceDraw();
+}
+
+async function ceCopyChecklist(from) {
+  const to = (prompt(`Copy every "${from}" question into which checklist? (existing or new name)`) || '').trim();
+  if (!to || to === from) return;
+  const list = _ce.questions.filter(q => q.outlet_applicability?.[from] && !q.outlet_applicability?.[to]);
+  if (!confirm(`Add ${list.length} questions from "${from}" to "${to}"?`)) return;
+  let done = 0;
+  for (const q of list) {
+    await sfFetch(`/api/admin/checklist/questions/${encodeURIComponent(q.id)}`, { method: 'PUT', body: JSON.stringify({ outlet_applicability: { ...q.outlet_applicability, [to]: true } }) });
+    done++;
+  }
+  if (!_ce.types.includes(to)) _ce.types.push(to);
+  alert(`Copied ${done} questions into "${to}".`);
+  renderChecklistEditorPage();
+}
+
 async function renderMissingInfoPage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = '<div style="padding:20px">Loading…</div>';
