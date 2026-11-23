@@ -12715,7 +12715,7 @@ async function ovLoadDeductions() {
         <td>${esc(r.found_at)}</td>
         <td>${esc(r.employee_name)} <span style="color:var(--ink-3);font-size:11px">(${esc(r.employee_id)})</span></td>
         <td>${esc(r.outlet_code)}</td>
-        <td><span style="font-weight:700;color:${pctColor(r.pct)}">${esc(r.violation_type)} · ${esc(r.pct)}%</span></td>
+        <td><span style="font-weight:700;color:${pctColor(r.amount > 0 ? 50 : r.pct)}">${esc(r.violation_type)} · ${r.amount > 0 ? '₹' + esc(r.amount) : esc(r.pct) + '%'}</span></td>
         <td style="max-width:220px;white-space:normal;color:var(--ink-2);font-size:11.5px">${esc(r.violation_text)}</td>
         <td>${r.status === 'applied'
             ? `<span style="color:#16A34A;font-weight:600">✓ Applied ${esc(r.applied_period)}${r.deducted_amount != null ? ' · ₹'+esc(r.deducted_amount) : ''}</span>`
@@ -18017,7 +18017,7 @@ function cvDraw() {
       <div style="color:var(--ink-3);font-size:11px;min-width:36px">${sfEsc(it.id)}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px">${sfEsc(it.text)}</div>
-        <div style="margin-top:4px">${ceChip(CV_TYPES[it.type || ''] || it.type, '#2563eb')}${(it.options || []).length ? ceChip(it.options.join(' / '), '#475569') : ''}${it.image_upload ? ceChip('📷 Photo', '#7c3aed') : ''}${it.weight_input ? ceChip('⚖ Weight', '#0e7490') : ''}${it.actionable ? ceChip('🛠 Store Ops task', '#b45309') : ''}${!it.type ? ceChip('Correct: ' + (it.correct === 'no' ? 'No' : 'Yes'), '#15803d') : ''}${Number(it.fine_pct) > 0 ? ceChip('💸 Fine ' + it.fine_pct + '%' + (it.fine_type ? ' · ' + it.fine_type : ''), '#b91c1c') : ''}</div>
+        <div style="margin-top:4px">${ceChip(CV_TYPES[it.type || ''] || it.type, '#2563eb')}${(it.options || []).length ? ceChip(it.options.join(' / '), '#475569') : ''}${it.image_upload ? ceChip('📷 Photo', '#7c3aed') : ''}${it.weight_input ? ceChip('⚖ Weight', '#0e7490') : ''}${it.actionable ? ceChip('🛠 Store Ops task', '#b45309') : ''}${!it.type ? ceChip('Correct: ' + (it.correct === 'no' ? 'No' : 'Yes'), '#15803d') : ''}${Number(it.fine_amount) > 0 ? ceChip('💸 Fine ₹' + it.fine_amount + (it.fine_type ? ' · ' + it.fine_type : ''), '#b91c1c') : Number(it.fine_pct) > 0 ? ceChip('💸 Fine ' + it.fine_pct + '% (old) · ' + (it.fine_type || ''), '#b91c1c') : ''}</div>
       </div>
       <button style="${CE_BTN}" title="Move up" onclick="cvMove(${idx},-1)">↑</button>
       <button style="${CE_BTN}" title="Move down" onclick="cvMove(${idx},1)">↓</button>
@@ -18126,9 +18126,10 @@ function cvOpenEdit(idx) {
       <label style="display:inline-block;margin-right:14px"><input type="checkbox" id="cvImg" ${it.image_upload ? 'checked' : ''}> 📷 Photo</label>
       <label style="display:inline-block;margin-right:14px"><input type="checkbox" id="cvWeight" ${it.weight_input ? 'checked' : ''}> ⚖ Weight (g)</label>
       <label style="display:inline-block"><input type="checkbox" id="cvAct" ${it.actionable ? 'checked' : ''}> 🛠 Store Ops task when wrong</label>
-      <label style="${lab}">Fine when wrong (% of the staff's weekly incentive, 0 = no fine)</label>
+      <label style="${lab}">Fine when wrong (₹ taken off the tagged staff's incentive, 0 = no fine)</label>
+      ${!(Number(it.fine_amount) > 0) && Number(it.fine_pct) > 0 ? `<div style="font-size:12px;color:#b45309;margin-bottom:4px">Now: ${it.fine_pct}% of weekly incentive. Enter a ₹ amount to switch, or 0 for no fine.</div>` : ''}
       <div style="display:flex;gap:8px">
-        <input id="cvFine" type="number" min="0" max="100" step="5" value="${Number(it.fine_pct) || 0}" style="${inp};flex:1">
+        <input id="cvFine" type="number" min="0" step="50" placeholder="₹" value="${Number(it.fine_amount) > 0 ? it.fine_amount : (Number(it.fine_pct) > 0 ? '' : 0)}" style="${inp};flex:1">
         <input id="cvFineType" placeholder="Reason e.g. fifo, hairnet" value="${sfEsc(it.fine_type || '')}" style="${inp};flex:2">
       </div>
       <div id="ceErr" style="color:#b91c1c;font-size:13px;margin-top:8px"></div>
@@ -18156,9 +18157,12 @@ async function cvSaveEdit() {
   if (type) it.type = type; else delete it.type;
   if (type.endsWith('select')) it.options = options; else delete it.options;
   if (!type && document.querySelector('input[name=cvCorrect]:checked').value === 'no') it.correct = 'no'; else delete it.correct;
-  const fine = parseFloat(document.getElementById('cvFine').value) || 0;
-  if (fine < 0 || fine > 100) { err.textContent = 'Fine must be 0–100%.'; return; }
-  it.fine_pct = fine;
+  const fineRaw = document.getElementById('cvFine').value.trim();
+  if (fineRaw !== '') {  // blank = keep an old % fine as it is
+    const fine = parseFloat(fineRaw);
+    if (!(fine >= 0)) { err.textContent = 'Fine must be a ₹ amount (0 = none).'; return; }
+    it.fine_amount = fine; it.fine_pct = 0;
+  }
   it.fine_type = document.getElementById('cvFineType').value.trim();
   for (const [k, id] of [['image_upload', 'cvImg'], ['weight_input', 'cvWeight'], ['actionable', 'cvAct']]) {
     if (document.getElementById(id).checked) it[k] = true; else delete it[k];
