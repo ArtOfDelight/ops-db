@@ -8094,6 +8094,15 @@ function renderBriefResult(data) {
     if (wk) ltBody = `<div class="db2-sub" style="margin:0 0 8px">Fine = incentive week ${fmtDay(wk.start)} – ${fmtDay(wk.end)} so far · ₹${wk.fine_per_late} per late sign-in</div>` + ltBody;
   }
 
+  // 2b2. Jimmy / Sanu days under 6h (first outlet check-in -> last check-in/out)
+  const sh = m.ops_short_hours;
+  const shDays = (sh || {}).days || [];
+  let shBody;
+  if (err('Ops Short Hours')) shBody = errHtml('Ops Short Hours');
+  else if (!sh) shBody = '<div class="db2-ok">Refresh to load</div>';
+  else if (!shDays.length) shBody = `<div class="db2-ok">✓ Jimmy & Sanu worked ${sh.min_hours}h+ every day they checked in</div>`;
+  else shBody = `<div class="db2-sub" style="margin:0 0 8px">First outlet check-in → last check-in/out · days with no check-in are skipped</div><div class="db2-list">${shDays.map(x => `<div class="db2-row"><span class="db2-dot amber"></span><b>${escHtml(x.name)}</b><span class="db2-sub">${fmtDay(x.date)} · ${x.first}${x.last !== x.first ? '–' + x.last : ''} · ${escHtml((x.outlets || []).join(' → '))}</span><span class="sp"></span><span class="db2-tag">${x.first === x.last ? '1 check-in only' : x.hours + 'h'}</span></div>`).join('')}</div>`;
+
   // 2c. missed checklists: one row per outlet
   const mc = m.missed_checklists;
   let mcBody;
@@ -8285,6 +8294,7 @@ function renderBriefResult(data) {
     ${card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
     ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
+    ${card('🕒', 'Jimmy & Sanu under 6h', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), shDays.length, shBody)}
     ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
     <div class="db2-card good" id="db2Shrink"><div class="db2-card-h"><span class="db2-ic">🗑️</span><div><div class="db2-card-t">Shrinkage (not jars)</div><div class="db2-sub">${fmtDay(m.date_to)}</div></div></div><div class="db2-loading">Loading…</div></div>
     ${card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>`, 'Swiggy & Zomato online % · checked against power-off reports and the Rista log', outlets.size + (avErr ? 1 : 0), avBody, true)}
