@@ -8103,6 +8103,16 @@ function renderBriefResult(data) {
   else if (!shDays.length) shBody = `<div class="db2-ok">✓ Jimmy & Sanu worked ${sh.min_hours}h+ every day they checked in</div>`;
   else shBody = `<div class="db2-sub" style="margin:0 0 8px">First outlet check-in → last check-in/out · days with no check-in are skipped</div><div class="db2-list">${shDays.map(x => `<div class="db2-row"><span class="db2-dot amber"></span><b>${escHtml(x.name)}</b><span class="db2-sub">${fmtDay(x.date)} · ${x.first}${x.last !== x.first ? '–' + x.last : ''} · ${escHtml((x.outlets || []).join(' → '))}</span><span class="sp"></span><span class="db2-tag">${x.first === x.last ? '1 check-in only' : x.hours + 'h'}</span></div>`).join('')}</div>`;
 
+  // 2b3. Sanu's 11-12 morning checklist (RR / KOR / FH by video call)
+  const sm = m.sanu_morning;
+  const smDays = (sm || {}).days || [];
+  const smMissed = smDays.filter(x => x.status === 'missed');
+  let smBody;
+  if (err('Sanu Morning Checklist')) smBody = errHtml('Sanu Morning Checklist');
+  else if (!sm) smBody = '<div class="db2-ok">Refresh to load</div>';
+  else if (!smDays.length) smBody = '<div class="db2-ok">✓ Submitted on time, no issues</div>';
+  else smBody = `<div class="db2-list">${smDays.map(x => `<div class="db2-row"><span class="db2-dot ${x.status === 'missed' ? 'red' : 'amber'}"></span><b>${fmtDay(x.date)}</b><span class="db2-sub">${x.status === 'missed' ? 'Sanu has missed submitting the daily morning checklist.' : (x.status === 'late' ? 'Submitted late at ' + escHtml(x.submitted_at || '') : 'Submitted ' + escHtml(x.submitted_at || '')) + (x.issue_list && x.issue_list.length ? ' · ' + escHtml(x.issue_list.join(' · ')) : '')}</span><span class="sp"></span><span class="db2-tag">${x.status === 'missed' ? 'missed' : x.issues ? x.issues + ' issue' + (x.issues === 1 ? '' : 's') : 'late'}</span></div>`).join('')}</div>`;
+
   // 2c. missed checklists: one row per outlet
   const mc = m.missed_checklists;
   let mcBody;
@@ -8294,6 +8304,7 @@ function renderBriefResult(data) {
     ${card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
     ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
     ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
+    ${card('📹', 'Sanu morning checklist', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), smMissed.length, smBody)}
     ${card('🕒', 'Jimmy & Sanu under 6h', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), shDays.length, shBody)}
     ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
     <div class="db2-card good" id="db2Shrink"><div class="db2-card-h"><span class="db2-ic">🗑️</span><div><div class="db2-card-t">Shrinkage (not jars)</div><div class="db2-sub">${fmtDay(m.date_to)}</div></div></div><div class="db2-loading">Loading…</div></div>
