@@ -1260,6 +1260,22 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
 .cf-dl > div { word-break: break-word; }
 .cf-photos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .cf-photo { max-width: 100%; max-height: 260px; border-radius: 8px; border: 1px solid #e5e7eb; }
+
+/* ── PHONE (also what the AOD Ops DB app shows) ── */
+@media (max-width: 600px) {
+  .stat-row, .body [style*="repeat(4"], .body [style*="repeat(5"], .body [style*="repeat(6"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .stat-card { min-width: 0; padding: 12px 14px; }
+  .panel-tabs, .body [class*="-tabs"] {
+    max-width: 100%; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
+  }
+  .panel-tabs > *, .body [class*="-tabs"] > * { flex-shrink: 0; white-space: nowrap; }
+  .ls-stats-row { flex-wrap: wrap; }
+  .ls-stat { flex: 1 1 45%; min-width: 0; }
+  .body img, .body video { max-width: 100%; height: auto; }
+  .body .m-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 </style>
 </head>
 <body>
@@ -19071,6 +19087,47 @@ async function rpRunProbe() {
   catch (e) { _rp.probe = null; _rp.msg = e.message; }
   rpRender();
 }
+
+/* Phone: anything still wider than the screen scrolls sideways instead of
+   being cut off. Tables get a scroll wrapper; other blocks scroll themselves. */
+(function phoneOverflowFix() {
+  const mq = window.matchMedia('(max-width: 600px)');
+  let t = null;
+  function scrolls(el, stop) {
+    for (let p = el.parentElement; p && p !== stop; p = p.parentElement) {
+      const o = getComputedStyle(p).overflowX;
+      if (o === 'auto' || o === 'scroll') return true;
+    }
+    return false;
+  }
+  function fix() {
+    if (!mq.matches) return;
+    const body = document.querySelector('.body');
+    if (!body) return;
+    const edge = body.getBoundingClientRect().right + 2;
+    body.querySelectorAll('*').forEach(el => {
+      if (!el.offsetParent || el.getBoundingClientRect().right <= edge) return;
+      const par = el.parentElement;
+      if (par && par !== body && par.getBoundingClientRect().right > edge) return;  // fix the outermost only
+      if (scrolls(el, body)) return;
+      if (el.tagName === 'TABLE') {
+        const w = document.createElement('div');
+        w.className = 'm-scroll';
+        el.before(w); w.appendChild(el);
+      } else if (/^(DIV|SECTION|FORM)$/.test(el.tagName)) {
+        el.style.maxWidth = '100%';
+        el.style.overflowX = 'auto';
+      } else if (par && par !== body) {
+        // a button/span spilling out of a row: let the row scroll
+        par.style.maxWidth = '100%';
+        par.style.overflowX = 'auto';
+      }
+    });
+  }
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(fix, 250); })
+    .observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(fix, 250); });
+})();
 </script>
 </body>
 </html>
