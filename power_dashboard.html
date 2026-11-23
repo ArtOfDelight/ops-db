@@ -17877,7 +17877,7 @@ function ceDraw() {
   const btn = CE_BTN, sel = CE_SEL, chip = ceChip;
   const q = _ce.q.toLowerCase();
   const rows = _ce.questions.filter(x =>
-    (_ce.type === 'all' || (_ce.type === 'none' ? !ceTypesOf(x).length : x.outlet_applicability?.[_ce.type])) &&
+    ceTypesOf(x).length && (_ce.type === 'all' || x.outlet_applicability?.[_ce.type]) &&
     (_ce.slot === 'all' || (x.time_slot || '') === _ce.slot) &&
     (_ce.freq === 'all' || ceFreqLabel(x).startsWith(_ce.freq)) &&
     (!q || (x.question_text || '').toLowerCase().includes(q)));
@@ -17891,7 +17891,7 @@ function ceDraw() {
       <div style="color:var(--ink-3);font-size:11px;min-width:36px">#${x.order}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px">${sfEsc(x.question_text)}</div>
-        <div style="margin-top:4px">${chip(ceFreqLabel(x), '#2563eb')}${x.image_required ? chip('📷 Photo', '#7c3aed') : ''}${x.is_critical ? chip('⚠ Critical', '#b91c1c') : ''}${ceTypesOf(x).map(t => chip(t, '#15803d')).join('') || chip('Not on any checklist', '#b45309')}</div>
+        <div style="margin-top:4px">${chip(ceFreqLabel(x), '#2563eb')}${x.image_required ? chip('📷 Photo', '#7c3aed') : ''}${x.is_critical ? chip('⚠ Critical', '#b91c1c') : ''}${ceTypesOf(x).map(t => chip(t, '#15803d')).join('')}</div>
       </div>
       <button style="${btn}" onclick="ceOpenEdit(${sfEsc(JSON.stringify(x.id))})">Edit</button>
       <button style="${btn};color:#b91c1c" onclick="ceDelete(${sfEsc(JSON.stringify(x.id))})">Delete</button>
@@ -17904,7 +17904,6 @@ function ceDraw() {
       <select style="${sel}" onchange="_ce.type=this.value;ceDraw()">
         <option value="all">All checklists</option>
         ${_ce.types.map(t => `<option ${_ce.type === t ? 'selected' : ''} value="${sfEsc(t)}">${sfEsc(t)}</option>`).join('')}
-        <option value="none" ${_ce.type === 'none' ? 'selected' : ''}>Not on any checklist</option>
       </select>
       <select style="${sel}" onchange="_ce.slot=this.value;ceDraw()">
         <option value="all">All slots</option>
