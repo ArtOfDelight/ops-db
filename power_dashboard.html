@@ -1384,6 +1384,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-referrals" onclick="navTo('referrals')">
         <span class="sb-icon">🤝</span> Referrals
       </button>
+      <button class="sb-item" id="sbitem-advances" onclick="navTo('advances')">
+        <span class="sb-icon">💳</span> Advances
+      </button>
     </div>
   </div>
 
@@ -1500,12 +1503,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1548,6 +1551,7 @@ function navTo(page) {
   if (page === 'salaryflags') renderSalaryFlagsPage();
   if (page === 'salaries')    renderSalariesPage();
   if (page === 'referrals')   renderReferralsPage();
+  if (page === 'advances')    renderAdvancesPage();
   if (page === 'cashfree')    renderCashfreePage();
   if (page === 'zomsupport')  renderZomSupportPage();
   if (page === 'ownlyanalytics') renderOwnlyAnalyticsPage();
@@ -16718,6 +16722,81 @@ async function sfSend(decisions) {
 <script>
 /* ── REFERRAL PAYMENTS ── referrer gets ₹2000 once the referred person has
    worked 30 days (roster days with a sign-in). Backend: /api/admin/referrals */
+// ── Advances: what each person owes (same advance_balances ledger as the AOD
+// app admin screen), last 30 days taken, and a per-person cap. A cap blocks
+// requests in the app that would take what they owe above it.
+let _adv = { data: null, show: 'owing', q: '' };
+async function renderAdvancesPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading advances…</div>';
+  try { _adv.data = await sfFetch('/api/admin/advances/overview'); }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  advDraw();
+}
+function advInr(n) { return '₹' + Math.round(n || 0).toLocaleString('en-IN'); }
+function advDraw(msg = '') {
+  const d = _adv.data, body = document.getElementById('pageBody');
+  const q = _adv.q.trim().toLowerCase();
+  const groups = {
+    owing: r => r.owed > 0.01,
+    recent: r => r.last30_count > 0,
+    capped: r => r.cap != null,
+    all: r => r.active || r.owed > 0.01,
+  };
+  const rows = d.rows.filter(groups[_adv.show]).filter(r => !q || r.employee_name.toLowerCase().includes(q) || r.employee_id.toLowerCase().includes(q));
+  const n = k => d.rows.filter(groups[k]).length;
+  const tot = (f) => d.rows.reduce((s, r) => s + (r[f] || 0), 0);
+  const tab = (k, label) => `<button onclick="_adv.show='${k}';advDraw()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:${_adv.show===k?'#111827':'var(--surface)'};color:${_adv.show===k?'#fff':'inherit'};font-weight:600">${label} (${n(k)})</button>`;
+  const stat = (label, val, sub = '') => `<div style="background:var(--surface);border:1px solid #e5e7eb;border-radius:10px;padding:12px 16px;min-width:170px">
+      <div style="color:#6b7280;font-size:12px">${label}</div><div style="font-size:20px;font-weight:700">${val}</div>${sub ? `<div style="color:#6b7280;font-size:12px">${sub}</div>` : ''}</div>`;
+  const recentCount = d.rows.reduce((s, r) => s + r.last30_count, 0);
+  body.innerHTML = `
+  <div style="padding:16px;max-width:1200px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      ${stat('Total owed (ledger)', advInr(tot('balance')), tot('in_flight') ? '+ ' + advInr(tot('in_flight')) + ' paid, not yet in ledger' : 'matches AOD app ledger')}
+      ${stat('Taken last 30 days', advInr(tot('last30_total')), recentCount + ' advance' + (recentCount === 1 ? '' : 's'))}
+      ${stat('People owing', n('owing'), d.rows.filter(r => r.owed > 0.01 && !r.active).length + ' inactive')}
+      ${stat('Capped', n('capped'))}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${tab('owing','Owing')}${tab('recent','Took in last 30 days')}${tab('capped','Capped')}${tab('all','All staff')}
+      <input placeholder="Search name / ID" value="${sfEsc(_adv.q)}" oninput="_adv.q=this.value;advDraw();this.focus();this.setSelectionRange(this.value.length,this.value.length)"
+        style="padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;min-width:200px">
+    </div>
+    <div style="color:#6b7280;font-size:12px;margin-bottom:10px">No cap: up to ${Math.round(d.auto_share*100)}% of base (minus what they owe) is paid instantly, more goes to approval. With a cap: the app blocks anything that takes what they owe above the cap and tells them to contact Nishat. Clear the box to remove a cap.</div>
+    ${msg}
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e5e7eb">
+        <th style="padding:8px">Employee</th><th style="padding:8px;text-align:right">Owes</th>
+        <th style="padding:8px;text-align:right">Last 30 days</th><th style="padding:8px;text-align:right">Base pay</th>
+        <th style="padding:8px">Cap (₹)</th><th style="padding:8px;text-align:right">Can take now</th><th style="padding:8px">Last change</th></tr></thead>
+      <tbody>${rows.length ? rows.map(r => `<tr style="border-top:1px solid #f3f4f6">
+        <td style="padding:8px"><b>${sfEsc(r.employee_name)}</b> <span style="color:#6b7280">${r.employee_id}</span>
+          ${r.active ? '' : '<span style="color:#b91c1c;margin-left:4px">Inactive</span>'}</td>
+        <td style="padding:8px;text-align:right;white-space:nowrap"><b>${advInr(r.owed)}</b>${r.in_flight ? `<div style="color:#b45309;font-size:12px">incl. ${advInr(r.in_flight)} in flight</div>` : ''}</td>
+        <td style="padding:8px;text-align:right;white-space:nowrap">${r.last30_count ? `${advInr(r.last30_total)}<div style="color:#6b7280;font-size:12px">${r.last30_count} advance${r.last30_count===1?'':'s'} · avg ${advInr(r.last30_total / r.last30_count)}</div>` : '<span style="color:#9ca3af">—</span>'}</td>
+        <td style="padding:8px;text-align:right">${r.base_salary ? advInr(r.base_salary) : '<span style="color:#b91c1c">missing</span>'}</td>
+        <td style="padding:8px"><input type="text" inputmode="numeric" placeholder="No cap" value="${r.cap != null ? Math.round(r.cap) : ''}"
+            onkeydown="if(event.key==='Enter')this.blur()" onchange="advSetCap('${r.employee_id}', this.value)"
+            style="width:110px;padding:6px 8px;border:1px solid ${r.cap != null ? '#111827' : '#d1d5db'};border-radius:6px"></td>
+        <td style="padding:8px;text-align:right;white-space:nowrap">${advInr(r.available)}<div style="color:#6b7280;font-size:12px">${r.available_kind === 'cap' ? 'under cap' : 'instant (no cap)'}</div></td>
+        <td style="padding:8px;color:#6b7280;white-space:nowrap">${sfEsc((r.updated_at || '').slice(0,10)) || '—'}</td>
+      </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;color:#6b7280">Nothing here.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+async function advSetCap(id, raw) {
+  const txt = String(raw || '').replace(/[₹,\s]/g, '');
+  if (txt && !/^\d+(\.\d+)?$/.test(txt)) { advDraw(`<div style="padding:10px;color:#b91c1c">Cap must be a number (or empty for no cap).</div>`); return; }
+  const cap = txt ? Number(txt) : null;
+  try {
+    await sfFetch(`/api/admin/advances/cap/${id}`, { method: 'PUT', body: JSON.stringify({ cap }) });
+    const r = _adv.data.rows.find(x => x.employee_id === id);
+    _adv.data = await sfFetch('/api/admin/advances/overview');
+    advDraw(`<div style="padding:10px;background:#d1fae5;border-radius:8px;margin-bottom:10px">${sfEsc(r ? r.employee_name : id)}: ${cap == null ? 'cap removed' : 'cap set to ' + advInr(cap)}</div>`);
+  } catch (e) { advDraw(`<div style="padding:10px;color:#b91c1c">${sfEsc(e.message)}</div>`); }
+}
+
 let _rf = { data: null, show: 'all', busy: false };
 /* ── CASHFREE PAYOUTS (read-only, from the accounting backend) ── */
 // Same Firebase project as the accounting app, so the login OTP's ID token is
