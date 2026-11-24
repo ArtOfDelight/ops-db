@@ -16994,10 +16994,19 @@ async function renderVanPage() {
     map.fitBounds(line, { padding: [30, 30] });
   } else if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
   const visited = d.outlets.filter(o => o.visits.length), not = d.outlets.filter(o => !o.visits.length);
+  // Every stop in time order, numbered; the same numbers go on the map pins.
+  const seq = d.outlets.flatMap(o => o.visits.map(v => ({ ...v, code: o.code, name: o.name, lat: o.lat, lng: o.lng })))
+    .sort((a, b) => a.arrived.localeCompare(b.arrived));
+  seq.forEach((v, i) => {
+    L.marker([v.lat, v.lng], { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 30],
+      html: `<div style="background:#059669;color:#fff;border-radius:11px;min-width:22px;height:22px;padding:0 5px;font:700 11px/22px sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.3)">${i + 1}</div>` }) })
+      .bindTooltip(`${i + 1}. <b>${v.code}</b> ${v.arrived}–${v.left} (${v.minutes}m)`).addTo(map);
+  });
   document.getElementById('vanList').innerHTML = `
-    <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px">Visited (${visited.length})</div>
-    ${visited.map(o => `<div style="border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;margin-bottom:6px"><b>${o.code}</b> <span style="color:#6b7280">${sfEsc(o.name || '')}</span>
-      ${o.visits.map(v => `<div style="font-size:12px">✅ ${v.arrived} → ${v.left} · ${v.minutes} min</div>`).join('')}</div>`).join('') || '<div style="color:#6b7280;font-size:13px;margin-bottom:8px">None</div>'}
+    <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px">Route in order · ${visited.length} outlet${visited.length === 1 ? '' : 's'}</div>
+    ${seq.map((v, i) => `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;margin-bottom:6px">
+      <div style="background:#059669;color:#fff;border-radius:11px;min-width:22px;height:22px;font:700 11px/22px sans-serif;text-align:center">${i + 1}</div>
+      <div><b>${v.code}</b> <span style="color:#6b7280">${sfEsc(v.name || '')}</span><div style="font-size:12px">${v.arrived} → ${v.left} · ${v.minutes} min</div></div></div>`).join('') || '<div style="color:#6b7280;font-size:13px;margin-bottom:8px">No stops at outlets</div>'}
     <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:12px 0 6px">Not visited (${not.length})</div>
     ${not.map(o => `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;margin-bottom:4px;font-size:13px">❌ <b>${o.code}</b> <span style="color:#6b7280">${sfEsc(o.name || '')}</span></div>`).join('')}
     <div style="color:#9ca3af;font-size:11px;margin-top:10px">Visit = van stopped within ${d.radius_m} m of the outlet for 3+ min (driving past doesn't count). Position saved every 2 min from Eicher.</div>`;
