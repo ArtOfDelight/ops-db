@@ -1419,6 +1419,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-orderaudit" onclick="navTo('orderaudit')">
         <span class="sb-icon">📦</span> Order Audit
       </button>
+      <button class="sb-item" id="sbitem-van" onclick="navTo('van')">
+        <span class="sb-icon">🚐</span> Van Tracker
+      </button>
       <button class="sb-item" id="sbitem-ristaprices" onclick="navTo('ristaprices')">
         <span class="sb-icon">🏷️</span> Price Changes
       </button>
@@ -1506,12 +1509,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','tshirts'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','tshirts','van'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', van:'operations', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1563,6 +1566,7 @@ function navTo(page) {
   if (page === 'expansion')   renderExpansionPage();
   if (page === 'catalogue')   renderCataloguePage();
   if (page === 'tshirts')     renderTshirtsPage();
+  if (page === 'van')         renderVanPage();
   if (page === 'missinginfo') renderMissingInfoPage();
   if (page === 'checklisteditor') renderChecklistEditorPage();
   if (page === 'tasks')       renderTasksPage();
@@ -16935,6 +16939,74 @@ function tsExport() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
   a.download = `staff_tshirts_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+}
+
+// ── Van Tracker (#126): Eicher van route for a day, outlet pins, visits ────────
+let _van = { day: null, map: null };
+function vanLoadLeaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise((ok, bad) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+    const js = document.createElement('script'); js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = ok; js.onerror = bad; document.head.appendChild(js);
+  });
+}
+async function renderVanPage() {
+  const body = document.getElementById('pageBody');
+  const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+  _van.day = _van.day || today;
+  body.innerHTML = `<div style="padding:16px;max-width:1300px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="vanShift(-1)" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:var(--surface)">◀</button>
+      <input type="date" id="vanDay" value="${_van.day}" max="${today}" onchange="_van.day=this.value;renderVanPage()" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
+      <button onclick="vanShift(1)" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:var(--surface)">▶</button>
+      <span id="vanSum" style="color:#6b7280;font-size:13px">Loading…</span>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px" class="van-grid">
+      <div id="vanMap" style="height:620px;border-radius:12px;border:1px solid #e5e7eb"></div>
+      <div id="vanList" style="max-height:620px;overflow:auto"></div>
+    </div></div>
+    <style>@media (max-width:860px){.van-grid{grid-template-columns:1fr!important}#vanMap{height:420px!important}}</style>`;
+  let d;
+  try { [, d] = await Promise.all([vanLoadLeaflet(), sfFetch('/api/ops/van-track?date=' + _van.day)]); }
+  catch (e) { document.getElementById('vanSum').textContent = e.message; return; }
+  const s = d.summary;
+  document.getElementById('vanSum').innerHTML = s.points
+    ? `<b>${s.km} km</b> · ${s.first}–${s.last} · moving ${Math.floor(s.moving_min / 60)}h ${s.moving_min % 60}m · ${s.points} GPS points`
+    : 'No GPS points saved for this day.';
+  if (_van.map) { _van.map.remove(); _van.map = null; }
+  const map = L.map('vanMap'); _van.map = map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  const bounds = [];
+  d.outlets.forEach(o => {
+    const went = o.visits.length > 0;
+    L.circleMarker([o.lat, o.lng], { radius: 9, color: went ? '#059669' : '#9ca3af', fillColor: went ? '#10b981' : '#d1d5db', fillOpacity: .9, weight: 2 })
+      .bindTooltip(`<b>${o.code}</b> ${sfEsc(o.name || '')}<br>${went ? o.visits.map(v => v.arrived + '–' + v.left + ' (' + v.minutes + 'm)').join('<br>') : 'Not visited'}`).addTo(map);
+    bounds.push([o.lat, o.lng]);
+  });
+  if (d.points.length) {
+    const line = d.points.map(p => [p.lat, p.lng]);
+    L.polyline(line, { color: '#2563eb', weight: 4, opacity: .8 }).addTo(map);
+    L.circleMarker(line[0], { radius: 7, color: '#111827', fillColor: '#fff', fillOpacity: 1 }).bindTooltip('Start ' + d.points[0].ts.slice(11, 16)).addTo(map);
+    const last = d.points[d.points.length - 1];
+    L.marker(line[line.length - 1]).bindTooltip(`🚐 ${last.ts.slice(11, 16)} · ${last.status}`).addTo(map);
+    map.fitBounds(line, { padding: [30, 30] });
+  } else if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+  const visited = d.outlets.filter(o => o.visits.length), not = d.outlets.filter(o => !o.visits.length);
+  document.getElementById('vanList').innerHTML = `
+    <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px">Visited (${visited.length})</div>
+    ${visited.map(o => `<div style="border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;margin-bottom:6px"><b>${o.code}</b> <span style="color:#6b7280">${sfEsc(o.name || '')}</span>
+      ${o.visits.map(v => `<div style="font-size:12px">✅ ${v.arrived} → ${v.left} · ${v.minutes} min</div>`).join('')}</div>`).join('') || '<div style="color:#6b7280;font-size:13px;margin-bottom:8px">None</div>'}
+    <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:12px 0 6px">Not visited (${not.length})</div>
+    ${not.map(o => `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;margin-bottom:4px;font-size:13px">❌ <b>${o.code}</b> <span style="color:#6b7280">${sfEsc(o.name || '')}</span></div>`).join('')}
+    <div style="color:#9ca3af;font-size:11px;margin-top:10px">Visit = van within ${d.radius_m} m of the outlet for 3+ min. Position saved every 2 min from Eicher.</div>`;
+}
+function vanShift(n) {
+  const t = new Date(_van.day + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n);
+  const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+  const nd = t.toISOString().slice(0, 10); if (nd > today) return;
+  _van.day = nd; renderVanPage();
 }
 
 let _rf = { data: null, show: 'all', busy: false };
