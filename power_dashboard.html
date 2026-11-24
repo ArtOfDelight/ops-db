@@ -8300,16 +8300,31 @@ function renderBriefResult(data) {
         <span class="sp"></span><span class="db2-count ${count ? 'bad' : 'good'}">${count ? count : '✓'}</span></div>
       ${inner}
     </div>`;
-  body.innerHTML = `<div class="db2-grid">
-    ${card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody)}
-    ${card('🕐', 'Missed sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), ppl.length, siBody)}
-    ${card('⏰', 'Late sign-ins', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), lateP.length, ltBody)}
-    ${card('📹', 'Sanu morning checklist', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), smMissed.length, smBody)}
-    ${card('🕒', 'Jimmy & Sanu under 6h', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), shDays.length, shBody)}
-    ${card('📋', 'Missed checklists', (isRange ? rangeLbl : fmtDay(m.missed_signins.date)), mc ? mc.missing.length : 0, mcBody)}
-    <div class="db2-card good" id="db2Shrink"><div class="db2-card-h"><span class="db2-ic">🗑️</span><div><div class="db2-card-t">Shrinkage (not jars)</div><div class="db2-sub">${fmtDay(m.date_to)}</div></div></div><div class="db2-loading">Loading…</div></div>
-    ${card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>`, 'Swiggy & Zomato online % · checked against power-off reports and the Rista log', outlets.size + (avErr ? 1 : 0), avBody, true)}
-  </div>`;
+  const sub1 = isRange ? rangeLbl : fmtDay(m.missed_signins.date);
+  const availLbl = isRange ? rangeLbl : new Date(m.date_to + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  // Grouped sections, each a 2-up row, so a tall card never leaves gaps beside
+  // unrelated ones. The strip on top jumps to each section with its count.
+  const groups = [
+    { id: 'att', icon: '👥', title: 'Attendance', n: ppl.length + lateP.length, cards: [
+      card('🕐', 'Missed sign-ins', sub1, ppl.length, siBody),
+      card('⏰', 'Late sign-ins', sub1, lateP.length, ltBody)] },
+    { id: 'mgr', icon: '🧑‍💼', title: 'Jimmy & Sanu', n: smMissed.length + shDays.length, cards: [
+      card('📹', 'Sanu morning checklist', sub1, smMissed.length, smBody),
+      card('🕒', 'Jimmy & Sanu under 6h', sub1, shDays.length, shBody)] },
+    { id: 'out', icon: '🏪', title: 'Outlet compliance', n: scCount + (mc ? mc.missing.length : 0), cards: [
+      card('📦', 'Missed stock check', isRange ? 'Delivery days ' + rangeLbl : 'Delivery day ' + fmtDay(sc.date), scCount, scBody),
+      card('📋', 'Missed checklists', sub1, mc ? mc.missing.length : 0, mcBody)] },
+    { id: 'avl', icon: '📶', title: `Availability below ${th}%`, n: outlets.size + (avErr ? 1 : 0), cards: [
+      card('📶', `Availability below ${th}% <span style="display:inline-block;margin-left:8px;padding:3px 10px;border-radius:12px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;vertical-align:middle">📅 ${availLbl}</span>`, 'Swiggy & Zomato online % · checked against power-off reports and the Rista log', outlets.size + (avErr ? 1 : 0), avBody, true)] },
+    { id: 'shr', icon: '🗑️', title: 'Shrinkage', n: null, cards: [
+      `<div class="db2-card good wide" id="db2Shrink"><div class="db2-card-h"><span class="db2-ic">🗑️</span><div><div class="db2-card-t">Shrinkage (not jars)</div><div class="db2-sub">${fmtDay(m.date_to)}</div></div></div><div class="db2-loading">Loading…</div></div>`] },
+  ];
+  const chip = g => `<a href="#" onclick="event.preventDefault();document.getElementById('db2sec-${g.id}').scrollIntoView({behavior:'smooth',block:'start'})" class="db2-chip ${g.n ? 'bad' : g.n === 0 ? 'good' : ''}" ${g.id === 'shr' ? 'id="db2ShrinkChip"' : ''}>${g.icon} ${g.title}<b>${g.n == null ? '…' : g.n ? g.n : '✓'}</b></a>`;
+  body.innerHTML = `
+    <div class="db2-strip">${groups.map(chip).join('')}</div>
+    ${groups.map(g => `<section class="db2-sec" id="db2sec-${g.id}">
+      <div class="db2-sec-h">${g.icon} ${g.title}</div>
+      <div class="db2-grid2">${g.cards.join('')}</div></section>`).join('')}`;
   briefLoadShrinkage(m.date_to);
 }
 
@@ -8327,9 +8342,19 @@ async function briefLoadShrinkage(day) {
   let inner;
   if (!d || !d.entries) inner = '<div class="db2-err">Couldn\'t load shrinkage</div>';
   else if (!d.entries.length) inner = '<div class="db2-ok">✓ No shrinkage other than jars</div>';
-  else inner = `<div class="db2-list">${d.entries.map(e => e.items.map(i => `<div class="db2-row"><span class="db2-dot red"></span><b>${escHtml(e.outlet)}</b><span class="db2-sub">${escHtml(i.name)} · ${i.qty} ${escHtml(i.unit || '')}${i.reason ? ' · ' + escHtml(i.reason) : ''}</span><span class="sp"></span><span class="db2-tag">₹${Math.round(i.amount)}</span></div>`).join('')).join('')}</div>`;
+  else {
+    // One row per outlet (total, item count); tap to see its items.
+    const per = d.entries.map(e => ({ e, amt: e.items.reduce((s, i) => s + (i.amount || 0), 0) })).sort((a, b) => b.amt - a.amt);
+    inner = `<div class="db2-list">${per.map(({ e, amt }) => `<details class="db2-fold"><summary class="db2-row"><span class="db2-dot red"></span><b>${escHtml(e.outlet)}</b><span class="db2-sub">${e.items.length} item${e.items.length === 1 ? '' : 's'} · tap to see</span><span class="sp"></span><span class="db2-tag">₹${Math.round(amt).toLocaleString('en-IN')}</span></summary>
+      ${e.items.map(i => `<div class="db2-row db2-subrow"><span class="db2-sub">${escHtml(i.name)} · ${i.qty} ${escHtml(i.unit || '')}${i.reason ? ' · ' + escHtml(i.reason) : ''}</span><span class="sp"></span><span class="db2-tag">₹${Math.round(i.amount)}</span></div>`).join('')}</details>`).join('')}</div>`;
+  }
   if (d && d.failed && d.failed.length) inner += `<div class="db2-sub">Couldn't read: ${d.failed.join(', ')}</div>`;
-  box.className = `db2-card ${d && d.entries && d.entries.length ? 'bad' : 'good'}`;
+  box.className = `db2-card wide ${d && d.entries && d.entries.length ? 'bad' : 'good'}`;
+  const chipEl = document.getElementById('db2ShrinkChip');
+  if (chipEl && d && d.entries) {
+    chipEl.className = 'db2-chip ' + (d.entries.length ? 'bad' : 'good');
+    chipEl.querySelector('b').textContent = d.entries.length ? '₹' + Math.round(d.total || 0).toLocaleString('en-IN') : '✓';
+  }
   box.innerHTML = head + inner;
 }
 
@@ -18516,6 +18541,19 @@ async function ctDelete(id, cid) {
 .db2-verdict.staff { background:var(--red-dim);color:var(--red); }
 .db2-verdict.bad { background:var(--red);color:#fff;font-weight:700; }
 .db2-card.wide { grid-column:1 / -1; }
+.db2-strip { display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px; }
+.db2-chip { display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;text-decoration:none; }
+.db2-chip b { padding:1px 8px;border-radius:999px;background:var(--border);font-size:12px; }
+.db2-chip.bad b { background:#fee2e2;color:var(--red); }
+.db2-chip.good b { background:#ecfdf5;color:var(--green); }
+.db2-sec { margin:0 0 22px;scroll-margin-top:70px; }
+.db2-sec-h { font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:0 0 8px; }
+.db2-grid2 { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start; }
+@media (max-width: 760px) { .db2-grid2 { grid-template-columns:1fr; } }
+.db2-fold > summary { list-style:none;cursor:pointer; }
+.db2-fold > summary::-webkit-details-marker { display:none; }
+.db2-fold[open] > summary .db2-sub { color:var(--ink); }
+.db2-subrow { padding-left:22px; }
 .db2-tbl td .db2-sub { white-space:nowrap; }
 .db2-tbl td .db2-verdict { margin-left:6px; }
 .db2-plog { margin-top:4px;font-size:11px;color:var(--ink-2);font-family:var(--mono);line-height:1.6; }
