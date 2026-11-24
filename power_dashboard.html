@@ -16942,7 +16942,8 @@ function tsExport() {
 }
 
 // ── Van Tracker (#126): Eicher van route for a day, outlet pins, visits ────────
-let _van = { day: null, map: null, view: 'route', r4: true, r7: true, urbanOnly: false, heat: true };
+let _van = { day: null, map: null, view: 'route', r4: true, r7: true, urbanOnly: false, heat: true, potential: false };
+const _vanPlaceNames = {};
 function vanLoadLeaflet() {
   if (window.L) return Promise.resolve();
   return new Promise((ok, bad) => {
@@ -17008,10 +17009,12 @@ async function renderVanCoverage() {
       <label><input type="checkbox" ${_van.r7 ? 'checked' : ''} onchange="_van.r7=this.checked;renderVanCoverage()"> 7 km max reach</label>
       <label><input type="checkbox" ${_van.urbanOnly ? 'checked' : ''} onchange="_van.urbanOnly=this.checked;renderVanCoverage()"> Urban only</label>
       <label><input type="checkbox" ${_van.heat ? 'checked' : ''} onchange="_van.heat=this.checked;renderVanCoverage()"> Built-up heat map</label>
+      <label><input type="checkbox" ${_van.potential ? 'checked' : ''} onchange="_van.potential=this.checked;renderVanCoverage()"> ⭐ Potential openings</label>
       <span style="color:#6b7280">Zomato: up to ~7 km by default; orders over 4 km carry a long-distance fee.</span>
     </div>
     <div id="covPct" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
-    <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div></div>`;
+    <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div>
+    <div id="covPot" style="margin-top:12px"></div></div>`;
   const r4 = _van.r4, r7 = _van.r7;
   let d;
   try { [, d] = await Promise.all([vanLoadLeaflet(), sfFetch('/api/ops/van-track?date=' + (_van.day || new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10))), vanLoadCoverageData()]); }
@@ -17049,7 +17052,49 @@ async function renderVanCoverage() {
       .bindTooltip(`<b>${o.code.replace('CK / ', '')}</b>`, { permanent: true, direction: 'top', offset: [0, -6] }).addTo(map);
     pts.push([o.lat, o.lng]);
   });
+  if (_van.potential) vanShowPotential(map, outs);
   map.fitBounds(cv.urban, { padding: [20, 20] });
+}
+
+// Greedy: pick the spot whose 4 km ring covers the most built-up area that no
+// outlet covers (within 4 km), take it out, repeat. Candidates = uncovered cells.
+function vanShowPotential(map, outs) {
+  const cosL = Math.cos(12.97 * Math.PI / 180), R = 4;
+  const km = (a, b, c, d) => Math.hypot((a - c) * 111.32, (b - d) * 111.32 * cosL);
+  let cells = _blrCov.cells.filter(([la, lo]) => !_van.urbanOnly || vanInPoly(la, lo, _blrCov.urban));
+  const total = cells.reduce((s, c) => s + c[2], 0);
+  let open = cells.filter(([la, lo]) => !outs.some(o => km(o.lat, o.lng, la, lo) <= R));
+  const cands = [...open].sort((a, b) => b[2] - a[2]).slice(0, 900);
+  const picks = [];
+  for (let k = 0; k < 5 && open.length; k++) {
+    let best = null, bw = 0;
+    for (const c of cands) {
+      let w = 0;
+      for (const o of open) if (Math.abs(o[0] - c[0]) < .04 && km(o[0], o[1], c[0], c[1]) <= R) w += o[2];
+      if (w > bw) { bw = w; best = c; }
+    }
+    if (!best) break;
+    picks.push({ lat: best[0], lng: best[1], pct: Math.round(bw / total * 1000) / 10 });
+    open = open.filter(o => km(o[0], o[1], best[0], best[1]) > R);
+  }
+  picks.forEach((p, i) => {
+    L.circle([p.lat, p.lng], { radius: R * 1000, color: '#d97706', weight: 2, dashArray: '5 5', fillColor: '#f59e0b', fillOpacity: .12 }).addTo(map);
+    L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 13],
+      html: `<div style="background:#d97706;color:#fff;border-radius:13px;width:26px;height:26px;font:800 13px/26px sans-serif;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.35)">⭐${i + 1}</div>` }) })
+      .bindTooltip(`Potential #${i + 1}: +${p.pct}% of built-up area within 4 km`).addTo(map);
+  });
+  const el = document.getElementById('covPot');
+  const draw = () => { el.innerHTML = `<div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px">⭐ Potential openings · biggest uncovered built-up areas</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${picks.map((p, i) => `<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:8px 12px;min-width:200px">
+      <b>⭐${i + 1} ${sfEsc(_vanPlaceNames[p.lat + ',' + p.lng] || '…')}</b><div style="font-size:12px">+${p.pct}% of ${_van.urbanOnly ? 'Urban' : 'Urban + Rural'} built-up area in 4 km</div>
+      <a href="https://www.google.com/maps?q=${p.lat},${p.lng}" target="_blank" rel="noopener" style="font-size:12px">Open in Google Maps</a></div>`).join('')}</div>
+    <div style="color:#9ca3af;font-size:11px;margin-top:6px">Picked one at a time: each spot covers the most built-up area not already within 4 km of an outlet or an earlier pick. Straight-line distance; check rents and roads before deciding.</div>`; };
+  draw();
+  // Area names (OpenStreetMap Nominatim, 1 request/second, cached)
+  (async () => { for (const p of picks) { const k = p.lat + ',' + p.lng; if (_vanPlaceNames[k]) continue;
+    try { const j = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=14&lat=${p.lat}&lon=${p.lng}`).then(r => r.json());
+      const a = j.address || {}; _vanPlaceNames[k] = a.suburb || a.neighbourhood || a.village || a.town || a.city_district || (j.display_name || '').split(',')[0]; } catch (e) { _vanPlaceNames[k] = `${p.lat}, ${p.lng}`; }
+    if (document.getElementById('covPot') === el) draw(); await new Promise(r => setTimeout(r, 1100)); } })();
 }
 
 async function renderVanPage() {
