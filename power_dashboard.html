@@ -8323,7 +8323,7 @@ function renderBriefResult(data) {
   body.innerHTML = `
     <div class="db2-strip">${groups.map(chip).join('')}</div>
     ${groups.map(g => `<section class="db2-sec" id="db2sec-${g.id}">
-      <div class="db2-sec-h">${g.icon} ${g.title}</div>
+      ${g.cards.length > 1 ? `<div class="db2-sec-h">${g.icon} ${g.title}</div>` : ''}
       <div class="db2-grid2">${g.cards.join('')}</div></section>`).join('')}`;
   briefLoadShrinkage(m.date_to);
 }
@@ -8344,7 +8344,9 @@ async function briefLoadShrinkage(day) {
   else if (!d.entries.length) inner = '<div class="db2-ok">✓ No shrinkage other than jars</div>';
   else {
     // One row per outlet (total, item count); tap to see its items.
-    const per = d.entries.map(e => ({ e, amt: e.items.reduce((s, i) => s + (i.amount || 0), 0) })).sort((a, b) => b.amt - a.amt);
+    const byOutlet = {};  // an outlet can have more than one store (RR) -> one row each outlet
+    d.entries.forEach(x => { (byOutlet[x.outlet] = byOutlet[x.outlet] || { outlet: x.outlet, items: [] }).items.push(...x.items); });
+    const per = Object.values(byOutlet).map(e => ({ e, amt: e.items.reduce((s, i) => s + (i.amount || 0), 0) })).sort((a, b) => b.amt - a.amt);
     inner = `<div class="db2-list">${per.map(({ e, amt }) => `<details class="db2-fold"><summary class="db2-row"><span class="db2-dot red"></span><b>${escHtml(e.outlet)}</b><span class="db2-sub">${e.items.length} item${e.items.length === 1 ? '' : 's'} · tap to see</span><span class="sp"></span><span class="db2-tag">₹${Math.round(amt).toLocaleString('en-IN')}</span></summary>
       ${e.items.map(i => `<div class="db2-row db2-subrow"><span class="db2-sub">${escHtml(i.name)} · ${i.qty} ${escHtml(i.unit || '')}${i.reason ? ' · ' + escHtml(i.reason) : ''}</span><span class="sp"></span><span class="db2-tag">₹${Math.round(i.amount)}</span></div>`).join('')}</details>`).join('')}</div>`;
   }
