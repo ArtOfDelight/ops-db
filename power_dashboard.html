@@ -16942,7 +16942,7 @@ function tsExport() {
 }
 
 // ── Van Tracker (#126): Eicher van route for a day, outlet pins, visits ────────
-let _van = { day: null, map: null, view: 'route' };
+let _van = { day: null, map: null, view: 'route', r4: true, r7: true };
 function vanLoadLeaflet() {
   if (window.L) return Promise.resolve();
   return new Promise((ok, bad) => {
@@ -16986,13 +16986,13 @@ async function renderVanCoverage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = `<div style="padding:16px;max-width:1300px">${vanTabs()}
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px">
-      <label><input type="checkbox" id="covR4" checked onchange="renderVanCoverage()"> 4 km core zone</label>
-      <label><input type="checkbox" id="covR7" checked onchange="renderVanCoverage()"> 7 km max reach</label>
+      <label><input type="checkbox" ${_van.r4 ? 'checked' : ''} onchange="_van.r4=this.checked;renderVanCoverage()"> 4 km core zone</label>
+      <label><input type="checkbox" ${_van.r7 ? 'checked' : ''} onchange="_van.r7=this.checked;renderVanCoverage()"> 7 km max reach</label>
       <span style="color:#6b7280">Zomato: up to ~7 km by default; orders over 4 km carry a long-distance fee.</span>
     </div>
     <div id="covPct" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
     <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div></div>`;
-  const r4 = (document.getElementById('covR4') || {}).checked !== false, r7 = (document.getElementById('covR7') || {}).checked !== false;
+  const r4 = _van.r4, r7 = _van.r7;
   let d;
   try { [, d] = await Promise.all([vanLoadLeaflet(), sfFetch('/api/ops/van-track?date=' + (_van.day || new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)))]); }
   catch (e) { body.insertAdjacentHTML('beforeend', `<div style="color:#b91c1c;padding:16px">${sfEsc(e.message)}</div>`); return; }
