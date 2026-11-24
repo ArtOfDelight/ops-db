@@ -16982,6 +16982,24 @@ function vanCoveragePct(outlets, km) {
   return tot ? Math.round(hit / tot * 100) : 0;
 }
 
+// Built-up areas (OSM residential/commercial/retail, ~400 m cells weighted by
+// built-up hectares) + Bengaluru Urban & Rural district outlines: blr_coverage.json.
+let _blrCov = null;
+async function vanLoadCoverageData() {
+  if (!_blrCov) _blrCov = await fetch('blr_coverage.json').then(r => r.json());
+  return _blrCov;
+}
+function vanBuiltPct(outlets, km, ring) {
+  const cosL = Math.cos(12.97 * Math.PI / 180);
+  let tot = 0, hit = 0;
+  for (const [la, lo, w] of _blrCov.cells) {
+    if (ring && !vanInPoly(la, lo, ring)) continue;
+    tot += w;
+    if (outlets.some(o => Math.hypot((o.lat - la) * 111.32, (o.lng - lo) * 111.32 * cosL) <= km)) hit += w;
+  }
+  return tot ? Math.round(hit / tot * 100) : 0;
+}
+
 async function renderVanCoverage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = `<div style="padding:16px;max-width:1300px">${vanTabs()}
@@ -16994,20 +17012,30 @@ async function renderVanCoverage() {
     <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div></div>`;
   const r4 = _van.r4, r7 = _van.r7;
   let d;
-  try { [, d] = await Promise.all([vanLoadLeaflet(), sfFetch('/api/ops/van-track?date=' + (_van.day || new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)))]); }
+  try { [, d] = await Promise.all([vanLoadLeaflet(), sfFetch('/api/ops/van-track?date=' + (_van.day || new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10))), vanLoadCoverageData()]); }
   catch (e) { body.insertAdjacentHTML('beforeend', `<div style="color:#b91c1c;padding:16px">${sfEsc(e.message)}</div>`); return; }
   if (_van.map) { _van.map.remove(); _van.map = null; }
   const map = L.map('vanMap'); _van.map = map;
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-  L.polygon(BLR_BOUNDARY, { color: '#dc2626', weight: 2.5, dashArray: '6 6', fill: false }).bindTooltip('Bengaluru city limits (BBMP)').addTo(map);
+  const cv = _blrCov;
+  // where people / shops are: built-up cells, darker = more built-up
+  const rend = L.canvas({ padding: .5 });
+  for (const [la, lo, w] of cv.cells)
+    L.circleMarker([la, lo], { renderer: rend, radius: 3, stroke: false, fillColor: '#ea580c', fillOpacity: Math.min(.55, .08 + w / 30), interactive: false }).addTo(map);
+  L.polygon(cv.rural, { color: '#7c3aed', weight: 2, dashArray: '4 6', fill: false }).bindTooltip('Bengaluru Rural district').addTo(map);
+  L.polygon(cv.urban, { color: '#dc2626', weight: 2.5, dashArray: '6 6', fill: false }).bindTooltip('Bengaluru Urban district').addTo(map);
   const outs = d.outlets.filter(o => o.code !== 'CK');
-  const p4 = vanCoveragePct(outs, 4), p7 = vanCoveragePct(outs, 7);
-  const tile = (label, pct, col) => `<div style="background:var(--surface);border:1px solid #e5e7eb;border-left:4px solid ${col};border-radius:10px;padding:10px 14px;min-width:200px">
+  const p4 = vanBuiltPct(outs, 4, cv.urban), p7 = vanBuiltPct(outs, 7, cv.urban);
+  const q4 = vanBuiltPct(outs, 4, null), q7 = vanBuiltPct(outs, 7, null);
+  const tile = (label, pct, col, sub) => `<div style="background:var(--surface);border:1px solid #e5e7eb;border-left:4px solid ${col};border-radius:10px;padding:10px 14px;min-width:200px">
     <div style="color:#6b7280;font-size:12px">${label}</div><div style="font-size:24px;font-weight:800">${pct}%</div>
     <div style="background:#e5e7eb;border-radius:4px;height:6px;margin-top:4px"><div style="background:${col};height:6px;border-radius:4px;width:${pct}%"></div></div>
-    <div style="color:#6b7280;font-size:11px;margin-top:4px">of Bengaluru city area</div></div>`;
-  document.getElementById('covPct').innerHTML = tile('Within 4 km of an outlet', p4, '#059669') + tile('Within 7 km of an outlet', p7, '#2563eb')
-    + `<div style="align-self:center;color:#6b7280;font-size:12px">${outs.length} outlets · city limits = red dashed line</div>`;
+    <div style="color:#6b7280;font-size:11px;margin-top:4px">${sub}</div></div>`;
+  document.getElementById('covPct').innerHTML =
+      tile('Bengaluru Urban · within 4 km', p4, '#059669', 'of built-up area (homes, shops, offices)')
+    + tile('Bengaluru Urban · within 7 km', p7, '#2563eb', 'of built-up area (homes, shops, offices)')
+    + tile('Urban + Rural · within 7 km', q7, '#7c3aed', `of built-up area · 4 km: ${q4}%`)
+    + `<div style="align-self:center;color:#6b7280;font-size:12px;max-width:260px">${outs.length} outlets · orange = built-up areas (darker = denser) · red = Bengaluru Urban, purple = Bengaluru Rural</div>`;
   const pts = [];
   outs.forEach(o => {
     if (r7) L.circle([o.lat, o.lng], { radius: 7000, color: '#2563eb', weight: 1, fillColor: '#3b82f6', fillOpacity: .06 }).addTo(map);
@@ -17016,7 +17044,7 @@ async function renderVanCoverage() {
       .bindTooltip(`<b>${o.code.replace('CK / ', '')}</b>`, { permanent: true, direction: 'top', offset: [0, -6] }).addTo(map);
     pts.push([o.lat, o.lng]);
   });
-  map.fitBounds(BLR_BOUNDARY, { padding: [20, 20] });
+  map.fitBounds(cv.urban, { padding: [20, 20] });
 }
 
 async function renderVanPage() {
