@@ -16975,6 +16975,7 @@ async function renderVanPage() {
   document.getElementById('vanSum').innerHTML = s.points
     ? `<b>${s.km} km</b> · ${s.first}–${s.last} · moving ${Math.floor(s.moving_min / 60)}h ${s.moving_min % 60}m · ${s.points} GPS points`
     : 'No GPS points saved for this day.';
+  document.getElementById('vanSum').innerHTML += ' <span style="color:#9ca3af">· day = 2 AM to 2 AM</span>';
   if (_van.map) { _van.map.remove(); _van.map = null; }
   const map = L.map('vanMap'); _van.map = map;
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
@@ -16996,7 +16997,7 @@ async function renderVanPage() {
   const visited = d.outlets.filter(o => o.visits.length), not = d.outlets.filter(o => !o.visits.length);
   // Every stop in time order, numbered; the same numbers go on the map pins.
   const seq = d.outlets.flatMap(o => o.visits.map(v => ({ ...v, code: o.code, name: o.name, lat: o.lat, lng: o.lng })))
-    .sort((a, b) => a.arrived.localeCompare(b.arrived));
+    .sort((a, b) => (a.at || a.arrived).localeCompare(b.at || b.arrived));  // day runs 02:00 → 02:00
   seq.forEach((v, i) => {
     L.marker([v.lat, v.lng], { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 30],
       html: `<div style="background:#059669;color:#fff;border-radius:11px;min-width:22px;height:22px;padding:0 5px;font:700 11px/22px sans-serif;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.3)">${i + 1}</div>` }) })
