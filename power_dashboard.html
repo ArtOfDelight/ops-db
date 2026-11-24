@@ -3014,6 +3014,7 @@ function scBuildTable(rows, offset) {
     ${th('net', 'High − Low')}
     ${th('checklist_pct', 'Checklist')}
     ${th('late_count', 'Late')}
+    ${th('stock_mistakes', 'Stock Mistakes')}
   </tr></thead>`;
   const trs = rows.map((e, i) => {
     const errCls = e.errors > 10 ? 'bad' : e.errors > 4 ? 'warn' : 'good';
@@ -3050,7 +3051,8 @@ function scBuildTable(rows, offset) {
         <div style="font-size:9px;color:var(--ink-3);margin-top:1px">${e.checklist_submitted ?? '—'}/${e.checklist_scheduled ?? '—'}</div>
       </td>
       <td><span class="sc-num ${e.late_count > 0 ? 'sc-pct bad' : ''}">${e.late_count ?? 0}</span></td>
-    </tr>` + (open ? scDetailRowHtml(e.employee_id, 12) : '');
+      <td title="${escHtml((e.stock_mistake_items || []).map(x => x.date + ' ' + x.outlet + ': ' + x.item + ' (counted ' + x.counted + ', system ' + x.system + ')').join('\n'))}"><span class="sc-num ${(e.stock_mistakes || 0) > 3 ? 'sc-pct bad' : (e.stock_mistakes || 0) > 0 ? 'sc-pct warn' : ''}">${e.stock_mistakes ?? 0}</span></td>
+    </tr>` + (open ? scDetailRowHtml(e.employee_id, 13) : '');
   }).join('');
   return `<table class="sc-table">${thead}<tbody>${trs}</tbody></table>`;
 }
