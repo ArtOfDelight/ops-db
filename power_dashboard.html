@@ -18198,7 +18198,9 @@ function cvOpenEdit(idx) {
   const lab = 'display:block;font-size:12px;font-weight:700;color:var(--ink-2);margin:12px 0 4px';
   const inp = 'width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--border-2);border-radius:8px;font-size:14px;font-family:var(--sans)';
   const t = it.type || '';
-  const typeOpts = Object.entries(CV_TYPES).filter(([k]) => ['', 'single_select', 'multi_select'].includes(k) || k === t);
+  const typeOpts = Object.entries(CV_TYPES).filter(([k]) => ['', 'single_select', 'multi_select', 'temp_input'].includes(k) || k === t);
+  const tf = it.temp_fields || [];
+  const nFz = tf.length ? tf.filter(f => f.kind === 'freezer').length : 4, nFr = tf.length ? tf.filter(f => f.kind !== 'freezer').length : 2;
   document.getElementById('ceModal').innerHTML = `
   <div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)ceClose()">
     <div style="background:#fff;border-radius:12px;padding:18px;width:100%;max-width:520px;max-height:90vh;overflow:auto">
@@ -18209,7 +18211,7 @@ function cvOpenEdit(idx) {
       <input id="cvSection" list="cvSections" value="${sfEsc(it.section || '')}" style="${inp}">
       <datalist id="cvSections">${sections.map(s => `<option value="${sfEsc(s)}">`).join('')}</datalist>
       <label style="${lab}">Answer type</label>
-      <select id="cvType" style="${inp}" onchange="document.getElementById('cvOptBox').style.display=this.value.endsWith('select')?'':'none';document.getElementById('cvCorrectBox').style.display=this.value?'none':''">
+      <select id="cvType" style="${inp}" onchange="document.getElementById('cvOptBox').style.display=this.value.endsWith('select')?'':'none';document.getElementById('cvTempBox').style.display=this.value==='temp_input'?'':'none';document.getElementById('cvCorrectBox').style.display=this.value?'none':''">
         ${typeOpts.map(([k, v]) => `<option value="${k}" ${k === t ? 'selected' : ''}>${v}</option>`).join('')}
       </select>
       <div id="cvCorrectBox" style="display:${t ? 'none' : ''}">
@@ -18220,6 +18222,13 @@ function cvOpenEdit(idx) {
       <div id="cvOptBox" style="display:${t.endsWith('select') ? '' : 'none'}">
         <label style="${lab}">Options (comma separated)</label>
         <input id="cvOptions" value="${sfEsc((it.options || []).join(', '))}" style="${inp}">
+      </div>
+      <div id="cvTempBox" style="display:${t === 'temp_input' ? '' : 'none'}">
+        <label style="${lab}">Temperature boxes (freezer −22 to −14°C, fridge 2 to 6°C; outside = wrong)</label>
+        <div style="display:flex;gap:8px">
+          <label style="flex:1;font-size:13px">Freezers <input id="cvFz" type="number" min="0" max="10" value="${nFz}" style="${inp}"></label>
+          <label style="flex:1;font-size:13px">Fridges <input id="cvFr" type="number" min="0" max="10" value="${nFr}" style="${inp}"></label>
+        </div>
       </div>
       <label style="${lab}">Options</label>
       <label style="display:inline-block;margin-right:14px"><input type="checkbox" id="cvImg" ${it.image_upload ? 'checked' : ''}> 📷 Photo</label>
@@ -18255,6 +18264,12 @@ async function cvSaveEdit() {
   it.section = document.getElementById('cvSection').value.trim() || 'General';
   if (type) it.type = type; else delete it.type;
   if (type.endsWith('select')) it.options = options; else delete it.options;
+  if (type === 'temp_input') {
+    const nFz = parseInt(document.getElementById('cvFz').value) || 0, nFr = parseInt(document.getElementById('cvFr').value) || 0;
+    if (nFz + nFr < 1) { err.textContent = 'Add at least one freezer or fridge box.'; return; }
+    it.temp_fields = [...Array.from({ length: nFz }, (_, i) => ({ key: 'freezer' + (i + 1), label: 'Freezer ' + (i + 1), kind: 'freezer' })),
+                      ...Array.from({ length: nFr }, (_, i) => ({ key: 'fridge' + (i + 1), label: 'Fridge ' + (i + 1), kind: 'fridge' }))];
+  } else delete it.temp_fields;
   if (!type && document.querySelector('input[name=cvCorrect]:checked').value === 'no') it.correct = 'no'; else delete it.correct;
   const fineRaw = document.getElementById('cvFine').value.trim();
   if (fineRaw !== '') {  // blank = keep an old % fine as it is
