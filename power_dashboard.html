@@ -1454,6 +1454,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-catalogue" onclick="navTo('catalogue')">
         <span class="sb-icon">🖼️</span> Catalogue
       </button>
+      <button class="sb-item" id="sbitem-tshirts" onclick="navTo('tshirts')">
+        <span class="sb-icon">👕</span> T-Shirts
+      </button>
     </div>
   </div>
 
@@ -1503,12 +1506,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','tshirts'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1559,6 +1562,7 @@ function navTo(page) {
   if (page === 'broadcast')   renderBroadcastPage();
   if (page === 'expansion')   renderExpansionPage();
   if (page === 'catalogue')   renderCataloguePage();
+  if (page === 'tshirts')     renderTshirtsPage();
   if (page === 'missinginfo') renderMissingInfoPage();
   if (page === 'checklisteditor') renderChecklistEditorPage();
   if (page === 'tasks')       renderTasksPage();
@@ -16885,6 +16889,50 @@ async function advSetCap(id, raw) {
     _adv.data = await sfFetch('/api/admin/advances/overview');
     advDraw(`<div style="padding:10px;background:#d1fae5;border-radius:8px;margin-bottom:10px">${sfEsc(r ? r.employee_name : id)}: ${cap == null ? 'cap removed' : 'cap set to ' + advInr(cap)}</div>`);
   } catch (e) { advDraw(`<div style="padding:10px;color:#b91c1c">${sfEsc(e.message)}</div>`); }
+}
+
+// ── Staff T-shirts (#155): count each person has + size, to issue = target − have,
+// totals per size for purchasing, split Dine-in / Cloud / Kitchen / Office.
+let _ts = { data: null };
+async function renderTshirtsPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading…</div>';
+  try { _ts.data = await sfFetch('/api/admin/tshirts'); }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  const d = _ts.data, groups = ['Dine-in', 'Cloud', 'Kitchen', 'Office'];
+  const done = d.rows.filter(r => r.submitted).length;
+  const sizeTotals = rows => d.sizes.map(sz => rows.filter(r => r.size === sz).reduce((s, r) => s + (r.to_issue || 0), 0));
+  const totalRow = (label, rows) => { const t = sizeTotals(rows); return `<tr style="font-weight:700;background:#f5f7fb"><td style="padding:8px">${label}</td>${t.map(n => `<td style="padding:8px;text-align:center">${n || '—'}</td>`).join('')}<td style="padding:8px;text-align:center">${t.reduce((a, b) => a + b, 0)}</td></tr>`; };
+  const sizeTable = `<table style="border-collapse:collapse;font-size:13px;min-width:420px"><thead><tr style="color:#6b7280;text-align:center"><th style="padding:8px;text-align:left">T-shirts to issue</th>${d.sizes.map(sz => `<th style="padding:8px">${sz}</th>`).join('')}<th style="padding:8px">Total</th></tr></thead><tbody>
+    ${groups.map(g => totalRow(g, d.rows.filter(r => r.group === g))).join('')}${totalRow('All', d.rows)}</tbody></table>`;
+  const groupTable = g => { const rows = d.rows.filter(r => r.group === g); if (!rows.length) return '';
+    return `<div style="margin-top:18px"><div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px">${g} · ${rows.filter(r => r.submitted).length}/${rows.length} submitted</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e5e7eb">
+      <th style="padding:8px">Staff</th><th style="padding:8px">Works at</th><th style="padding:8px;text-align:center">Has now</th><th style="padding:8px;text-align:center">Size</th><th style="padding:8px;text-align:center">To issue</th></tr></thead>
+    <tbody>${rows.map(r => `<tr style="border-top:1px solid #f3f4f6"><td style="padding:8px"><b>${sfEsc(r.name)}</b> <span style="color:#6b7280">${r.employee_id}</span></td><td style="padding:8px">${sfEsc(r.outlet || '—')}</td>
+      ${r.submitted ? `<td style="padding:8px;text-align:center">${r.have}</td><td style="padding:8px;text-align:center"><b>${sfEsc(r.size)}</b></td><td style="padding:8px;text-align:center;font-weight:700;color:${r.to_issue ? '#b91c1c' : '#059669'}">${r.to_issue || '✓'}</td>`
+        : '<td colspan="3" style="padding:8px;text-align:center;color:#b45309">Not submitted yet</td>'}</tr>`).join('')}</tbody></table></div></div>`; };
+  body.innerHTML = `<div style="padding:16px;max-width:1100px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <div style="font-size:14px"><b>${done}/${d.rows.length}</b> staff submitted · target <b>${d.target}</b> T-shirts each · admins not included</div>
+      <span style="flex:1"></span><button onclick="tsExport()" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;background:var(--surface);font-weight:600">⬇ Excel (CSV)</button>
+    </div>
+    <div style="overflow-x:auto">${sizeTable}</div>
+    ${groups.map(groupTable).join('')}</div>`;
+}
+function tsExport() {
+  const d = _ts.data; if (!d) return;
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [['Group', 'Employee ID', 'Name', 'Works at', 'Submitted', 'Has now', 'Size', 'To issue'].map(q).join(',')]
+    .concat(d.rows.map(r => [r.group, r.employee_id, r.name, r.outlet, r.submitted ? 'Yes' : 'No', r.have ?? '', r.size ?? '', r.to_issue ?? ''].map(q).join(',')));
+  lines.push('', ['Totals to issue', ...d.sizes].map(q).join(','));
+  ['Dine-in', 'Cloud', 'Kitchen', 'Office', 'All'].forEach(g => {
+    const rows = g === 'All' ? d.rows : d.rows.filter(r => r.group === g);
+    lines.push([g, ...d.sizes.map(sz => rows.filter(r => r.size === sz).reduce((s, r) => s + (r.to_issue || 0), 0))].map(q).join(','));
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+  a.download = `staff_tshirts_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
 }
 
 let _rf = { data: null, show: 'all', busy: false };
