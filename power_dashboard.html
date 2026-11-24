@@ -17004,7 +17004,10 @@ async function renderVanPage() {
   });
   document.getElementById('vanList').innerHTML = `
     <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px">Route in order · ${visited.length} outlet${visited.length === 1 ? '' : 's'}</div>
-    ${seq.map((v, i) => `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;margin-bottom:6px">
+    ${seq.map((v, i) => (i ? (() => { const [h1, m1] = seq[i - 1].left.split(':').map(Number), [h2, m2] = v.arrived.split(':').map(Number);
+        let g = (h2 * 60 + m2) - (h1 * 60 + m1); if (g < 0) g += 1440;
+        return `<div style="text-align:center;color:#6b7280;font-size:12px;margin:-2px 0 4px">↓ ${g >= 60 ? Math.floor(g / 60) + 'h ' : ''}${g % 60} min</div>`; })() : '') +
+      `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #d1fae5;background:#ecfdf5;border-radius:10px;padding:8px 10px;margin-bottom:6px">
       <div style="background:#059669;color:#fff;border-radius:11px;min-width:22px;height:22px;font:700 11px/22px sans-serif;text-align:center">${i + 1}</div>
       <div><b>${v.code}</b> <span style="color:#6b7280">${sfEsc(v.name || '')}</span><div style="font-size:12px">${v.arrived} → ${v.left} · ${v.minutes} min</div></div></div>`).join('') || '<div style="color:#6b7280;font-size:13px;margin-bottom:8px">No stops at outlets</div>'}
     <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:12px 0 6px">Not visited (${not.length})</div>
