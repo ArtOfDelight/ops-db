@@ -8110,8 +8110,12 @@ function renderBriefResult(data) {
   let smBody;
   if (err('Sanu Morning Checklist')) smBody = errHtml('Sanu Morning Checklist');
   else if (!sm) smBody = '<div class="db2-ok">Refresh to load</div>';
-  else if (!smDays.length) smBody = '<div class="db2-ok">✓ Submitted on time, no issues</div>';
-  else smBody = `<div class="db2-list">${smDays.map(x => `<div class="db2-row"><span class="db2-dot ${x.status === 'missed' ? 'red' : 'amber'}"></span><b>${fmtDay(x.date)}</b><span class="db2-sub">${x.status === 'missed' ? 'Sanu has missed submitting the daily morning checklist.' : (x.status === 'late' ? 'Submitted late at ' + escHtml(x.submitted_at || '') : 'Submitted ' + escHtml(x.submitted_at || '')) + (x.issue_list && x.issue_list.length ? ' · ' + escHtml(x.issue_list.join(' · ')) : '')}</span><span class="sp"></span><span class="db2-tag">${x.status === 'missed' ? 'missed' : x.issues ? x.issues + ' issue' + (x.issues === 1 ? '' : 's') : 'late'}</span></div>`).join('')}</div>`;
+  else if (!smDays.length) smBody = '<div class="db2-ok">Nothing to show for this period</div>';
+  else smBody = `<div class="db2-list">${smDays.map(x => {
+      const bad = x.status === 'missed' || x.status === 'late' || x.issues;
+      const shots = Object.entries(x.screenshots || {}).filter(([, u]) => u);
+      return `<div class="db2-row" style="flex-wrap:wrap"><span class="db2-dot ${x.status === 'missed' ? 'red' : bad ? 'amber' : 'green'}"></span><b>${fmtDay(x.date)}</b><span class="db2-sub">${x.status === 'missed' ? 'Sanu has missed submitting the daily morning checklist.' : (x.status === 'late' ? 'Submitted late at ' : 'Submitted ') + escHtml(x.submitted_at || '') + (x.issue_list && x.issue_list.length ? ' · ' + escHtml(x.issue_list.join(' · ')) : '')}</span><span class="sp"></span>${shots.map(([o, u]) => `<a href="${escHtml(u)}" target="_blank" rel="noopener" class="db2-tag" style="margin-left:6px;text-decoration:none">📷 ${escHtml(o)}</a>`).join('')}<span class="db2-tag" style="margin-left:6px">${x.status === 'missed' ? 'missed' : x.issues ? x.issues + ' issue' + (x.issues === 1 ? '' : 's') : x.status === 'late' ? 'late' : '✓ on time'}</span></div>`;
+    }).join('')}</div>`;
 
   // 2c. missed checklists: one row per outlet
   const mc = m.missed_checklists;
