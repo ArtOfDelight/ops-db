@@ -10305,6 +10305,7 @@ const _OT_POOL_IDS = new Set(_OT_POOL_CANDIDATES.map(([id]) => id));
 
 function _otRenderHost(staging) {
   const host = document.getElementById('otHost');
+  _otStaging = staging;
   staging = { ...staging,
     outlets: staging.outlets.map(o => ({ ...o, staff: o.staff.filter(s => !_OT_POOL_IDS.has(s.employee_id)) })),
     unassigned: staging.unassigned.filter(s => !_OT_POOL_IDS.has(s.employee_id)) };
@@ -10340,14 +10341,14 @@ function _otRenderHost(staging) {
         <div class="ot-row" style="margin-bottom:0"><span class="ot-label">Pool candidates</span><span class="ot-empty">any outlet, one outlet per day</span></div>
         ${poolChips}
         ${o.is_cloud_roster ? `
-        <div class="ot-row">
-          <span class="ot-label">Roster shifts</span>
-          ${[['double','Double shift'],['one_half','One and Half'],['one_quarter','One and Quarter']].map(([k, lbl]) => `
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
-            <input type="checkbox" ${o.roster_toggles && o.roster_toggles[k] ? 'checked' : ''} onchange="_otSetToggle('${o.code}','${k}',this.checked)"> ${lbl}
-          </label>`).join('')}
-        </div>
-        <div class="ot-empty">Ticked shifts show in this outlet's roster builder (1 person each). Doubleshift always shows Mon–Thu; the tick adds it Fri–Sun.</div>` : ''}
+        <div class="ot-row" style="margin-bottom:4px"><span class="ot-label">Roster shifts</span><span class="ot-empty">ticked = shown in this outlet's roster on those days</span></div>
+        <table style="border-collapse:collapse;font-size:12px;margin-bottom:4px">
+          <tr style="color:var(--ink-3);font-size:11px"><td></td><td style="padding:2px 10px;text-align:center">Mon–Thu</td><td style="padding:2px 10px;text-align:center">Fri–Sun</td></tr>
+          ${(staging.cloud_slots || []).map(sl => `<tr>
+            <td style="padding:2px 10px 2px 0">${sl.name}${sl.single ? ' <span style="color:var(--ink-3)">· 1 person</span>' : ''}</td>
+            ${['weekday','weekend'].map(p => `<td style="text-align:center"><input type="checkbox" ${(o.roster_slots?.[p] || []).includes(sl.key) ? 'checked' : ''} onchange="_otSetSlot('${o.code}','${p}','${sl.key}',this.checked)"></td>`).join('')}
+          </tr>`).join('')}
+        </table>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -10380,6 +10381,21 @@ async function _otSetManager(outletCode, employeeId) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
     body: JSON.stringify({ manager_status: 'Outlet Manager', manager_outlet: outletCode }),
   });
+  _otRefresh();
+}
+
+let _otStaging = null;
+async function _otSetSlot(outletCode, part, key, on) {
+  const o = (_otStaging?.outlets || []).find(x => x.code === outletCode);
+  if (!o) return;
+  const slots = { weekday: [...(o.roster_slots?.weekday || [])], weekend: [...(o.roster_slots?.weekend || [])] };
+  slots[part] = on ? [...new Set([...slots[part], key])] : slots[part].filter(k => k !== key);
+  const r = await fetch(`${API}/api/admin/outlets/${outletCode}/roster-slots`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_lsToken}` },
+    body: JSON.stringify(slots),
+  });
+  if (!r.ok) alert('Could not save roster shifts');
   _otRefresh();
 }
 
