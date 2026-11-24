@@ -16942,7 +16942,7 @@ function tsExport() {
 }
 
 // ── Van Tracker (#126): Eicher van route for a day, outlet pins, visits ────────
-let _van = { day: null, map: null };
+let _van = { day: null, map: null, view: 'route' };
 function vanLoadLeaflet() {
   if (window.L) return Promise.resolve();
   return new Promise((ok, bad) => {
@@ -16952,11 +16952,45 @@ function vanLoadLeaflet() {
     js.onload = ok; js.onerror = bad; document.head.appendChild(js);
   });
 }
+function vanTabs() {
+  const b = (k, label) => `<button onclick="_van.view='${k}';renderVanPage()" style="padding:7px 14px;border-radius:8px;border:1px solid ${_van.view === k ? '#111827' : '#d1d5db'};background:${_van.view === k ? '#111827' : 'var(--surface)'};color:${_van.view === k ? '#fff' : 'inherit'};font-weight:600">${label}</button>`;
+  return `<div style="display:flex;gap:8px;margin-bottom:12px">${b('route', '🚐 Route')}${b('coverage', '🗺️ Area coverage')}</div>`;
+}
+// Delivery areas: rings around each outlet at Zomato's 4 km (no long-distance
+// fee) and 7 km (default max) delivery distances.
+async function renderVanCoverage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = `<div style="padding:16px;max-width:1300px">${vanTabs()}
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:13px">
+      <label><input type="checkbox" id="covR4" checked onchange="renderVanCoverage()"> 4 km core zone</label>
+      <label><input type="checkbox" id="covR7" checked onchange="renderVanCoverage()"> 7 km max reach</label>
+      <span style="color:#6b7280">Zomato: up to ~7 km by default; orders over 4 km carry a long-distance fee.</span>
+    </div>
+    <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div></div>`;
+  const r4 = (document.getElementById('covR4') || {}).checked !== false, r7 = (document.getElementById('covR7') || {}).checked !== false;
+  let d;
+  try { [, d] = await Promise.all([vanLoadLeaflet(), sfFetch('/api/ops/van-track?date=' + (_van.day || new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)))]); }
+  catch (e) { body.insertAdjacentHTML('beforeend', `<div style="color:#b91c1c;padding:16px">${sfEsc(e.message)}</div>`); return; }
+  if (_van.map) { _van.map.remove(); _van.map = null; }
+  const map = L.map('vanMap'); _van.map = map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  const pts = [];
+  d.outlets.filter(o => o.code !== 'CK').forEach(o => {
+    if (r7) L.circle([o.lat, o.lng], { radius: 7000, color: '#2563eb', weight: 1, fillColor: '#3b82f6', fillOpacity: .06 }).addTo(map);
+    if (r4) L.circle([o.lat, o.lng], { radius: 4000, color: '#059669', weight: 1, fillColor: '#10b981', fillOpacity: .12 }).addTo(map);
+    L.circleMarker([o.lat, o.lng], { radius: 6, color: '#111827', fillColor: '#fff', fillOpacity: 1, weight: 2 })
+      .bindTooltip(`<b>${o.code.replace('CK / ', '')}</b>`, { permanent: true, direction: 'top', offset: [0, -6] }).addTo(map);
+    pts.push([o.lat, o.lng]);
+  });
+  if (pts.length) map.fitBounds(pts, { padding: [60, 60] });
+}
+
 async function renderVanPage() {
+  if (_van.view === 'coverage') return renderVanCoverage();
   const body = document.getElementById('pageBody');
   const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
   _van.day = _van.day || today;
-  body.innerHTML = `<div style="padding:16px;max-width:1300px">
+  body.innerHTML = `<div style="padding:16px;max-width:1300px">${vanTabs()}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
       <button onclick="vanShift(-1)" style="padding:6px 12px;border-radius:8px;border:1px solid #d1d5db;background:var(--surface)">◀</button>
       <input type="date" id="vanDay" value="${_van.day}" max="${today}" onchange="_van.day=this.value;renderVanPage()" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:8px">
