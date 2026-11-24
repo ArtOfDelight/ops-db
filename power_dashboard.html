@@ -17000,7 +17000,7 @@ async function renderVanPage() {
       ${o.visits.map(v => `<div style="font-size:12px">✅ ${v.arrived} → ${v.left} · ${v.minutes} min</div>`).join('')}</div>`).join('') || '<div style="color:#6b7280;font-size:13px;margin-bottom:8px">None</div>'}
     <div style="font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:12px 0 6px">Not visited (${not.length})</div>
     ${not.map(o => `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;margin-bottom:4px;font-size:13px">❌ <b>${o.code}</b> <span style="color:#6b7280">${sfEsc(o.name || '')}</span></div>`).join('')}
-    <div style="color:#9ca3af;font-size:11px;margin-top:10px">Visit = van within ${d.radius_m} m of the outlet for 3+ min. Position saved every 2 min from Eicher.</div>`;
+    <div style="color:#9ca3af;font-size:11px;margin-top:10px">Visit = van stopped within ${d.radius_m} m of the outlet for 3+ min (driving past doesn't count). Position saved every 2 min from Eicher.</div>`;
 }
 function vanShift(n) {
   const t = new Date(_van.day + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n);
