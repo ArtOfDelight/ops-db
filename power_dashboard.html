@@ -6777,6 +6777,15 @@ let _wrState = {
 };
 
 const _WR_OUTLETS = ['WO','RR','SKN','KOR','WF','KLN','BLN','IND','ARK','HSR','RAJ','CK','PL','UPL'];
+// Every outlet code we know of: the fixed list + any outlet that has shifts or is on this week's roster
+// (so new outlets like BRO/SRJ/VAR/ABN/CVR show up without editing this file).
+function _wrOutletList() {
+  const set = new Set(_WR_OUTLETS);
+  (_wrState.shifts || []).forEach(s => { if (s.outlet_name) set.add(String(s.outlet_name).toUpperCase()); });
+  Object.values(_wrState.data?.week || {}).forEach(d => (d.entries || []).forEach(e => { if (e.outlet) set.add(String(e.outlet).toUpperCase()); }));
+  const fixed = ['WO','PL','UPL'];
+  return [...fixed, ...[...set].filter(o => !fixed.includes(o)).sort()];
+}
 const _WR_DAY_ABBR = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 function _wrFmtDMY(d) {
@@ -6984,7 +6993,7 @@ function _wrRender() {
       const shiftOpts = allShifts.map(s =>
         `<option value="${s.shift_id}" ${curShift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
       ).join('');
-      const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
+      const outletOpts = _wrOutletList().map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
       const curSignIn  = _wrEditSignIn  !== null ? _wrEditSignIn  : _wrTimeOnly(c.sign_in_time);
       const curSignOut = _wrEditSignOut !== null ? _wrEditSignOut : _wrTimeOnly(c.sign_out_time);
       return `<td style="padding:4px;background:rgba(37,99,235,0.08);min-width:110px;position:relative">
@@ -7117,106 +7126,55 @@ function _wrSaveEdit(empId, date) {
 }
 
 async function _wrPublish() {
-  if (!Object.keys(_wrState.dirty).length) return;
+  if (_wrState.publishing || !Object.keys(_wrState.dirty).length) return;
   const { week } = _wrState.data;
-  const dates = Object.keys(week);
 
-  // Build days payload: for each date, merge dirty cells over existing entries
+  // Send only the cells that changed (was the whole week — ~50s on the server).
+  // Removals go up as _action:'remove' so the server deletes that day's entry.
   const days = {};
-  dates.forEach(date => {
-    const baseEntries = (week[date]?.entries || []).map(e => ({...e}));
-    const merged = [];
-    const removedIds = new Set();
-    
-    // First pass: identify removed entries and apply updates
-    baseEntries.forEach(e => {
-      const key = `${e.employee_id}_${date}`;
-      const dirty = _wrState.dirty[key];
-      
-      if (dirty) {
-        if (dirty._action === 'remove') {
-          removedIds.add(e.employee_id);
-          return; // Skip this entry (remove it)
-        }
-        // Apply update (merge dirty over existing)
-        merged.push({ ...e, ...dirty });
-      } else {
-        merged.push(e);
-      }
-    });
-    
-    // Second pass: add new entries
-    Object.entries(_wrState.dirty).forEach(([key, dirty]) => {
-      if (dirty._action === 'add' && dirty.date === date) {
-        // Check if this employee already exists in merged (shouldn't happen if removed properly)
-        if (!removedIds.has(dirty.employee_id) && !merged.find(e => e.employee_id === dirty.employee_id)) {
-          merged.push({
-            employee_id: dirty.employee_id,
-            employee_name: dirty.employee_name || dirty.employee_id,
-            date: date,
-            outlet: dirty.outlet,
-            shift: dirty.shift,
-            shift_name: dirty.shift_name,
-            start_time: dirty.start_time,
-            end_time: dirty.end_time,
-          });
-        }
-      }
-    });
-    
-    days[date] = merged;
+  const errors = [];
+  Object.values(_wrState.dirty).forEach(d => {
+    const base = (week[d.date]?.entries || []).find(e => e.employee_id === d.employee_id) || {};
+    if (d._action === 'remove') {
+      (days[d.date] = days[d.date] || []).push({ employee_id: d.employee_id, _action: 'remove' });
+      return;
+    }
+    const entry = { ...base, ...d };
+    delete entry._action; delete entry.already_exists;
+    if (!entry.outlet) { errors.push(`${entry.employee_name || entry.employee_id} ${d.date}: no outlet`); return; }
+    (days[d.date] = days[d.date] || []).push(entry);
   });
+  if (errors.length) { _showToast('Fix before publishing — ' + errors.join(' · ')); return; }
 
   const btn = document.querySelector('button[onclick="_wrPublish()"]');
+  const btnText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
+  _wrState.publishing = true;
 
   try {
-    const res = await fetch(`${API}/api/admin/roster/publish-week`, {
+    const r = await fetch(`${API}/api/admin/roster/publish-week`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ week_start: _wrState.weekStart, days, overwrite: true }),
-    }).then(r => r.json());
+    });
+    const res = await r.json().catch(() => ({}));
 
-    if (res.success) {
-      _showToast(`✅ Roster published — ${res.total_published || ''} entries saved`);
-      // Rebuild the on-screen week straight from what we just published instead of
-      // re-fetching from the server — a refetch right after the heavy publish write
-      // can hit a slow/failed request and blank the view with an error even though
-      // the save itself already succeeded (the toast above already confirms that).
-      const empMap = {};
-      dates.forEach(date => (days[date] || []).forEach(e => { empMap[e.employee_id] = e.employee_name || e.employee_id; }));
-      const week = {};
-      dates.forEach((date, i) => {
-        const byEmp = {};
-        (days[date] || []).forEach(e => { byEmp[e.employee_id] = e; });
-        const allEntries = Object.keys(empMap).sort().map(eid => {
-          const e = byEmp[eid] || {};
-          return {
-            employee_id:   eid,
-            employee_name: empMap[eid],
-            date,
-            outlet:      e.outlet      || '',
-            shift:       e.shift       || '',
-            shift_name:  e.shift_name  || '',
-            start_time:  e.start_time  || '',
-            end_time:    e.end_time    || '',
-            sign_in_time:  e.sign_in_time  || '',
-            sign_out_time: e.sign_out_time || '',
-            already_exists: !!byEmp[eid],
-          };
-        });
-        week[date] = { day: _WR_DAY_ABBR[i], entries: allEntries };
-      });
-      _wrState.data  = { success: true, week_start: _wrState.weekStart, week };
+    if (r.ok && res.success) {
+      const errs = res.errors || [];
+      if (errs.length) _showToast(`⚠️ Saved ${res.published || 0}, ${errs.length} not saved: ${errs.join(' · ')}`);
+      else _showToast(`✅ Roster published — ${res.published || 0} saved${res.removed ? `, ${res.removed} removed` : ''}`);
       _wrState.dirty = {};
-      _wrRender();
+      _wrState.editCell = null;
+      _wrState.data = null;  // reload what the server now has, in the view you're on
+      if (_ckState.mode === 'staffview') _svLoad(); else _wrWeeklyLoad();
     } else {
-      _showToast('Publish failed: ' + (res.detail || JSON.stringify(res)));
+      _showToast('Publish failed: ' + (res.detail || `HTTP ${r.status}`));
     }
   } catch(e) {
     _showToast('Error: ' + e.message);
   } finally {
-    if (btn) { btn.disabled = false; }
+    _wrState.publishing = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = btnText; }
   }
 }
 
@@ -7376,7 +7334,6 @@ function _svRender() {
       const shiftOpts = allShifts.map(s =>
         `<option value="${s.shift_id}" ${curShift===s.shift_id?'selected':''}>${s.shift_name} (${s.outlet_name||''})</option>`
       ).join('');
-      const outletOpts = _WR_OUTLETS.map(o => `<option value="${o}" ${curOutlet===o?'selected':''}>${o}</option>`).join('');
       
       // Build staff list with remove buttons
       const staffList = staff.map((s, idx) => `
@@ -7400,10 +7357,6 @@ function _svRender() {
             <select id="sv-add-emp-${outlet}-${date}" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%;margin-bottom:3px">
               <option value="">Select employee...</option>
               ${addOpts}
-            </select>
-            <select onchange="_wrUpdateEdit(this,'outlet')" style="font-size:11px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%;margin-bottom:3px">
-              <option value="">Select outlet...</option>
-              ${outletOpts}
             </select>
             <select onchange="_wrUpdateEdit(this,'shift')" style="font-size:10px;padding:3px 4px;border:1px solid var(--border-2);border-radius:4px;background:white;color:var(--ink);width:100%;margin-bottom:3px">
               <option value="">Select shift...</option>
@@ -7521,11 +7474,10 @@ function _svRemoveStaff(outlet, date, employeeId) {
 
 function _svAddStaff(outlet, date) {
   const empSel = document.getElementById(`sv-add-emp-${outlet}-${date}`);
-  const outletSel = document.querySelector('td select[onchange*="outlet"]');
   const shiftSel = document.querySelector('td select[onchange*="shift"]');
   
   const empId = empSel ? empSel.value : '';
-  const newOutlet = outletSel ? outletSel.value : outlet;
+  const newOutlet = outlet;  // the row you clicked is the outlet
   const shiftId = shiftSel ? shiftSel.value : '';
   
   if (!empId) {
