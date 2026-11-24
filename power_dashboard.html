@@ -5417,6 +5417,73 @@ function renderReconPage() {
     .catch(() => { el.innerHTML = errBox(''); });
 }
 
+// ── Cash-missing fine on a recon row: pick the outlet's rostered staff that day,
+// enter a total; it's split equally into incentive fines (next incentive run).
+function _reconFineCell(r) {
+  const fines = r.fines || [];
+  const chips = fines.map(f => `<span style="display:inline-flex;align-items:center;gap:4px;margin:0 4px 2px 0;padding:2px 8px;border-radius:12px;background:#fee2e2;color:var(--red);font-size:11px;font-weight:600">${escHtml((f.employee_name || f.employee_id).split(' ')[0])} ₹${Math.round(f.amount)}${f.applied ? '' : ` <a href="#" title="Remove" onclick="event.preventDefault();_reconDelFine('${f.fine_id}')" style="color:var(--red);text-decoration:none">×</a>`}</span>`).join('');
+  return `${chips}<button onclick="_reconOpenFine(${r.row})" style="padding:3px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);cursor:pointer;font-family:var(--sans);font-weight:600">+ Fine</button>`;
+}
+async function _reconOpenFine(rowNum) {
+  const r = (_reconData || []).find(x => x.row === rowNum);
+  if (!r) return;
+  const box = document.createElement('div');
+  box.id = 'reconFineBox';
+  box.style = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999';
+  box.innerHTML = `<div style="background:var(--surface);padding:18px;border-radius:12px;width:380px;max-width:92vw">
+    <div style="font-weight:700;margin-bottom:2px">Cash missing fine</div>
+    <div style="color:var(--ink-3);font-size:12px;margin-bottom:12px">${escHtml(r.outlet)} · ${escHtml(r.date)}${r.diff < 0 ? ' · diff -₹' + Math.round(Math.abs(r.diff)).toLocaleString('en-IN') : ''}</div>
+    <div id="rfStaff" style="font-size:13px;color:var(--ink-3)">Loading staff…</div>
+    <label style="display:block;margin-top:12px;font-size:12px;font-weight:600">Total amount (₹)
+      <input id="rfAmt" type="number" min="1" value="${r.diff < 0 ? Math.round(Math.abs(r.diff)) : ''}" oninput="_reconFineSplit()" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid var(--border-2);border-radius:6px"></label>
+    <label style="display:block;margin-top:10px;font-size:12px;font-weight:600">Note (optional)
+      <input id="rfNote" type="text" style="display:block;width:100%;margin-top:4px;padding:8px;border:1px solid var(--border-2);border-radius:6px"></label>
+    <div id="rfSplit" style="margin-top:10px;font-size:13px;font-weight:600"></div>
+    <div id="rfErr" style="margin-top:6px;color:var(--red);font-size:12px"></div>
+    <div style="margin-top:14px;text-align:right"><button onclick="document.getElementById('reconFineBox').remove()" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface)">Cancel</button>
+      <button id="rfOk" onclick="_reconSaveFine(${r.row})" style="padding:6px 14px;border-radius:6px;border:0;background:var(--red);color:#fff;font-weight:600">Add fine</button></div></div>`;
+  document.body.appendChild(box);
+  try {
+    const d = await fetch(`${API}/api/ops/daily-recon/staff?outlet=${encodeURIComponent(r.outlet)}&date=${encodeURIComponent(r.date)}`, { headers: { Authorization: `Bearer ${_lsToken}` } }).then(x => x.json());
+    const staff = d.staff || [];
+    document.getElementById('rfStaff').innerHTML = staff.length
+      ? `<div style="font-weight:600;color:var(--ink);margin-bottom:6px">Responsible (rostered at ${escHtml(d.outlet_code)} that day)</div>` + staff.map(p => `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--ink)"><input type="checkbox" class="rfP" value="${p.employee_id}" onchange="_reconFineSplit()"> ${escHtml(p.name)} <span style="color:var(--ink-3);font-size:11px">${p.employee_id}${p.signed_in ? '' : ' · no sign-in'}</span></label>`).join('')
+      : 'No one was rostered at this outlet that day.';
+  } catch { document.getElementById('rfStaff').textContent = "Couldn't load staff"; }
+  _reconFineSplit();
+}
+function _reconFineSplit() {
+  const n = document.querySelectorAll('.rfP:checked').length, amt = Number(document.getElementById('rfAmt')?.value || 0);
+  const el = document.getElementById('rfSplit'); if (!el) return;
+  el.textContent = n && amt > 0 ? `₹${(amt / n).toFixed(2)} each × ${n} ${n === 1 ? 'person' : 'people'}` : '';
+}
+async function _reconSaveFine(rowNum) {
+  const r = (_reconData || []).find(x => x.row === rowNum);
+  const ids = [...document.querySelectorAll('.rfP:checked')].map(x => x.value);
+  const amount = Number(document.getElementById('rfAmt').value || 0);
+  const err = document.getElementById('rfErr');
+  if (!ids.length) { err.textContent = 'Pick at least one person'; return; }
+  if (!(amount > 0)) { err.textContent = 'Enter an amount'; return; }
+  document.getElementById('rfOk').disabled = true;
+  try {
+    const res = await fetch(`${API}/api/ops/daily-recon/fine`, { method: 'POST', headers: { Authorization: `Bearer ${_lsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: r.date, outlet: r.outlet, amount, employee_ids: ids, note: document.getElementById('rfNote').value || '' }) });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'Failed');
+    r.fines = (r.fines || []).concat(d.fines.map(f => ({ fine_id: f.fine_id, employee_id: f.employee_id, employee_name: f.employee_name, amount: f.amount, applied: false })));
+    document.getElementById('reconFineBox').remove();
+    _renderRecon();
+  } catch (e) { err.textContent = e.message; document.getElementById('rfOk').disabled = false; }
+}
+async function _reconDelFine(fineId) {
+  try {
+    const res = await fetch(`${API}/api/admin/incentives/fines/${fineId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${_lsToken}` } });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.detail || 'Failed'); }
+    (_reconData || []).forEach(x => { x.fines = (x.fines || []).filter(f => f.fine_id !== fineId); });
+    _renderRecon();
+  } catch (e) { console.log('fine delete failed', e); }
+}
+
 function _reconSetOutlet(o) {
   _reconOutlet = o;
   _renderRecon();
@@ -5590,6 +5657,7 @@ function _renderRecon() {
         <td class="r" style="color:var(--ink-3)">${fmt(r.rista)}</td>
         ${diffCell(r.diff, rid)}
         <td class="r" style="color:var(--ink-2);font-weight:600" id="rclosing-${rid}">${r.closing_balance != null && r.closing_balance !== '' ? fmt(r.closing_balance) : '—'}</td>
+        <td style="white-space:nowrap">${_reconFineCell(r)}</td>
       </tr>`;
     });
   });
@@ -5607,6 +5675,7 @@ function _renderRecon() {
     <td class="r" style="color:var(--ink-3)">${fmt(tRista)}</td>
     <td class="r" style="color:${tDiff < -1 ? 'var(--red)' : 'var(--green)'};font-weight:800">${tDiff < -1 ? '-'+fmtAbs(tDiff) : tDiff > 1 ? '+'+fmtAbs(tDiff) : '✓'}</td>
     <td class="r" style="color:var(--ink-2)">${fmt(tClosingBal)}</td>
+    <td></td>
   </tr>`;
 
   el.innerHTML = `
@@ -5645,6 +5714,7 @@ function _renderRecon() {
             <th class="r">Collected</th>
             <th class="r">Rista POS</th>
             <th class="r">Diff</th>
+            <th>Fine</th>
             <th class="r">Closing Bal</th>
           </tr></thead>
           <tbody>${tableRows.join('')}${totalsRow}</tbody>
