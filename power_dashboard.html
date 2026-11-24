@@ -16958,6 +16958,30 @@ function vanTabs() {
 }
 // Delivery areas: rings around each outlet at Zomato's 4 km (no long-distance
 // fee) and 7 km (default max) delivery distances.
+// Bengaluru city limits (BBMP), OpenStreetMap relation 7902476, simplified.
+const BLR_BOUNDARY = [[12.90469,77.45988],[12.89821,77.46022],[12.88832,77.46849],[12.89843,77.47344],[12.89641,77.47727],[12.89434,77.47552],[12.88629,77.48297],[12.88612,77.47877],[12.88005,77.47482],[12.8781,77.48169],[12.87429,77.48088],[12.87165,77.48474],[12.87082,77.49178],[12.87701,77.50455],[12.86806,77.51159],[12.87215,77.52021],[12.87058,77.52309],[12.86117,77.51841],[12.83995,77.52352],[12.8397,77.53343],[12.8453,77.53835],[12.84337,77.54277],[12.84762,77.54468],[12.84803,77.55448],[12.83897,77.56256],[12.83826,77.57904],[12.83349,77.58702],[12.83458,77.59153],[12.84919,77.59561],[12.84607,77.60922],[12.85127,77.6091],[12.85753,77.61684],[12.85712,77.62922],[12.865,77.63907],[12.86359,77.64188],[12.85058,77.64309],[12.85215,77.65007],[12.86825,77.67289],[12.87258,77.67532],[12.88027,77.67138],[12.87985,77.67397],[12.89314,77.67377],[12.90256,77.68747],[12.90645,77.68685],[12.90203,77.70687],[12.90806,77.70835],[12.90657,77.72628],[12.9145,77.72778],[12.91363,77.74467],[12.91977,77.74579],[12.9253,77.75227],[12.92878,77.76484],[12.95945,77.76467],[12.96809,77.77743],[12.96673,77.78406],[12.9709,77.7832],[12.97058,77.77863],[12.97514,77.7762],[12.97796,77.77838],[12.98046,77.77467],[12.98519,77.77691],[13.00253,77.77256],[13.00355,77.77557],[13.01316,77.77414],[13.01505,77.77146],[13.00265,77.76858],[13.0026,77.76334],[13.01007,77.75601],[13.01273,77.74788],[13.00682,77.74709],[13.00761,77.73615],[13.01076,77.73623],[13.01054,77.72808],[13.01982,77.73009],[13.03357,77.7239],[13.03195,77.71496],[13.0253,77.70915],[13.02495,77.70119],[13.02744,77.70168],[13.02674,77.69438],[13.03249,77.69091],[13.03324,77.68363],[13.04511,77.68505],[13.05011,77.68397],[13.05244,77.6784],[13.06287,77.67913],[13.06565,77.67241],[13.06384,77.66732],[13.06788,77.66009],[13.08199,77.65472],[13.08136,77.64959],[13.08689,77.6427],[13.10466,77.65032],[13.10627,77.63702],[13.11342,77.63862],[13.12594,77.6306],[13.13426,77.60428],[13.1326,77.58563],[13.14262,77.57991],[13.14152,77.57431],[13.12502,77.56966],[13.12596,77.56556],[13.10014,77.55602],[13.10132,77.54423],[13.08997,77.54071],[13.09307,77.52378],[13.08087,77.5232],[13.07967,77.51898],[13.07418,77.51796],[13.07801,77.50718],[13.07198,77.4995],[13.07353,77.49297],[13.0451,77.49097],[13.04864,77.48006],[13.04075,77.48256],[13.03152,77.47687],[13.02916,77.47954],[13.00741,77.47286],[13.00256,77.47527],[12.9867,77.46845],[12.98366,77.47328],[12.97567,77.47484],[12.96045,77.47504],[12.94959,77.47106],[12.94882,77.47628],[12.94033,77.47325],[12.93692,77.48424],[12.93389,77.48389],[12.92592,77.4796],[12.92664,77.47339],[12.90688,77.46667],[12.90469,77.45988]];
+function vanInPoly(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [yi, xi] = ring[i], [yj, xj] = ring[j];
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+// Share of the city within `km` of any outlet: sample a ~250 m grid inside the boundary.
+function vanCoveragePct(outlets, km) {
+  const lats = BLR_BOUNDARY.map(p => p[0]), lngs = BLR_BOUNDARY.map(p => p[1]);
+  const step = 0.0023, cosL = Math.cos(12.97 * Math.PI / 180);
+  let tot = 0, hit = 0;
+  for (let la = Math.min(...lats); la <= Math.max(...lats); la += step)
+    for (let lo = Math.min(...lngs); lo <= Math.max(...lngs); lo += step) {
+      if (!vanInPoly(la, lo, BLR_BOUNDARY)) continue;
+      tot++;
+      if (outlets.some(o => Math.hypot((o.lat - la) * 111.32, (o.lng - lo) * 111.32 * cosL) <= km)) hit++;
+    }
+  return tot ? Math.round(hit / tot * 100) : 0;
+}
+
 async function renderVanCoverage() {
   const body = document.getElementById('pageBody');
   body.innerHTML = `<div style="padding:16px;max-width:1300px">${vanTabs()}
@@ -16966,6 +16990,7 @@ async function renderVanCoverage() {
       <label><input type="checkbox" id="covR7" checked onchange="renderVanCoverage()"> 7 km max reach</label>
       <span style="color:#6b7280">Zomato: up to ~7 km by default; orders over 4 km carry a long-distance fee.</span>
     </div>
+    <div id="covPct" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
     <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div></div>`;
   const r4 = (document.getElementById('covR4') || {}).checked !== false, r7 = (document.getElementById('covR7') || {}).checked !== false;
   let d;
@@ -16974,15 +16999,24 @@ async function renderVanCoverage() {
   if (_van.map) { _van.map.remove(); _van.map = null; }
   const map = L.map('vanMap'); _van.map = map;
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  L.polygon(BLR_BOUNDARY, { color: '#dc2626', weight: 2.5, dashArray: '6 6', fill: false }).bindTooltip('Bengaluru city limits (BBMP)').addTo(map);
+  const outs = d.outlets.filter(o => o.code !== 'CK');
+  const p4 = vanCoveragePct(outs, 4), p7 = vanCoveragePct(outs, 7);
+  const tile = (label, pct, col) => `<div style="background:var(--surface);border:1px solid #e5e7eb;border-left:4px solid ${col};border-radius:10px;padding:10px 14px;min-width:200px">
+    <div style="color:#6b7280;font-size:12px">${label}</div><div style="font-size:24px;font-weight:800">${pct}%</div>
+    <div style="background:#e5e7eb;border-radius:4px;height:6px;margin-top:4px"><div style="background:${col};height:6px;border-radius:4px;width:${pct}%"></div></div>
+    <div style="color:#6b7280;font-size:11px;margin-top:4px">of Bengaluru city area</div></div>`;
+  document.getElementById('covPct').innerHTML = tile('Within 4 km of an outlet', p4, '#059669') + tile('Within 7 km of an outlet', p7, '#2563eb')
+    + `<div style="align-self:center;color:#6b7280;font-size:12px">${outs.length} outlets · city limits = red dashed line</div>`;
   const pts = [];
-  d.outlets.filter(o => o.code !== 'CK').forEach(o => {
+  outs.forEach(o => {
     if (r7) L.circle([o.lat, o.lng], { radius: 7000, color: '#2563eb', weight: 1, fillColor: '#3b82f6', fillOpacity: .06 }).addTo(map);
     if (r4) L.circle([o.lat, o.lng], { radius: 4000, color: '#059669', weight: 1, fillColor: '#10b981', fillOpacity: .12 }).addTo(map);
     L.circleMarker([o.lat, o.lng], { radius: 6, color: '#111827', fillColor: '#fff', fillOpacity: 1, weight: 2 })
       .bindTooltip(`<b>${o.code.replace('CK / ', '')}</b>`, { permanent: true, direction: 'top', offset: [0, -6] }).addTo(map);
     pts.push([o.lat, o.lng]);
   });
-  if (pts.length) map.fitBounds(pts, { padding: [60, 60] });
+  map.fitBounds(BLR_BOUNDARY, { padding: [20, 20] });
 }
 
 async function renderVanPage() {
