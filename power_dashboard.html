@@ -16983,9 +16983,19 @@ function vanCoveragePct(outlets, km) {
   return tot ? Math.round(hit / tot * 100) : 0;
 }
 
-// Population (WorldPop 2020, 1 km cells, people per cell) + Bengaluru Urban &
+// Population (GHSL 2025 estimate, ~550 m cells, people per cell) + Bengaluru Urban &
 // Rural district outlines (OpenStreetMap): blr_coverage.json.
 let _blrCov = null;
+// People per km² classes (GHSL 2025, ~550 m cells ≈ 0.30 km²)
+const VAN_CELL_KM2 = 0.30;
+const VAN_DENS = [
+  { max: 2000,  col: null,      label: 'under 2k' },
+  { max: 8000,  col: '#fde68a', label: '2k–8k' },
+  { max: 15000, col: '#fb923c', label: '8k–15k' },
+  { max: 25000, col: '#ef4444', label: '15k–25k' },
+  { max: 40000, col: '#b91c1c', label: '25k–40k' },
+  { max: 1e12,  col: '#581c87', label: '40k+' },
+];
 async function vanLoadCoverageData() {
   if (!_blrCov) _blrCov = await fetch('blr_coverage.json').then(r => r.json());
   return _blrCov;
@@ -17014,6 +17024,9 @@ async function renderVanCoverage() {
     </div>
     <div id="covPct" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"></div>
     <div id="vanMap" style="height:680px;border-radius:12px;border:1px solid #e5e7eb"></div>
+    ${_van.heat ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;margin-top:8px;color:#374151"><b>People per km²</b>
+      ${VAN_DENS.filter(c => c.col).map(c => `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:16px;height:12px;background:${c.col};opacity:.75;border-radius:2px"></span>${c.label}</span>`).join('')}
+      <span style="color:#9ca3af">· GHSL 2025 estimate (EU JRC), ~550 m squares; under 2k not shaded</span></div>` : ''}
     <div id="covPot" style="margin-top:12px"></div></div>`;
   const r4 = _van.r4, r7 = _van.r7;
   let d;
@@ -17025,12 +17038,15 @@ async function renderVanCoverage() {
   const cv = _blrCov;
   // where people / shops are: built-up cells, darker = more built-up
   const rend = L.canvas({ padding: .5 });
+  const h = (cv.pop_cell_deg || .005) / 2;
   if (_van.heat)
     for (const [la, lo, w] of cv.pop) {
       if (_van.urbanOnly && !vanInPoly(la, lo, cv.urban)) continue;
-      // 1 km WorldPop cell, darker = more people
-      L.rectangle([[la - .00417, lo - .00417], [la + .00417, lo + .00417]], { renderer: rend, stroke: false, fillColor: '#ea580c',
-        fillOpacity: Math.min(.6, Math.max(.04, Math.log10(w) / 4.5 - .35)), interactive: false }).addTo(map);
+      // ~550 m GHSL 2025 cell, coloured by people per km²
+      const dens = w / VAN_CELL_KM2, cls = VAN_DENS.findIndex(c => dens < c.max);
+      const c = VAN_DENS[cls < 0 ? VAN_DENS.length - 1 : cls];
+      if (!c.col) continue;
+      L.rectangle([[la - h, lo - h], [la + h, lo + h]], { renderer: rend, stroke: false, fillColor: c.col, fillOpacity: .62, interactive: false }).addTo(map);
     }
   if (!_van.urbanOnly) L.polygon(cv.rural, { color: '#7c3aed', weight: 2, dashArray: '4 6', fill: false }).bindTooltip('Bengaluru Rural district').addTo(map);
   L.polygon(cv.urban, { color: '#dc2626', weight: 2.5, dashArray: '6 6', fill: false }).bindTooltip('Bengaluru Urban district').addTo(map);
@@ -17045,7 +17061,7 @@ async function renderVanCoverage() {
       tile('Bengaluru Urban · within 4 km', p4, '#059669', 'of population (people within reach)')
     + tile('Bengaluru Urban · within 7 km', p7, '#2563eb', 'of population (people within reach)')
     + (_van.urbanOnly ? '' : tile('Urban + Rural · within 7 km', q7, '#7c3aed', `of population · 4 km: ${q4}%`))
-    + `<div style="align-self:center;color:#6b7280;font-size:12px;max-width:260px">${outs.length} outlets · orange = people per km² (WorldPop 2020, darker = more) · red = Bengaluru Urban, purple = Bengaluru Rural</div>`;
+    + `<div style="align-self:center;color:#6b7280;font-size:12px;max-width:260px">${outs.length} outlets · colours = people per km² (see legend) · red = Bengaluru Urban, purple = Bengaluru Rural</div>`;
   const pts = [];
   outs.forEach(o => {
     if (r7) L.circle([o.lat, o.lng], { radius: 7000, color: '#2563eb', weight: 1, fillColor: '#3b82f6', fillOpacity: .06 }).addTo(map);
