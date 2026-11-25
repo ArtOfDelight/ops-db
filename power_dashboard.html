@@ -18698,7 +18698,7 @@ async function cvSaveEdit() {
 
 
 /* ── DECISION LOG ── every decision: category, who took it, when, description */
-const _dl = { rows: [], cats: [], cat: 'all', q: '', editing: null };
+const _dl = { rows: [], cats: [], people: [], cat: 'all', q: '', editing: null };
 
 async function dlApi(path = '', opts = {}) {
   const r = await fetch(`${API}/api/admin/decisions${path}`, {
@@ -18727,7 +18727,7 @@ async function renderDecisionsPage() {
   body.innerHTML = '<div style="padding:24px 28px"><div class="loader-box"><div class="loader"></div> Loading…</div></div>';
   try {
     const d = await dlApi('');
-    _dl.rows = d.decisions || []; _dl.cats = d.categories || [];
+    _dl.rows = d.decisions || []; _dl.cats = d.categories || []; _dl.people = d.people || [];
   } catch (e) {
     body.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div>${escHtml(e.message)}</div></div>`;
     return;
@@ -18747,7 +18747,7 @@ function dlForm() {
       <div><label style="${lbl}">Category</label>
         <div style="display:flex;gap:6px"><select id="dl-cat" style="${inp}">${_dl.cats.map(opt).join('')}</select>
         <button class="ptab" onclick="dlAddCategory()" title="Add a category (it stays for next time)" style="padding:4px 10px;white-space:nowrap">+ New</button></div></div>
-      <div><label style="${lbl}">Decided by</label><input id="dl-by" style="${inp}" maxlength="120" value="${escHtml(e ? e.decided_by : (OPSDB_ME?.name || ''))}"></div>
+      <div><label style="${lbl}">Decided by</label>${dlPeopleSelect(e ? e.decided_by : '', inp)}</div>
       <div><label style="${lbl}">Date &amp; time</label><input id="dl-at" type="datetime-local" style="${inp}" value="${e ? dlIsoToLocal(e.decided_at) : dlNowLocal()}"></div>
       <div style="grid-column:1/-1"><label style="${lbl}">Description</label><textarea id="dl-desc" rows="3" style="${inp};resize:vertical" placeholder="Context, why, what changes">${e ? escHtml(e.description) : ''}</textarea></div>
     </div>
@@ -18757,6 +18757,27 @@ function dlForm() {
       <span id="dl-msg" style="font-size:12px;color:var(--ink-3);align-self:center"></span>
     </div>
   </div>`;
+}
+
+function dlPeopleSelect(current, inp) {
+  // Default to the logged-in user when they're in the list (match on first name too)
+  const me = (OPSDB_ME?.name || '').toLowerCase();
+  const pick = current || _dl.people.find(p => p.toLowerCase() === me || p.toLowerCase().split(' ')[0] === me.split(' ')[0]) || '';
+  const people = pick && !_dl.people.includes(pick) ? [..._dl.people, pick] : _dl.people;
+  const opts = [`<option value="" ${!pick ? 'selected' : ''} disabled>Select…</option>`]
+    .concat(people.map(p => `<option value="${escHtml(p)}" ${p === pick ? 'selected' : ''}>${escHtml(p)}</option>`))
+    .concat(['<option value="__other">Other…</option>']);
+  return `<select id="dl-by" style="${inp}" onchange="dlByChange(this)">${opts.join('')}</select>`;
+}
+
+function dlByChange(sel) {
+  if (sel.value !== '__other') return;
+  const name = (prompt('Who took the decision?') || '').trim();
+  if (!name) { sel.value = ''; return; }
+  if (!_dl.people.includes(name)) _dl.people.push(name);
+  const o = document.createElement('option'); o.value = name; o.textContent = name;
+  sel.insertBefore(o, sel.querySelector('option[value="__other"]'));
+  sel.value = name;
 }
 
 function dlRender() {
@@ -18807,7 +18828,7 @@ async function dlAddCategory() {
                    at: document.getElementById('dl-at')?.value, desc: document.getElementById('dl-desc')?.value };
     dlRender();
     document.getElementById('dl-title').value = keep.title || '';
-    document.getElementById('dl-by').value = keep.by || '';
+    if (keep.by && keep.by !== '__other') { if (!_dl.people.includes(keep.by)) _dl.people.push(keep.by); document.getElementById('dl-by').value = keep.by; }
     document.getElementById('dl-at').value = keep.at || dlNowLocal();
     document.getElementById('dl-desc').value = keep.desc || '';
     document.getElementById('dl-cat').value = d.category;
@@ -18819,6 +18840,7 @@ async function dlSave() {
   const payload = { title: v('dl-title').trim(), category: v('dl-cat'), decided_by: v('dl-by').trim(),
                     decided_at: v('dl-at'), description: v('dl-desc').trim() };
   const msg = document.getElementById('dl-msg');
+  if (payload.decided_by === '__other') payload.decided_by = '';
   if (!payload.title || !payload.decided_by) { msg.textContent = 'Decision and Decided by are required.'; msg.style.color = '#dc2626'; return; }
   msg.textContent = 'Saving…'; msg.style.color = 'var(--ink-3)';
   try {
