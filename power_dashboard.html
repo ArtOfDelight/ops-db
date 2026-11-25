@@ -1301,6 +1301,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
     <button class="sb-item" id="sbitem-tasks" onclick="navTo('tasks')">
       <span class="sb-icon">🗂️</span> Task Manager
     </button>
+    <button class="sb-item" id="sbitem-decisions" onclick="navTo('decisions')">
+      <span class="sb-icon">⚖️</span> Decision Log
+    </button>
     <button class="sb-item" id="sbitem-accounting" onclick="navTo('accounting')">
       <span class="sb-icon">📒</span> Accounting
     </button>
@@ -1509,11 +1512,11 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','tshirts','van'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','tshirts','van','decisions'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor', decisions: '⚖️ Decision Log' };
   const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', van:'operations', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
@@ -1570,6 +1573,7 @@ function navTo(page) {
   if (page === 'missinginfo') renderMissingInfoPage();
   if (page === 'checklisteditor') renderChecklistEditorPage();
   if (page === 'tasks')       renderTasksPage();
+  if (page === 'decisions')   renderDecisionsPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
   if (page === 'access')      renderAccessPage();
   if (page === 'pestcontrol') renderPestControlPage();
@@ -18692,6 +18696,155 @@ async function cvSaveEdit() {
   catch (e) { err.textContent = e.message; b.disabled = false; b.textContent = 'Save'; }
 }
 
+
+/* ── DECISION LOG ── every decision: category, who took it, when, description */
+const _dl = { rows: [], cats: [], cat: 'all', q: '', editing: null };
+
+async function dlApi(path = '', opts = {}) {
+  const r = await fetch(`${API}/api/admin/decisions${path}`, {
+    ...opts, headers: { 'Authorization': `Bearer ${_lsToken}`, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+  return d;
+}
+
+function dlNowLocal() {
+  const d = new Date(Date.now() + 5.5 * 3600e3);   // IST wall clock
+  return d.toISOString().slice(0, 16);
+}
+
+function dlFmt(iso) {
+  return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' });
+}
+
+function dlIsoToLocal(iso) {
+  return new Date(new Date(iso).getTime() + 5.5 * 3600e3).toISOString().slice(0, 16);
+}
+
+async function renderDecisionsPage() {
+  const body = document.getElementById('pageBody');
+  if (!_lsToken) { renderSigninLogin(body); return; }
+  body.innerHTML = '<div style="padding:24px 28px"><div class="loader-box"><div class="loader"></div> Loading…</div></div>';
+  try {
+    const d = await dlApi('');
+    _dl.rows = d.decisions || []; _dl.cats = d.categories || [];
+  } catch (e) {
+    body.innerHTML = `<div class="state-box"><div class="state-icon">⚠️</div><div class="state-title">Failed to load</div><div>${escHtml(e.message)}</div></div>`;
+    return;
+  }
+  dlRender();
+}
+
+function dlForm() {
+  const e = _dl.editing ? _dl.rows.find(r => r.id === _dl.editing) : null;
+  const opt = c => `<option value="${escHtml(c)}" ${(e ? e.category : _dl.cats[0]) === c ? 'selected' : ''}>${escHtml(c)}</option>`;
+  const inp = 'padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--ink-1);width:100%;box-sizing:border-box';
+  const lbl = 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-family:var(--mono);margin-bottom:4px;display:block';
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px">
+    <div style="font-weight:800;font-size:14px;margin-bottom:12px">${e ? 'Edit decision' : 'Log a decision'}</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+      <div><label style="${lbl}">Decision</label><input id="dl-title" style="${inp}" maxlength="300" placeholder="What was decided" value="${e ? escHtml(e.title) : ''}"></div>
+      <div><label style="${lbl}">Category</label>
+        <div style="display:flex;gap:6px"><select id="dl-cat" style="${inp}">${_dl.cats.map(opt).join('')}</select>
+        <button class="ptab" onclick="dlAddCategory()" title="Add a category (it stays for next time)" style="padding:4px 10px;white-space:nowrap">+ New</button></div></div>
+      <div><label style="${lbl}">Decided by</label><input id="dl-by" style="${inp}" maxlength="120" value="${escHtml(e ? e.decided_by : (OPSDB_ME?.name || ''))}"></div>
+      <div><label style="${lbl}">Date &amp; time</label><input id="dl-at" type="datetime-local" style="${inp}" value="${e ? dlIsoToLocal(e.decided_at) : dlNowLocal()}"></div>
+      <div style="grid-column:1/-1"><label style="${lbl}">Description</label><textarea id="dl-desc" rows="3" style="${inp};resize:vertical" placeholder="Context, why, what changes">${e ? escHtml(e.description) : ''}</textarea></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="ptab active" onclick="dlSave()" style="padding:6px 18px">${e ? 'Save changes' : 'Save decision'}</button>
+      ${e ? `<button class="ptab" onclick="_dl.editing=null;dlRender()" style="padding:6px 14px">Cancel</button>` : ''}
+      <span id="dl-msg" style="font-size:12px;color:var(--ink-3);align-self:center"></span>
+    </div>
+  </div>`;
+}
+
+function dlRender() {
+  const body = document.getElementById('pageBody');
+  const q = _dl.q.trim().toLowerCase();
+  const rows = _dl.rows.filter(r => (_dl.cat === 'all' || r.category === _dl.cat) &&
+    (!q || [r.title, r.description, r.decided_by, r.category].join(' ').toLowerCase().includes(q)));
+  const count = c => _dl.rows.filter(r => r.category === c).length;
+  const chip = (k, label) => `<button class="ptab ${_dl.cat === k ? 'active' : ''}" onclick="_dl.cat='${escHtml(k).replace(/'/g, "\\'")}';dlRender()" style="padding:4px 12px;font-size:11px">${escHtml(label)}</button>`;
+  const cards = rows.map(r => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:var(--surface-2,#eef0f5);color:var(--ink-2);padding:3px 8px;border-radius:6px;white-space:nowrap">${escHtml(r.category)}</span>
+        <div style="flex:1;font-weight:700;font-size:14px;color:var(--ink-1)">${escHtml(r.title)}</div>
+        <button class="ptab" onclick="_dl.editing=${r.id};dlRender();window.scrollTo(0,0)" style="padding:2px 10px;font-size:10px">Edit</button>
+        <button class="ptab" onclick="dlDelete(${r.id})" style="padding:2px 10px;font-size:10px;color:#dc2626">Delete</button>
+      </div>
+      ${r.description ? `<div style="margin-top:8px;font-size:13px;color:var(--ink-2);white-space:pre-wrap">${escHtml(r.description)}</div>` : ''}
+      <div style="margin-top:8px;font-size:11px;color:var(--ink-3);font-family:var(--mono)">
+        Decided by <b style="color:var(--ink-1)">${escHtml(r.decided_by)}</b> · ${dlFmt(r.decided_at)}${r.created_by && r.created_by !== r.decided_by ? ` · logged by ${escHtml(r.created_by)}` : ''}
+      </div>
+    </div>`).join('');
+  body.innerHTML = `<div style="padding:24px 28px;max-width:980px">
+    ${dlForm()}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      ${chip('all', `All · ${_dl.rows.length}`)}
+      ${_dl.cats.map(c => chip(c, `${c} · ${count(c)}`)).join('')}
+      <input placeholder="Search…" value="${escHtml(_dl.q)}" oninput="_dl.q=this.value;dlRenderListOnly()" id="dl-q" style="margin-left:auto;padding:5px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--surface);color:var(--ink-1)">
+    </div>
+    <div id="dl-list">${cards || '<div class="no-outages" style="padding:30px">No decisions logged yet.</div>'}</div>
+  </div>`;
+}
+
+function dlRenderListOnly() {
+  // Re-render while keeping focus in the search box
+  const pos = document.getElementById('dl-q')?.selectionStart;
+  dlRender();
+  const el = document.getElementById('dl-q');
+  if (el) { el.focus(); if (pos != null) el.setSelectionRange(pos, pos); }
+}
+
+async function dlAddCategory() {
+  const name = (prompt('New category name (it will stay for next time):') || '').trim();
+  if (!name) return;
+  try {
+    const d = await dlApi('/categories', { method: 'POST', body: JSON.stringify({ name }) });
+    if (!_dl.cats.includes(d.category)) _dl.cats.push(d.category);
+    const keep = { title: document.getElementById('dl-title')?.value, by: document.getElementById('dl-by')?.value,
+                   at: document.getElementById('dl-at')?.value, desc: document.getElementById('dl-desc')?.value };
+    dlRender();
+    document.getElementById('dl-title').value = keep.title || '';
+    document.getElementById('dl-by').value = keep.by || '';
+    document.getElementById('dl-at').value = keep.at || dlNowLocal();
+    document.getElementById('dl-desc').value = keep.desc || '';
+    document.getElementById('dl-cat').value = d.category;
+  } catch (e) { alert('Could not add category: ' + e.message); }
+}
+
+async function dlSave() {
+  const v = id => document.getElementById(id)?.value || '';
+  const payload = { title: v('dl-title').trim(), category: v('dl-cat'), decided_by: v('dl-by').trim(),
+                    decided_at: v('dl-at'), description: v('dl-desc').trim() };
+  const msg = document.getElementById('dl-msg');
+  if (!payload.title || !payload.decided_by) { msg.textContent = 'Decision and Decided by are required.'; msg.style.color = '#dc2626'; return; }
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--ink-3)';
+  try {
+    if (_dl.editing) {
+      const d = await dlApi(`/${_dl.editing}`, { method: 'PUT', body: JSON.stringify(payload) });
+      _dl.rows = _dl.rows.map(r => r.id === d.decision.id ? d.decision : r);
+      _dl.editing = null;
+    } else {
+      const d = await dlApi('', { method: 'POST', body: JSON.stringify(payload) });
+      _dl.rows.unshift(d.decision);
+    }
+    _dl.rows.sort((a, b) => b.decided_at.localeCompare(a.decided_at) || b.id - a.id);
+    dlRender();
+  } catch (e) { msg.textContent = e.message; msg.style.color = '#dc2626'; }
+}
+
+async function dlDelete(id) {
+  const r = _dl.rows.find(x => x.id === id);
+  if (!r || !confirm(`Delete this decision?\n\n${r.title}`)) return;
+  try {
+    await dlApi(`/${id}`, { method: 'DELETE' });
+    _dl.rows = _dl.rows.filter(x => x.id !== id);
+    if (_dl.editing === id) _dl.editing = null;
+    dlRender();
+  } catch (e) { alert('Could not delete: ' + e.message); }
+}
 
 async function renderMissingInfoPage() {
   const body = document.getElementById('pageBody');
