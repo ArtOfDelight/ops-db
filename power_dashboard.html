@@ -1275,7 +1275,17 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
   .ls-stat { flex: 1 1 45%; min-width: 0; }
   .body img, .body video { max-width: 100%; height: auto; }
   .body .m-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .m-tabs-hidden { display: none !important; }
+  .m-tab-select {
+    display: block; width: 100%; margin: 0 0 14px; padding: 10px 36px 10px 12px;
+    font: 600 14px/1.2 inherit; color: var(--ink); background-color: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--r);
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
 }
+@media (min-width: 601px) { .m-tab-select { display: none !important; } }
 </style>
 </head>
 <body>
@@ -19683,6 +19693,56 @@ async function rpRunProbe() {
       }
     });
   }
+  // Sub-tab rows become one dropdown on a phone. Picking an option clicks the
+  // real tab button, so each page's own tab logic runs unchanged.
+  const isTabby = el => /tab/i.test((typeof el.className === 'string' ? el.className : '') + ' ' + (el.getAttribute('onclick') || ''));
+  function activeIndex(btns) {
+    let i = btns.findIndex(b => /\b(active|on|sel|selected|current)\b/.test(b.className) || b.getAttribute('aria-selected') === 'true');
+    if (i >= 0) return i;
+    // inline-styled tabs: the active one looks different from the rest
+    const sig = btns.map(b => { const s = getComputedStyle(b); return s.color + s.backgroundColor + s.borderBottomColor + s.fontWeight; });
+    const count = {}; sig.forEach(s => count[s] = (count[s] || 0) + 1);
+    i = sig.findIndex(s => count[s] === 1);
+    return i >= 0 ? i : 0;
+  }
+  function tabsToSelect() {
+    const body = document.querySelector('.body');
+    if (!body) return;
+    // drop dropdowns whose tab row was re-rendered away
+    body.querySelectorAll('.m-tab-select').forEach(s => {
+      const r = s.nextElementSibling;
+      if (!r || !r.classList.contains('m-tabs-hidden') || r._mSel !== s) s.remove();
+    });
+    const rows = new Set();
+    body.querySelectorAll('button').forEach(b => {
+      const row = b.parentElement;
+      if (!row || row.classList.contains('m-tabs-hidden') || !b.offsetParent) return;
+      const btns = [...row.children].filter(c => c.tagName === 'BUTTON');
+      if (btns.length < 2 || btns.length !== row.children.length) return;
+      if (isTabby(row) || btns.every(isTabby)) rows.add(row);
+    });
+    rows.forEach(row => {
+      const btns = [...row.children];
+      const sel = document.createElement('select');
+      sel.className = 'm-tab-select';
+      btns.forEach((b, i) => sel.add(new Option(b.textContent.replace(/\s+/g, ' ').trim(), i)));
+      sel.value = activeIndex(btns);
+      sel.onchange = () => { btns[+sel.value].click(); };
+      row.classList.add('m-tabs-hidden');
+      row.before(sel);
+      row._mSel = sel;
+    });
+    // keep dropdowns in sync when a page switches tabs by itself
+    body.querySelectorAll('.m-tabs-hidden').forEach(row => {
+      if (row._mSel && document.activeElement !== row._mSel) row._mSel.value = activeIndex([...row.children]);
+    });
+  }
+  function undoTabs() {
+    document.querySelectorAll('.m-tab-select').forEach(s => s.remove());
+    document.querySelectorAll('.m-tabs-hidden').forEach(r => r.classList.remove('m-tabs-hidden'));
+  }
+  const _fix = fix;
+  fix = function () { if (mq.matches) { tabsToSelect(); _fix(); } else undoTabs(); };
   new MutationObserver(() => { clearTimeout(t); t = setTimeout(fix, 250); })
     .observe(document.body, { childList: true, subtree: true });
   window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(fix, 250); });
