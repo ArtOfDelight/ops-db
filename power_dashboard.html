@@ -18548,12 +18548,12 @@ function tcDraw() {
     <td>${inp('notes', r.notes, 'Notes', '100%')}</td>
     <td style="white-space:nowrap"><button class="btn-primary" onclick="tcSave()" style="padding:6px 12px">Save</button>
       <button onclick="_tc.edit=null;tcDraw()" style="padding:6px 10px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">Cancel</button></td></tr>`;
-  const rows = _tc.rows.map(r => _tc.edit === r.id ? formRow(r) : `<tr>
+  const rows = _tc.rows.map((r, i) => (i === 0 || _tc.rows[i - 1].category !== r.category ? `<tr><td colspan="6" style="background:#f3f4f6;font-weight:700;padding:8px 10px">${sfEsc(r.category || 'Other')} <span style="font-weight:400;color:var(--ink-3)">(${_tc.rows.filter(x => x.category === r.category).length})</span></td></tr>` : '') + (_tc.edit === r.id ? formRow(r) : `<tr>
     <td style="font-weight:600">${sfEsc(r.name)}</td><td>${sfEsc(r.category || '')}</td>
     <td><a href="tel:${sfEsc(r.phone)}">${sfEsc(r.phone)}</a> · <a target="_blank" href="https://wa.me/${sfEsc((r.phone || '').replace(/\D/g, ''))}">WA</a></td>
     <td>${sfEsc(r.outlets || 'All')}</td><td style="color:var(--ink-3)">${sfEsc(r.notes || '')}</td>
     <td style="white-space:nowrap"><button onclick="_tc.edit='${r.id}';tcDraw()" style="padding:5px 10px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">Edit</button>
-      <button onclick="tcDelete('${r.id}')" style="padding:5px 10px;border:1px solid #fecaca;color:#b91c1c;background:#fff;border-radius:6px;cursor:pointer">Delete</button></td></tr>`).join('');
+      <button onclick="tcDelete('${r.id}')" style="padding:5px 10px;border:1px solid #fecaca;color:#b91c1c;background:#fff;border-radius:6px;cursor:pointer">Delete</button></td></tr>`)).join('');
   body.innerHTML = `<div style="padding:20px;max-width:1200px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="color:var(--ink-3);font-size:13px">${_tc.rows.length} contacts · also shown in the AOD Ops app</div>
