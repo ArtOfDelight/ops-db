@@ -18462,7 +18462,7 @@ function ceFreqLabel(q) {
 function ceTypesOf(q) { return Object.keys(q.outlet_applicability || {}).filter(k => q.outlet_applicability[k]); }
 
 // ── 🏭 Housemade Tracker: production plan vs Rista Housemade, due 04:00 next day ──
-let _hm = { date: null };
+let _hm = { date: null, refresh: false };
 const HM_CSS = `<style>
   .hm-wrap{max-width:1000px}
   .hm-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;color:var(--ink-2);font-size:13px}
@@ -18490,20 +18490,22 @@ async function hmRender(body) {
   body.innerHTML = `${HM_CSS}<div class="hm-wrap"><div class="tm-empty">Loading plan and Rista entries… (first load of a day ~20s)</div></div>`;
   let d;
   try {
-    const r = await fetch(`${API}/api/admin/housemade-tracker?date=${_hm.date}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const r = await fetch(`${API}/api/admin/housemade-tracker?date=${_hm.date}${_hm.refresh ? '&refresh=true' : ''}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     d = await r.json();
     if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
   } catch (e) { if (_currentPage === 'housemade') body.innerHTML = errBox(escHtml(e.message)); return; }
+  _hm.refresh = false;
   if (_currentPage !== 'housemade') return;
   const fmt = v => v == null ? '—' : (+v).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const dl = new Date(d.deadline).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit', timeZone:'Asia/Kolkata' });
   const tm = t => new Date(t).toLocaleString('en-IN', { hour:'numeric', minute:'2-digit', day:'numeric', month:'short', timeZone:'Asia/Kolkata' });
   const note = (d.open ? `Open — due by ${dl}` : `Closed at ${dl}`) + ` · ${d.entries.length} Rista entr${d.entries.length === 1 ? 'y' : 'ies'}`
-             + (d.entries.length ? ` (last ${tm(d.entries.map(e => e.time).sort().pop())})` : '');
+             + (d.entries.length ? ` (last ${tm(d.entries.map(e => e.time).sort().pop())})` : '')
+             + (d.saved_at ? ` · saved ${tm(d.saved_at)}` : '');
   const total = d.sections.reduce((a, s) => a + s.flags, 0);
   body.innerHTML = `${HM_CSS}<div class="hm-wrap">
     <div class="hm-bar"><input type="date" value="${d.date}" onchange="_hm.date=this.value;hmRender(document.getElementById('pageBody'))">
-      <span>${escHtml(note)}</span><span style="margin-left:auto;font-weight:700;color:${total ? 'var(--red)' : 'var(--green)'}">${total} flagged</span></div>
+      <span>${escHtml(note)}</span><button class="btn-sm" onclick="_hm.refresh=true;hmRender(document.getElementById('pageBody'))" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--navy-3);color:var(--ink);cursor:pointer">↻ Refresh</button><span style="margin-left:auto;font-weight:700;color:${total ? 'var(--red)' : 'var(--green)'}">${total} flagged</span></div>
     ${d.sections.map(s => `<details class="hm-sec">
       <summary class="hm-head"><div>▸ <b>${escHtml(s.label)}</b> <span class="hm-ppl">${s.people.map(p => `${escHtml(p.name)} (${p.employee_id})`).join(', ') || 'no owner'}</span></div>
         <span class="hm-flag" style="background:${s.flags ? 'var(--red-dim, rgba(220,60,60,.15))' : 'var(--green-dim)'};color:${s.flags ? 'var(--red)' : 'var(--green)'}">${s.flags ? s.flags + ' flagged' : 'All good'}</span></summary>
