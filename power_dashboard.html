@@ -18482,7 +18482,8 @@ const HM_CSS = `<style>
 </style>`;
 const HM_STATUS = { ok:['✅ Exact','var(--green)'], missing:['🔴 Not entered','var(--red)'], short:['🟠 Short','var(--amber, orange)'],
   over:['🟠 Over','var(--amber, orange)'], pending:['⏳ Pending','var(--ink-2)'], unplanned:['Not in plan','var(--ink-3)'] };
-function hmYesterday() { const d = new Date(Date.now() + 5.5*3600e3 - 864e5); return d.toISOString().slice(0,10); }
+// Production day still open: today until 04:00 IST tomorrow (before 4am it's still yesterday's day)
+function hmYesterday() { const d = new Date(Date.now() + 5.5*3600e3 - 4*3600e3); return d.toISOString().slice(0,10); }
 async function hmRender(body) {
   if (!_lsToken) { renderSigninLogin(body); return; }
   _hm.date = _hm.date || hmYesterday();
