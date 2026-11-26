@@ -1401,6 +1401,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-checklist" onclick="navTo('checklist')">
         <span class="sb-icon">✅</span> Checklist Status
       </button>
+      <button class="sb-item" id="sbitem-housemade" onclick="navTo('housemade')">
+        <span class="sb-icon">🏭</span> Housemade Tracker
+      </button>
       <button class="sb-item" id="sbitem-checklisteditor" onclick="navTo('checklisteditor')">
         <span class="sb-icon">📝</span> Checklist Editor
       </button>
@@ -1503,12 +1506,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','livesalary','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','tshirts','van','decisions'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','livesalary','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','housemade','tshirts','van','decisions'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', livesalary: '💰 Live Salary', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor', decisions: '⚖️ Decision Log' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', livesalary:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', van:'operations', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', livesalary: '💰 Live Salary', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor', housemade: '🏭 Housemade Tracker', decisions: '⚖️ Decision Log' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', livesalary:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', housemade:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', van:'operations', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1564,6 +1567,7 @@ function navTo(page) {
   if (page === 'van')         renderVanPage();
   if (page === 'missinginfo') renderMissingInfoPage();
   if (page === 'checklisteditor') renderChecklistEditorPage();
+  if (page === 'housemade') hmRender(document.getElementById('pageBody'));
   if (page === 'tasks')       renderTasksPage();
   if (page === 'decisions')   renderDecisionsPage();
   if (EMBED_PAGES[page])      renderEmbedPage(EMBED_PAGES[page]);
@@ -18456,6 +18460,56 @@ function ceFreqLabel(q) {
   return d.length ? 'Weekly: ' + d.map(x => x.slice(0, 3)).join(', ') : 'Daily';
 }
 function ceTypesOf(q) { return Object.keys(q.outlet_applicability || {}).filter(k => q.outlet_applicability[k]); }
+
+// ── 🏭 Housemade Tracker: production plan vs Rista Housemade, due 04:00 next day ──
+let _hm = { date: null };
+const HM_CSS = `<style>
+  .hm-wrap{max-width:1000px}
+  .hm-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;color:var(--ink-2);font-size:13px}
+  .hm-bar input{background:var(--navy-2);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+  .hm-sec{background:var(--navy-2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
+  .hm-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .hm-head b{font-size:14px}.hm-ppl{font-size:12px;color:var(--ink-2)}
+  .hm-flag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .hm-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  .hm-t th{font-weight:500;color:var(--ink-2);text-align:right;padding:6px 10px}
+  .hm-t td{padding:6px 10px;text-align:right;border-top:1px solid var(--navy-3)}
+  .hm-t th:first-child,.hm-t td:first-child{text-align:left}
+  .hm-t tr.unplanned td{color:var(--ink-3)}
+  @media (max-width:600px){.hm-t .hm-now{display:none}}
+</style>`;
+const HM_STATUS = { ok:['✅ Exact','var(--green)'], missing:['🔴 Not entered','var(--red)'], short:['🟠 Short','var(--amber, orange)'],
+  over:['🟠 Over','var(--amber, orange)'], pending:['⏳ Pending','var(--ink-2)'], unplanned:['Not in plan','var(--ink-3)'] };
+function hmYesterday() { const d = new Date(Date.now() + 5.5*3600e3 - 864e5); return d.toISOString().slice(0,10); }
+async function hmRender(body) {
+  if (!_lsToken) { renderSigninLogin(body); return; }
+  _hm.date = _hm.date || hmYesterday();
+  body.innerHTML = `${HM_CSS}<div class="hm-wrap"><div class="tm-empty">Loading plan and Rista entries…</div></div>`;
+  let d;
+  try {
+    const r = await fetch(`${API}/api/admin/housemade-tracker?date=${_hm.date}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    d = await r.json();
+    if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
+  } catch (e) { if (_currentPage === 'housemade') body.innerHTML = errBox(escHtml(e.message)); return; }
+  if (_currentPage !== 'housemade') return;
+  const fmt = v => v == null ? '—' : (+v).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const dl = new Date(d.deadline).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit', timeZone:'Asia/Kolkata' });
+  const note = d.snapshot_at ? `Locked at ${new Date(d.snapshot_at).toLocaleString('en-IN',{hour:'numeric',minute:'2-digit',day:'numeric',month:'short',timeZone:'Asia/Kolkata'})}`
+             : d.past_deadline ? 'No 4am snapshot for this date — "By 4am" unknown, judged on current entries' : `Due by ${dl} — still open`;
+  const total = d.sections.reduce((a, s) => a + s.flags, 0);
+  body.innerHTML = `${HM_CSS}<div class="hm-wrap">
+    <div class="hm-bar"><input type="date" value="${d.date}" onchange="_hm.date=this.value;hmRender(document.getElementById('pageBody'))">
+      <span>${escHtml(note)}</span><span style="margin-left:auto;font-weight:700;color:${total ? 'var(--red)' : 'var(--green)'}">${total} flagged</span></div>
+    ${d.sections.map(s => `<div class="hm-sec">
+      <div class="hm-head"><div><b>${escHtml(s.label)}</b> <span class="hm-ppl">${s.people.map(p => `${escHtml(p.name)} (${p.employee_id})`).join(', ') || 'no owner'}</span></div>
+        <span class="hm-flag" style="background:${s.flags ? 'var(--red-dim, rgba(220,60,60,.15))' : 'var(--green-dim)'};color:${s.flags ? 'var(--red)' : 'var(--green)'}">${s.flags ? s.flags + ' flagged' : 'All good'}</span></div>
+      <table class="hm-t"><tr><th>Item</th><th>Planned</th><th>By 4am</th><th class="hm-now">Now</th><th>Status</th></tr>
+      ${s.rows.map(r => { const [lbl, col] = HM_STATUS[r.status] || [r.status, '']; return `<tr class="${r.status}">
+        <td>${escHtml(r.name)} <span style="color:var(--ink-3);font-size:11px">${escHtml(r.sku)}</span></td>
+        <td>${r.planned ? fmt(r.planned) : '—'}</td><td>${fmt(r.entered_by_4am)}</td><td class="hm-now">${fmt(r.entered_now)}</td>
+        <td style="color:${col};font-weight:600;white-space:nowrap">${lbl}</td></tr>`; }).join('')}</table></div>`).join('')}
+  </div>`;
+}
 
 async function renderChecklistEditorPage() {
   const body = document.getElementById('pageBody');
