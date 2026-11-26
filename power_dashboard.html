@@ -3982,6 +3982,13 @@ function prDetailRowHtml(p, colspan) {
   const d = p.details || { high: [], low: [], igcc: [] };
   const list = (arr, emptyMsg) => {
     if (!arr.length) return `<div style="color:var(--ink-3);font-size:11px;padding:6px 0">${emptyMsg}</div>`;
+    // Segregate by outlet: biggest group first, unknown outlet last
+    const groups = {};
+    arr.forEach(r => { const o = r.outlet || '—'; (groups[o] = groups[o] || []).push(r); });
+    const keys = Object.keys(groups).sort((a, b) => (a === '—') - (b === '—') || groups[b].length - groups[a].length || a.localeCompare(b));
+    return keys.map(o => `<div style="position:sticky;top:0;z-index:1;background:var(--surface);padding:5px 9px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-2);border-bottom:1px solid var(--border-2);display:flex;justify-content:space-between"><span>🏬 ${escHtml(o === '—' ? 'Outlet unknown' : o)}</span><span style="font-family:var(--mono)">${groups[o].length}</span></div>` + rowsHtml(groups[o])).join('');
+  };
+  const rowsHtml = arr => {
     return arr.map(r => `<div style="padding:7px 9px;border-bottom:1px solid var(--border);font-size:11px">
         <div style="display:flex;justify-content:space-between;gap:8px">
           <span style="font-weight:700;color:var(--ink)">${escHtml(r.source||'')}${r.rating!=null?' · ⭐'+r.rating:''}</span>
