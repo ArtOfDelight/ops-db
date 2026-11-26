@@ -16082,61 +16082,116 @@ function tmRender() {
 
 function tmSet(k, v) { _tm[k] = v; tmRender(); }
 
-/* Live Salary: average monthly salary cost right now (full base of every Active
-   employee with a base salary + last 30 days' extra hours and sales bonus, no
-   deductions) against the same 30 days' revenue. Fetched fresh on every open. */
-let _ls = { data: null };
+/* Live Salary (Finance): average monthly salary cost right now (full base of every
+   Active employee with a base salary + last 30 days' extra hours and sales bonus,
+   no deductions) against the same 30 days' revenue. Fetched fresh on every open;
+   past days' revenue is pre-cached on the server at 06:20. */
+let _ls = { data: null, staffOpen: false };
 const lsInr = n => n == null ? '—' : '₹' + Math.round(n).toLocaleString('en-IN');
+const lsLakh = n => n == null ? '—' : '₹' + (n / 100000).toFixed(2) + 'L';
+const LS_CSS = `<style>
+  .ls-wrap{max-width:1180px}
+  .ls-sub{font-size:13px;color:var(--ink-2);margin:2px 0 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .ls-hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+  .ls-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .ls-card.main{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .ls-card.main .ls-lbl,.ls-card.main .ls-note{color:rgba(255,255,255,.7)}
+  .ls-lbl{font-size:12px;color:var(--ink-2);font-weight:500}
+  .ls-val{font-size:26px;font-weight:700;margin-top:4px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .ls-note{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .ls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-bottom:12px}
+  .ls-h{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .ls-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--navy-3);margin:6px 0 12px}
+  .ls-leg{display:flex;flex-direction:column;gap:6px;font-size:13px}
+  .ls-leg div{display:flex;align-items:center;gap:8px}
+  .ls-leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .ls-leg span{margin-left:auto;font-variant-numeric:tabular-nums}
+  .ls-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  .ls-t th{font-weight:500;color:var(--ink-2);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+  .ls-t th:first-child,.ls-t td:first-child{text-align:left}
+  .ls-t td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--navy-3)}
+  .ls-t tr:last-child td{border-bottom:0}
+  .ls-t .tot td{font-weight:700;border-top:1px solid var(--border-2)}
+  .ls-pill{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--green-dim);color:var(--green);font-weight:600}
+  .ls-chart{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:6px}
+  .ls-chart div{flex:1;background:var(--info);opacity:.75;border-radius:3px 3px 0 0;min-height:2px}
+  .ls-chart div:hover{opacity:1}
+  .ls-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-top:4px}
+  .ls-mini{height:4px;background:var(--navy-3);border-radius:2px;margin-top:3px}
+  .ls-mini b{display:block;height:4px;background:var(--info);border-radius:2px}
+</style>`;
 async function lsRender(body) {
   if (!_lsToken) { renderSigninLogin(body); return; }
-  body.innerHTML = `<div class="tm-bar"><button class="tm-btn ghost" onclick="lsRender(document.getElementById('pageBody'))">↻ Recalculate</button></div>
-  <div id="lsBody"><div class="tm-empty">Calculating… (first open of the day can take ~20s)</div></div>`;
+  body.innerHTML = `${LS_CSS}<div class="ls-wrap"><div class="ls-sub"><span>Calculating…</span></div><div class="tm-empty">Loading live numbers…</div></div>`;
   try {
     const r = await fetch(`${API}/api/admin/live-salary`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     const d = await r.json();
     if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
     _ls.data = d;
   } catch (e) {
-    const el = document.getElementById('lsBody');
-    if (el) el.innerHTML = errBox(escHtml(e.message));
+    if (_currentPage === 'livesalary') body.innerHTML = errBox(escHtml(e.message));
     return;
   }
-  const el = document.getElementById('lsBody');
-  if (!el || _currentPage !== 'livesalary') return;
+  if (_currentPage === 'livesalary') lsDraw(body);
+}
+function lsDraw(body) {
   const d = _ls.data;
   const fmtD = s => new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  const tile = (label, val, sub) => `<div style="flex:1 1 170px;border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:12px 14px">
-      <div style="font-size:12px;opacity:.7">${label}</div><div style="font-size:22px;font-weight:700;margin-top:4px">${val}</div>
-      ${sub ? `<div style="font-size:12px;opacity:.65;margin-top:2px">${sub}</div>` : ''}</div>`;
-  const td = (v, right) => `<td style="padding:5px 10px${right ? ';text-align:right' : ''}">${v}</td>`;
-  const head = cols => `<tr style="opacity:.7">${cols.map((c, i) => td(c, i > 0)).join('')}</tr>`;
-  el.innerHTML = `
-    <div style="font-size:13px;opacity:.75;margin:6px 0 12px">Rolling 30 days: ${fmtD(d.window.from)} – ${fmtD(d.window.to)} · as of ${new Date(d.as_of).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
-      ${d.missing_revenue_days.length ? ` · <span style="color:#b91c1c">revenue missing for ${d.missing_revenue_days.length} day(s)</span>` : ''}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-      ${tile('Monthly salary cost', lsInr(d.total_salary), 'base + extra hours + sales bonus, no deductions')}
-      ${tile('Revenue (30 days)', lsInr(d.revenue), 'all channels, net of discounts')}
-      ${tile('Active employees', d.employees, 'with base salary filled in')}
-      ${tile('Revenue / employee', lsInr(d.revenue_per_employee), '')}
-      ${tile('Salary / employee', lsInr(d.salary_per_employee), '')}
-      ${tile('Salary % of revenue', d.salary_pct_of_revenue == null ? '—' : d.salary_pct_of_revenue + '%', '')}
+  const card = (lbl, val, note, cls) => `<div class="ls-card ${cls || ''}"><div class="ls-lbl">${lbl}</div><div class="ls-val">${val}</div>${note ? `<div class="ls-note">${note}</div>` : ''}</div>`;
+  const parts = [['Base salary', d.base_salary, 'var(--ink)'], [`Extra hours · ${d.extra_hours} h`, d.extra_hours_pay, 'var(--amber)'], ['Sales bonus', d.sales_bonus, 'var(--green)']];
+  const maxRev = Math.max(1, ...d.daily_revenue.map(x => x.revenue));
+  const avgRev = d.revenue / (d.daily_revenue.length || 1);
+  const maxOutlet = Math.max(1, ...d.outlets.map(o => o.revenue));
+  const staffRows = _ls.staffOpen ? d.staff : d.staff.slice(0, 10);
+  body.innerHTML = `${LS_CSS}<div class="ls-wrap">
+    <div class="ls-sub">
+      <span>Rolling 30 days · <b>${fmtD(d.window.from)} – ${fmtD(d.window.to)}</b></span>
+      <span>Updated ${new Date(d.as_of).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</span>
+      ${d.missing_revenue_days.length ? `<span style="color:var(--red)">⚠ revenue missing for ${d.missing_revenue_days.map(fmtD).join(', ')}</span>` : ''}
+      <button class="tm-btn ghost" style="margin-left:auto" onclick="lsRender(document.getElementById('pageBody'))">↻ Recalculate</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
-      <table style="border-collapse:collapse;flex:1 1 280px">
-        <tr>${td('Base salary (full month)')}${td(lsInr(d.base_salary), 1)}</tr>
-        <tr>${td(`Extra hours (${d.extra_hours} h × ₹100)`)}${td(lsInr(d.extra_hours_pay), 1)}</tr>
-        <tr>${td('Sales bonus')}${td(lsInr(d.sales_bonus), 1)}</tr>
-        <tr style="font-weight:700;border-top:2px solid var(--border,#e5e7eb)">${td('Total')}${td(lsInr(d.total_salary), 1)}</tr>
-      </table>
-      <table style="border-collapse:collapse;flex:1 1 320px;font-size:13px">
-        ${head(['Outlet', 'Revenue', 'Sales bonus'])}
-        ${d.outlets.map(o => `<tr>${td(escHtml(o.outlet))}${td(lsInr(o.revenue), 1)}${td(o.sales_bonus ? lsInr(o.sales_bonus) : '—', 1)}</tr>`).join('')}
-      </table>
-      ${d.extra_hours_by_employee.length ? `<table style="border-collapse:collapse;flex:1 1 260px;font-size:13px">
-        ${head(['Extra hours by person', 'Hours', 'Pay'])}
-        ${d.extra_hours_by_employee.map(x => `<tr>${td(escHtml(x.name))}${td(x.hours, 1)}${td(lsInr(x.pay), 1)}</tr>`).join('')}
-      </table>` : ''}
-    </div>`;
+    <div class="ls-hero">
+      ${card('Monthly salary cost', lsLakh(d.total_salary), lsInr(d.total_salary) + ' · no deductions', 'main')}
+      ${card('Revenue · 30 days', lsLakh(d.revenue), 'all channels, net of discounts')}
+      ${card('Salary % of revenue', d.salary_pct_of_revenue == null ? '—' : d.salary_pct_of_revenue + '%', `${lsInr(d.total_salary)} ÷ ${lsLakh(d.revenue)}`)}
+      ${card('Revenue / employee', lsInr(d.revenue_per_employee), `${d.employees} active staff with base salary`)}
+      ${card('Salary / employee', lsInr(d.salary_per_employee), 'average monthly cost per head')}
+    </div>
+    <div class="ls-grid">
+      <div class="ls-card">
+        <div class="ls-h">Where the salary goes <span>${lsInr(d.total_salary)}</span></div>
+        <div class="ls-bar">${parts.map(([, v, c]) => `<div style="width:${(v * 100 / (d.total_salary || 1)).toFixed(2)}%;background:${c}"></div>`).join('')}</div>
+        <div class="ls-leg">${parts.map(([l, v, c]) => `<div><i style="background:${c}"></i>${l}<span>${lsInr(v)} · ${(v * 100 / (d.total_salary || 1)).toFixed(1)}%</span></div>`).join('')}</div>
+        <table class="ls-t" style="margin-top:14px">
+          <tr><th>Department</th><th>Staff</th><th>Base</th><th>Avg</th></tr>
+          ${d.departments.map(g => `<tr><td>${escHtml(g.department)}</td><td>${g.employees}</td><td>${lsInr(g.base)}</td><td>${lsInr(g.base / g.employees)}</td></tr>`).join('')}
+        </table>
+      </div>
+      <div class="ls-card">
+        <div class="ls-h">Daily revenue <span style="font-weight:400;color:var(--ink-2)">avg ${lsInr(avgRev)}/day</span></div>
+        <div class="ls-chart">${d.daily_revenue.map(x => `<div title="${fmtD(x.date)}: ${lsInr(x.revenue)}" style="height:${(x.revenue * 100 / maxRev).toFixed(1)}%"></div>`).join('')}</div>
+        <div class="ls-axis"><span>${fmtD(d.window.from)}</span><span>${fmtD(d.window.to)}</span></div>
+      </div>
+    </div>
+    <div class="ls-grid">
+      <div class="ls-card">
+        <div class="ls-h">Outlets <span style="font-weight:400;color:var(--ink-2)">bonus pool above ₹6L incl. GST</span></div>
+        <table class="ls-t">
+          <tr><th>Outlet</th><th>Revenue</th><th>Bonus sales</th><th>Sales bonus</th></tr>
+          ${d.outlets.map(o => `<tr><td>${escHtml(o.outlet)}<div class="ls-mini"><b style="width:${(o.revenue * 100 / maxOutlet).toFixed(1)}%"></b></div></td><td>${lsInr(o.revenue)}</td><td>${lsInr(o.bonus_sales)}</td><td>${o.sales_bonus ? `<span class="ls-pill">${lsInr(o.sales_bonus)}</span>` : '—'}</td></tr>`).join('')}
+          <tr class="tot"><td>Total</td><td>${lsInr(d.revenue)}</td><td></td><td>${lsInr(d.sales_bonus)}</td></tr>
+        </table>
+      </div>
+      <div class="ls-card">
+        <div class="ls-h">Staff <span style="font-weight:400;color:var(--ink-2)">base + last 30 days' extra hours</span></div>
+        <table class="ls-t">
+          <tr><th>Name</th><th>Dept</th><th>Base</th><th>Extra hrs</th></tr>
+          ${staffRows.map(x => `<tr><td>${escHtml(x.name)}</td><td style="color:var(--ink-2)">${escHtml(x.department)}</td><td>${lsInr(x.base)}</td><td>${x.extra_pay ? lsInr(x.extra_pay) : '—'}</td></tr>`).join('')}
+        </table>
+        ${d.staff.length > 10 ? `<button class="tm-btn ghost" style="margin-top:8px" onclick="_ls.staffOpen=!_ls.staffOpen; lsDraw(document.getElementById('pageBody'))">${_ls.staffOpen ? 'Show top 10' : `Show all ${d.staff.length}`}</button>` : ''}
+      </div>
+    </div>
+  </div>`;
 }
 
 // Automatic tasks: one per issue type, outlets as subtasks; Done when all are ticked.
