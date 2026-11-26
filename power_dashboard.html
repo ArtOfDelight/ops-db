@@ -1416,6 +1416,9 @@ div[style*="overflow-x:auto"] table tbody tr:hover td:first-child { background: 
       <button class="sb-item" id="sbitem-orderaudit" onclick="navTo('orderaudit')">
         <span class="sb-icon">📦</span> Order Audit
       </button>
+      <button class="sb-item" id="sbitem-technicians" onclick="navTo('technicians')">
+        <span class="sb-icon">📞</span> Technicians
+      </button>
       <button class="sb-item" id="sbitem-van" onclick="navTo('van')">
         <span class="sb-icon">🚐</span> Van Tracker
       </button>
@@ -1506,12 +1509,12 @@ function toggleSbGroup(name) {
 function navTo(page) {
   if (!_lsToken) { opsdbShowLogin(); return; }
   if (!opsdbCanSee(page)) { page = opsdbFirstPage(); if (!page) { pageBodyNoAccess(); return; } }
-  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','livesalary','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','housemade','tshirts','van','decisions'].forEach(id => {
+  ['brief','appdownload','power','signin','scorecard','ratings','products','recon','rrrecon','roster','outlets','paidleaves','complaints','reviews','checklist','opsreview','customers','tokenhealth','incpayout','outletvisit','stafffeedback','kitchenextra','ownlyanalytics','comments','broadcast','expansion','tasks','travelappr','salaryflags','salaries','livesalary','referrals','advances','cashfree','accounting','production','access','pestcontrol','orderaudit','ristaprices','catalogue','missinginfo','checklisteditor','housemade','technicians','tshirts','van','decisions'].forEach(id => {
     const btn = document.getElementById('sbitem-' + id);
     if (btn) btn.classList.toggle('active', id === page);
   });
-  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', livesalary: '💰 Live Salary', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor', housemade: '🏭 Housemade Tracker', decisions: '⚖️ Decision Log' };
-  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', livesalary:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', housemade:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', van:'operations', missinginfo:'management' };
+  const titles = { appdownload: '📲 App Download', ownlyanalytics: '📈 Ownly Analytics', kitchenextra: '⏱️ Extra Hours', brief: '📋 Daily Brief', power: '⚡ Power Status', signin: '🕐 Attendance Report', scorecard: '👥 Employee Dashboard', ratings: '⭐ Outlet Performance', products: '🍽️ Product Rankings', recon: '💰 Daily Recon', rrrecon: '🏦 RR Reconciliation', roster: '🍳 Roster', outlets: '🏬 Outlets & Managers', paidleaves: '🌴 Paid Leaves', complaints: '🚫 Denied IGCCs', reviews: '📝 Reviews & AI Summary', checklist: '✅ Checklist Status', opsreview: '🗒️ Daily Review Status', customers: '👤 New vs Repeat Customers', tokenhealth: '🔑 Token Health', incpayout: '🏧 Incentive Payout', travelappr: '🛺 Travel Approvals', salaryflags: '🚩 Salary Flags', salaries: '💵 Salaries', livesalary: '💰 Live Salary', referrals: '🤝 Referral Payments', advances: '💳 Advances', outletvisit: '🏪 Outlet Visit Report', stafffeedback: '💬 Staff Feedback', comments: '💬 Dashboard Comments', broadcast: '📣 Broadcast', expansion: '🚀 Expansion', tasks: '🗂️ Task Manager', access: '🔐 Access', accounting: '📒 Accounting Dashboard', production: '🏭 Supply Chain Dashboard', pestcontrol: '🐜 Pest Control', orderaudit: '📦 Order Audit', ristaprices: '🏷️ Price Changes', catalogue: '🖼️ Catalogue', tshirts: '👕 Staff T-Shirts', van: '🚐 Van Tracker', missinginfo: '🪪 Missing Staff Info', checklisteditor: '📝 Checklist Editor', housemade: '🏭 Housemade Tracker', technicians: '📞 Technicians', decisions: '⚖️ Decision Log' };
+  const groupOf = { scorecard:'performance', ratings:'performance', products:'performance', reviews:'performance', customers:'performance', ownlyanalytics:'performance', recon:'finance', rrrecon:'finance', tokenhealth:'finance', incpayout:'finance', travelappr:'finance', salaryflags:'finance', salaries:'finance', livesalary:'finance', referrals:'finance', advances:'finance', roster:'operations', checklist:'operations', checklisteditor:'operations', housemade:'operations', technicians:'operations', opsreview:'operations', outletvisit:'operations', kitchenextra:'operations', pestcontrol:'operations', orderaudit:'operations', ristaprices:'operations', outlets:'management', paidleaves:'management', complaints:'management', comments:'management', broadcast:'management', expansion:'management', catalogue:'management', tshirts:'management', van:'operations', missinginfo:'management' };
   if (groupOf[page]) {
     const g = document.getElementById('sbgroup-' + groupOf[page]);
     if (g) g.classList.add('open');
@@ -1567,6 +1570,7 @@ function navTo(page) {
   if (page === 'van')         renderVanPage();
   if (page === 'missinginfo') renderMissingInfoPage();
   if (page === 'checklisteditor') renderChecklistEditorPage();
+  if (page === 'technicians') renderTechniciansPage();
   if (page === 'housemade') hmRender(document.getElementById('pageBody'));
   if (page === 'tasks')       renderTasksPage();
   if (page === 'decisions')   renderDecisionsPage();
@@ -18524,6 +18528,55 @@ async function hmRender(body) {
         <td>${r.planned ? fmt(r.planned) : '—'}</td><td>${r.entered ? fmt(r.entered) : '—'}</td><td class="hm-now" style="text-align:left;color:var(--ink-2)">${escHtml(r.by.join(', ')) || '—'}${r.last_at ? ` <span style="font-size:11px;color:var(--ink-3)">${tm(r.last_at)}</span>` : ''}</td>
         <td style="color:${col};font-weight:600;white-space:nowrap">${lbl}</td></tr>`; }).join('')}</table></details>`).join('')}
   </div>`;
+}
+
+// ── Technicians: phone book for repairs (Firestore technician_contacts; Ops app reads it) ──
+const _tc = { rows: [], edit: null };
+async function renderTechniciansPage() {
+  const body = document.getElementById('pageBody');
+  body.innerHTML = '<div style="padding:20px">Loading…</div>';
+  try { _tc.rows = (await sfFetch('/api/technicians')).contacts || []; }
+  catch (e) { body.innerHTML = `<div style="padding:20px;color:#b91c1c">${sfEsc(e.message)}</div>`; return; }
+  tcDraw();
+}
+function tcDraw() {
+  const body = document.getElementById('pageBody');
+  const inp = (k, v, ph, w) => `<input id="tc_${k}" value="${sfEsc(v || '')}" placeholder="${ph}" style="width:${w};padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">`;
+  const formRow = (r) => `<tr style="background:#fffbeb">
+    <td>${inp('name', r.name, 'Name', '100%')}</td><td>${inp('category', r.category, 'e.g. Freezer', '100%')}</td>
+    <td>${inp('phone', r.phone, '+91…', '100%')}</td><td>${inp('outlets', r.outlets, 'All / RR, KOR', '100%')}</td>
+    <td>${inp('notes', r.notes, 'Notes', '100%')}</td>
+    <td style="white-space:nowrap"><button class="btn-primary" onclick="tcSave()" style="padding:6px 12px">Save</button>
+      <button onclick="_tc.edit=null;tcDraw()" style="padding:6px 10px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">Cancel</button></td></tr>`;
+  const rows = _tc.rows.map(r => _tc.edit === r.id ? formRow(r) : `<tr>
+    <td style="font-weight:600">${sfEsc(r.name)}</td><td>${sfEsc(r.category || '')}</td>
+    <td><a href="tel:${sfEsc(r.phone)}">${sfEsc(r.phone)}</a> · <a target="_blank" href="https://wa.me/${sfEsc((r.phone || '').replace(/\D/g, ''))}">WA</a></td>
+    <td>${sfEsc(r.outlets || 'All')}</td><td style="color:var(--ink-3)">${sfEsc(r.notes || '')}</td>
+    <td style="white-space:nowrap"><button onclick="_tc.edit='${r.id}';tcDraw()" style="padding:5px 10px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">Edit</button>
+      <button onclick="tcDelete('${r.id}')" style="padding:5px 10px;border:1px solid #fecaca;color:#b91c1c;background:#fff;border-radius:6px;cursor:pointer">Delete</button></td></tr>`).join('');
+  body.innerHTML = `<div style="padding:20px;max-width:1200px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="color:var(--ink-3);font-size:13px">${_tc.rows.length} contacts · also shown in the AOD Ops app</div>
+      <button class="btn-primary" onclick="_tc.edit='new';tcDraw()" style="padding:7px 14px">+ Add technician</button></div>
+    <div style="overflow-x:auto"><table class="data-table" style="width:100%;font-size:13px">
+      <thead><tr><th>Name</th><th>Category</th><th>Phone</th><th>Outlets</th><th>Notes</th><th></th></tr></thead>
+      <tbody>${_tc.edit === 'new' ? formRow({}) : ''}${rows || '<tr><td colspan="6" style="padding:20px;color:var(--ink-3)">No contacts yet</td></tr>'}</tbody></table></div></div>`;
+}
+async function tcSave() {
+  const v = k => document.getElementById('tc_' + k).value;
+  const payload = { name: v('name'), category: v('category'), phone: v('phone'), outlets: v('outlets'), notes: v('notes') };
+  const isNew = _tc.edit === 'new';
+  try {
+    await sfFetch(isNew ? '/api/admin/technicians' : `/api/admin/technicians/${encodeURIComponent(_tc.edit)}`,
+      { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    _tc.edit = null; renderTechniciansPage();
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+async function tcDelete(id) {
+  const r = _tc.rows.find(x => x.id === id);
+  if (!confirm(`Delete ${r ? r.name : 'contact'}?`)) return;
+  try { await sfFetch(`/api/admin/technicians/${encodeURIComponent(id)}`, { method: 'DELETE' }); renderTechniciansPage(); }
+  catch (e) { alert('Delete failed: ' + e.message); }
 }
 
 async function renderChecklistEditorPage() {
