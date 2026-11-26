@@ -15975,7 +15975,7 @@ function tmStartPolling() {
 }
 async function tmPollTick() {
   if (_currentPage !== 'tasks') { clearInterval(_tmPoll); _tmPoll = null; return; }
-  if (_tm.tab === 'reminders' || _tm.tab === 'projects') return;
+  if (_tm.tab === 'reminders' || _tm.tab === 'projects' || _tm.tab === 'livesalary') return;
   if (document.hidden || _tm.adding || _tm.dragId || document.activeElement?.closest?.('#tmBody')) return;
   const before = JSON.stringify(_tm.tasks);
   let d;
@@ -16043,11 +16043,13 @@ function tmRender() {
     .map(([v, l]) => `<option value="${tmEsc(v)}"${_tm.status === v ? ' selected' : ''}>${tmEsc(l)}</option>`).join('');
   if (_tm.tab === 'reminders') { rmRender(body); return; }
   if (_tm.tab === 'projects') { pjRender(body); return; }
+  if (_tm.tab === 'livesalary') { lsRender(body); return; }
   const bar = `${tmBoardBar()}<div class="tm-tabs">
     <button class="${_tm.tab === 'active' ? 'on' : ''}" onclick="tmSet('tab','active')">Active <span>${_tm.tasks.length - doneCount}</span></button>
     <button class="${_tm.tab === 'done' ? 'on' : ''}" onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
     <button class="${_tm.tab === 'reminders' ? 'on' : ''}" onclick="tmSet('tab','reminders')">⏰ Reminders <span>${rmList().filter(r => r.active).length}</span></button>
     ${_tm.board === 'main' ? `<button onclick="tmSet('tab','projects')">📁 Projects <span>${_pj.list.length}</span></button>` : ''}
+    ${_tm.board === 'main' ? `<button onclick="tmSet('tab','livesalary')">💰 Live Salary</button>` : ''}
   </div>
   <div class="tm-bar">
     <div class="tm-seg">
@@ -16077,6 +16079,69 @@ function tmRender() {
 }
 
 function tmSet(k, v) { _tm[k] = v; tmRender(); }
+
+/* Live Salary: average monthly salary cost right now (full base of every Active
+   employee with a base salary + last 30 days' extra hours and sales bonus, no
+   deductions) against the same 30 days' revenue. Fetched fresh on every open. */
+let _ls = { data: null };
+const lsInr = n => n == null ? '—' : '₹' + Math.round(n).toLocaleString('en-IN');
+async function lsRender(body) {
+  body.innerHTML = `${tmBoardBar()}<div class="tm-tabs">
+    <button onclick="tmSet('tab','active')">Active</button>
+    <button onclick="tmSet('tab','done')">Completed</button>
+    <button onclick="tmSet('tab','reminders')">⏰ Reminders</button>
+    <button onclick="tmSet('tab','projects')">📁 Projects</button>
+    <button class="on">💰 Live Salary</button>
+  </div>
+  <div class="tm-bar"><button class="tm-btn ghost" onclick="lsRender(document.getElementById('pageBody'))">↻ Recalculate</button></div>
+  <div id="lsBody"><div class="tm-empty">Calculating… (first open of the day can take ~20s)</div></div>`;
+  try {
+    const r = await fetch(`${API}/api/admin/live-salary`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const d = await r.json();
+    if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
+    _ls.data = d;
+  } catch (e) {
+    const el = document.getElementById('lsBody');
+    if (el) el.innerHTML = errBox(escHtml(e.message));
+    return;
+  }
+  const el = document.getElementById('lsBody');
+  if (!el || _currentPage !== 'tasks' || _tm.tab !== 'livesalary') return;
+  const d = _ls.data;
+  const fmtD = s => new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const tile = (label, val, sub) => `<div style="flex:1 1 170px;border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:12px 14px">
+      <div style="font-size:12px;opacity:.7">${label}</div><div style="font-size:22px;font-weight:700;margin-top:4px">${val}</div>
+      ${sub ? `<div style="font-size:12px;opacity:.65;margin-top:2px">${sub}</div>` : ''}</div>`;
+  const td = (v, right) => `<td style="padding:5px 10px${right ? ';text-align:right' : ''}">${v}</td>`;
+  const head = cols => `<tr style="opacity:.7">${cols.map((c, i) => td(c, i > 0)).join('')}</tr>`;
+  el.innerHTML = `
+    <div style="font-size:13px;opacity:.75;margin:6px 0 12px">Rolling 30 days: ${fmtD(d.window.from)} – ${fmtD(d.window.to)} · as of ${new Date(d.as_of).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+      ${d.missing_revenue_days.length ? ` · <span style="color:#b91c1c">revenue missing for ${d.missing_revenue_days.length} day(s)</span>` : ''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      ${tile('Monthly salary cost', lsInr(d.total_salary), 'base + extra hours + sales bonus, no deductions')}
+      ${tile('Revenue (30 days)', lsInr(d.revenue), 'all channels, net of discounts')}
+      ${tile('Active employees', d.employees, 'with base salary filled in')}
+      ${tile('Revenue / employee', lsInr(d.revenue_per_employee), '')}
+      ${tile('Salary / employee', lsInr(d.salary_per_employee), '')}
+      ${tile('Salary % of revenue', d.salary_pct_of_revenue == null ? '—' : d.salary_pct_of_revenue + '%', '')}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      <table style="border-collapse:collapse;flex:1 1 280px">
+        <tr>${td('Base salary (full month)')}${td(lsInr(d.base_salary), 1)}</tr>
+        <tr>${td(`Extra hours (${d.extra_hours} h × ₹100)`)}${td(lsInr(d.extra_hours_pay), 1)}</tr>
+        <tr>${td('Sales bonus')}${td(lsInr(d.sales_bonus), 1)}</tr>
+        <tr style="font-weight:700;border-top:2px solid var(--border,#e5e7eb)">${td('Total')}${td(lsInr(d.total_salary), 1)}</tr>
+      </table>
+      <table style="border-collapse:collapse;flex:1 1 320px;font-size:13px">
+        ${head(['Outlet', 'Revenue', 'Sales bonus'])}
+        ${d.outlets.map(o => `<tr>${td(escHtml(o.outlet))}${td(lsInr(o.revenue), 1)}${td(o.sales_bonus ? lsInr(o.sales_bonus) : '—', 1)}</tr>`).join('')}
+      </table>
+      ${d.extra_hours_by_employee.length ? `<table style="border-collapse:collapse;flex:1 1 260px;font-size:13px">
+        ${head(['Extra hours by person', 'Hours', 'Pay'])}
+        ${d.extra_hours_by_employee.map(x => `<tr>${td(escHtml(x.name))}${td(x.hours, 1)}${td(lsInr(x.pay), 1)}</tr>`).join('')}
+      </table>` : ''}
+    </div>`;
+}
 
 // Automatic tasks: one per issue type, outlets as subtasks; Done when all are ticked.
 function tmAutoHtml() {
@@ -16385,6 +16450,7 @@ function rmRender(body) {
     <button onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
     <button class="on">⏰ Reminders <span>${rmList().filter(r => r.active).length}</span></button>
     ${_tm.board === 'main' ? `<button onclick="tmSet('tab','projects')">📁 Projects <span>${_pj.list.length}</span></button>` : ''}
+    ${_tm.board === 'main' ? `<button onclick="tmSet('tab','livesalary')">💰 Live Salary</button>` : ''}
   </div>
   <div class="tm-bar">
     <span class="tm-meta">When a reminder is due it goes to the top of that person's tasks and pings their phone.</span>
@@ -16548,6 +16614,7 @@ function pjRender(body) {
     <button onclick="tmSet('tab','done')">Completed <span>${doneCount}</span></button>
     <button onclick="tmSet('tab','reminders')">⏰ Reminders <span>${rmList().filter(r => r.active).length}</span></button>
     <button class="on">📁 Projects <span>${_pj.list.length}</span></button>
+    <button onclick="tmSet('tab','livesalary')">💰 Live Salary</button>
   </div>
   <div class="tm-bar">
     ${_pj.adding ? '' : '<button class="tm-btn" onclick="_pj.adding=true; _pj.newMembers=[]; tmRender()">+ Add project</button>'}
