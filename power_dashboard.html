@@ -16086,7 +16086,7 @@ function tmSet(k, v) { _tm[k] = v; tmRender(); }
    Active employee with a base salary + last 30 days' extra hours and sales bonus,
    no deductions) against the same 30 days' revenue. Fetched fresh on every open;
    past days' revenue is pre-cached on the server at 06:20. */
-let _ls = { data: null, staffOpen: false };
+let _ls = { data: null, staffOpen: false, central: false };   // Central Office excluded by default
 const lsInr = n => n == null ? '—' : '₹' + Math.round(n).toLocaleString('en-IN');
 const lsLakh = n => n == null ? '—' : '₹' + (n / 100000).toFixed(2) + 'L';
 const LS_CSS = `<style>
@@ -16124,7 +16124,7 @@ async function lsRender(body) {
   if (!_lsToken) { renderSigninLogin(body); return; }
   body.innerHTML = `${LS_CSS}<div class="ls-wrap"><div class="ls-sub"><span>Calculating…</span></div><div class="tm-empty">Loading live numbers…</div></div>`;
   try {
-    const r = await fetch(`${API}/api/admin/live-salary`, { headers: { Authorization: `Bearer ${_lsToken}` } });
+    const r = await fetch(`${API}/api/admin/live-salary?include_central_office=${_ls.central}`, { headers: { Authorization: `Bearer ${_lsToken}` } });
     const d = await r.json();
     if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `HTTP ${r.status}`);
     _ls.data = d;
@@ -16148,13 +16148,14 @@ function lsDraw(body) {
       <span>Rolling 30 days · <b>${fmtD(d.window.from)} – ${fmtD(d.window.to)}</b></span>
       <span>Updated ${new Date(d.as_of).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</span>
       ${d.missing_revenue_days.length ? `<span style="color:var(--red)">⚠ revenue missing for ${d.missing_revenue_days.map(fmtD).join(', ')}</span>` : ''}
-      <button class="tm-btn ghost" style="margin-left:auto" onclick="lsRender(document.getElementById('pageBody'))">↻ Recalculate</button>
+      <label style="margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${_ls.central ? 'checked' : ''} onchange="_ls.central=this.checked; lsRender(document.getElementById('pageBody'))"> Include Central Office</label>
+      <button class="tm-btn ghost" onclick="lsRender(document.getElementById('pageBody'))">↻ Recalculate</button>
     </div>
     <div class="ls-hero">
       ${card('Monthly salary cost', lsLakh(d.total_salary), lsInr(d.total_salary) + ' · no deductions', 'main')}
       ${card('Revenue · 30 days', lsLakh(d.revenue), 'all channels, net of discounts')}
       ${card('Salary % of revenue', d.salary_pct_of_revenue == null ? '—' : d.salary_pct_of_revenue + '%', `${lsInr(d.total_salary)} ÷ ${lsLakh(d.revenue)}`)}
-      ${card('Revenue / employee', lsInr(d.revenue_per_employee), `${d.employees} active staff with base salary`)}
+      ${card('Revenue / employee', lsInr(d.revenue_per_employee), `${d.employees} active staff with base salary${d.include_central_office ? '' : ', excl. Central Office'}`)}
       ${card('Salary / employee', lsInr(d.salary_per_employee), 'average monthly cost per head')}
     </div>
     <div class="ls-grid">
