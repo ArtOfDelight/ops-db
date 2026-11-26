@@ -18469,6 +18469,8 @@ const HM_CSS = `<style>
   .hm-bar input{background:var(--navy-2);color:var(--ink);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
   .hm-sec{background:var(--navy-2);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden}
   .hm-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .hm-head{cursor:pointer;list-style:none}.hm-head::-webkit-details-marker{display:none}
+  .hm-sec[open] .hm-head{border-bottom:1px solid var(--border)}.hm-sec:not([open]) .hm-head{border-bottom:0}
   .hm-head b{font-size:14px}.hm-ppl{font-size:12px;color:var(--ink-2)}
   .hm-flag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px}
   .hm-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
@@ -18500,14 +18502,14 @@ async function hmRender(body) {
   body.innerHTML = `${HM_CSS}<div class="hm-wrap">
     <div class="hm-bar"><input type="date" value="${d.date}" onchange="_hm.date=this.value;hmRender(document.getElementById('pageBody'))">
       <span>${escHtml(note)}</span><span style="margin-left:auto;font-weight:700;color:${total ? 'var(--red)' : 'var(--green)'}">${total} flagged</span></div>
-    ${d.sections.map(s => `<div class="hm-sec">
-      <div class="hm-head"><div><b>${escHtml(s.label)}</b> <span class="hm-ppl">${s.people.map(p => `${escHtml(p.name)} (${p.employee_id})`).join(', ') || 'no owner'}</span></div>
-        <span class="hm-flag" style="background:${s.flags ? 'var(--red-dim, rgba(220,60,60,.15))' : 'var(--green-dim)'};color:${s.flags ? 'var(--red)' : 'var(--green)'}">${s.flags ? s.flags + ' flagged' : 'All good'}</span></div>
+    ${d.sections.map(s => `<details class="hm-sec">
+      <summary class="hm-head"><div>▸ <b>${escHtml(s.label)}</b> <span class="hm-ppl">${s.people.map(p => `${escHtml(p.name)} (${p.employee_id})`).join(', ') || 'no owner'}</span></div>
+        <span class="hm-flag" style="background:${s.flags ? 'var(--red-dim, rgba(220,60,60,.15))' : 'var(--green-dim)'};color:${s.flags ? 'var(--red)' : 'var(--green)'}">${s.flags ? s.flags + ' flagged' : 'All good'}</span></summary>
       <table class="hm-t"><tr><th>Item</th><th>Planned</th><th>By 4am</th><th class="hm-now">Now</th><th>Status</th></tr>
       ${s.rows.map(r => { const [lbl, col] = HM_STATUS[r.status] || [r.status, '']; return `<tr class="${r.status}">
         <td>${escHtml(r.name)} <span style="color:var(--ink-3);font-size:11px">${escHtml(r.sku)}</span></td>
         <td>${r.planned ? fmt(r.planned) : '—'}</td><td>${fmt(r.entered_by_4am)}</td><td class="hm-now">${fmt(r.entered_now)}</td>
-        <td style="color:${col};font-weight:600;white-space:nowrap">${lbl}</td></tr>`; }).join('')}</table></div>`).join('')}
+        <td style="color:${col};font-weight:600;white-space:nowrap">${lbl}</td></tr>`; }).join('')}</table></details>`).join('')}
   </div>`;
 }
 
